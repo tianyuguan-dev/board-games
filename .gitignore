@@ -1,0 +1,18 @@
+## Build
+bin/
+obj/
+
+## IDE
+.idea/
+*.sln.DotSettings.user
+riderModule.iml
+/_ReSharper.Caches/
+
+## NuGet
+/packages/
+
+## User secrets
+appsettings.Development.json
+
+## OS
+.DS_Store
