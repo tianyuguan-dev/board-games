@@ -5,9 +5,9 @@ namespace BoardGames.Models.BlackJack;
 public class BlackJackGame
 {
     private Deck _deck;
-    private List<Hand> _playerHands=new ();
-    private Hand _dealerHand=new ();
-    private int _currentPlayerIndex=0;
+    private List<BlackJackHand> _playerHands=new ();
+    private BlackJackHand _dealerBlackJackHand=new ();
+    public int CurrentPlayerIndex { get; private set; } = 0;
     private int _playerCount;
     
     public GameState State { get; private set; }
@@ -26,7 +26,7 @@ public class BlackJackGame
         
         for (int i = 0; i < _playerCount; i++)
         {
-            var hand = new Hand(_deck.Deal(),_deck.Deal());
+            var hand = new BlackJackHand(_deck.Deal(),_deck.Deal());
             _playerHands.Add(hand);
             Results.Add(null);
             if (hand.IsBlackJack())
@@ -34,7 +34,7 @@ public class BlackJackGame
                 Results[i] = GameResult.PlayerWin;
             }
         }
-        _dealerHand = new Hand(_deck.Deal(), _deck.Deal());
+        _dealerBlackJackHand = new BlackJackHand(_deck.Deal(), _deck.Deal());
         State = GameState.PlayerTurn;
     }
 
@@ -42,11 +42,11 @@ public class BlackJackGame
     {
         if (State != GameState.PlayerTurn)
             return;
-        var currentPlayerHand = _playerHands[_currentPlayerIndex];
+        var currentPlayerHand = _playerHands[CurrentPlayerIndex];
         currentPlayerHand.AddCard(_deck.Deal());
         if (currentPlayerHand.IsBust())
         {
-            Results[_currentPlayerIndex] = GameResult.DealerWin;
+            Results[CurrentPlayerIndex] = GameResult.DealerWin;
             NextPlayer();
         }
     }
@@ -59,12 +59,12 @@ public class BlackJackGame
 
     private void NextPlayer()
     {
-        _currentPlayerIndex++;
-        while (_currentPlayerIndex < _playerCount && Results[_currentPlayerIndex].HasValue)
+        CurrentPlayerIndex++;
+        while (CurrentPlayerIndex < _playerCount && Results[CurrentPlayerIndex].HasValue)
         {
-            _currentPlayerIndex++;
+            CurrentPlayerIndex++;
         }
-        if (_currentPlayerIndex >= _playerCount)
+        if (CurrentPlayerIndex >= _playerCount)
         {
             DealerPlay();
         }
@@ -73,18 +73,18 @@ public class BlackJackGame
     private void DealerPlay()
     {
         State = GameState.DealerTurn;
-        while (_dealerHand.GetValue()<17)
+        while (_dealerBlackJackHand.GetValue()<17)
         {
-            _dealerHand.AddCard(_deck.Deal());
+            _dealerBlackJackHand.AddCard(_deck.Deal());
         }
 
         for (int i = 0; i < _playerCount; i++)
         {
             if (!Results[i].HasValue)
             {
-                var dealerValue = _dealerHand.GetValue();
+                var dealerValue = _dealerBlackJackHand.GetValue();
                 var playerValue = _playerHands[i].GetValue();
-                if (_dealerHand.IsBust()||dealerValue < playerValue)
+                if (_dealerBlackJackHand.IsBust()||dealerValue < playerValue)
                 {
                     Results[i] = GameResult.PlayerWin;
                 }else if (dealerValue > playerValue)

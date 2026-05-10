@@ -2,15 +2,15 @@ using BoardGames.Models.Poker;
 
 namespace BoardGames.Models.BlackJack;
 
-public class Hand
+public class BlackJackHand
 {
     private readonly List<Card> _cards = new();
     public IReadOnlyList<Card> Cards => _cards;
-    public Hand()
+    public BlackJackHand()
     {
     }
 
-    public Hand(Card card1, Card card2)
+    public BlackJackHand(Card card1, Card card2)
     {
         _cards.Add(card1);
         _cards.Add(card2);

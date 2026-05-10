@@ -1,0 +1,59 @@
+using BoardGames.Models.BlackJack;
+
+namespace BoardGames.Services.BlackJack;
+
+public class BlackJackRoomManager: IBlackJackRoomManager
+{
+    private Dictionary<string, BlackJackRoom> _rooms = new();
+    private readonly Random _random = new();
+    
+    public BlackJackRoom CreateRoom(int maxPlayers)
+    {
+        string roomId = _random.Next(10000, 100000).ToString();
+        var roomsIds = _rooms.Keys;
+        while (roomsIds.Contains(roomId))
+        {
+            roomId = _random.Next(10000, 100000).ToString();
+        }
+
+        var blackJackRoom = new BlackJackRoom(roomId, maxPlayers);
+        _rooms.Add(roomId, blackJackRoom);
+        return blackJackRoom;
+    }
+
+    public BlackJackRoom? GetRoom(string roomId)
+    {
+        _rooms.TryGetValue(roomId, out var room);
+        return room;
+    }
+
+    public void JoinRoom(string roomId, string connectionId)
+    {
+        var blackJackRoom = GetRoom(roomId);
+        if (blackJackRoom == null)
+            throw new InvalidOperationException($"Cannot join room {roomId} because it doesn't exist");
+        var maxPlayers = blackJackRoom.MaxPlayers;
+        var players = blackJackRoom.Players;
+        if (players.Count>= maxPlayers)
+        {
+            throw new InvalidOperationException(
+                $"Cannot join room {roomId} because the maximum number of players has been reached");
+        }
+        players.Add(connectionId, players.Count);
+    }
+
+    public string? FindAndRemoveByConnectionId(string connectionId)
+    {
+        string roomId=null;
+        _rooms.Values.ToList().ForEach(room =>
+        {
+            var connectionIds = room.Players.Keys;
+            if (connectionIds.Contains(connectionId))
+            {
+                room.Players.Remove(connectionId);
+                roomId = room.RoomId;
+            }
+        });
+        return roomId;
+    }
+}

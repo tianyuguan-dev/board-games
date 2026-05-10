@@ -1,6 +1,8 @@
 using System.Text;
 using BoardGames.Data;
+using BoardGames.Hubs.BlackJack;
 using BoardGames.Services;
+using BoardGames.Services.BlackJack;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -15,6 +17,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();                                            
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddSingleton<IBlackJackRoomManager, BlackJackRoomManager>();
+builder.Services.AddSignalR();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>                                                                        
     {                                                     
@@ -44,4 +48,5 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<BlackJackHub>("/hub/blackjack");
 app.Run();

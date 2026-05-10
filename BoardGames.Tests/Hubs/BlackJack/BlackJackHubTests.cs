@@ -1,0 +1,261 @@
+using BoardGames.Hubs.BlackJack;
+using BoardGames.Models.BlackJack;
+using BoardGames.Services.BlackJack;
+using Microsoft.AspNetCore.SignalR;
+using Moq;
+
+namespace BoardGames.Tests.Hubs.BlackJack;
+
+public class BlackJackHubTests
+{
+    private readonly Mock<IBlackJackRoomManager> _mockRoomManager;
+    private readonly Mock<IGroupManager> _mockGroups;
+    private readonly Mock<IHubCallerClients> _mockClients;
+    private readonly Mock<IClientProxy> _mockClientProxy;
+    private readonly BlackJackHub _hub;
+    private const string ConnectionId = "test-conn-1";
+
+    public BlackJackHubTests()
+    {
+        _mockRoomManager = new Mock<IBlackJackRoomManager>();
+        _mockGroups = new Mock<IGroupManager>();
+        _mockClients = new Mock<IHubCallerClients>();
+        _mockClientProxy = new Mock<IClientProxy>();
+
+        var mockContext = new Mock<HubCallerContext>();
+        mockContext.Setup(c => c.ConnectionId).Returns(ConnectionId);
+
+        _mockClients.Setup(c => c.Group(It.IsAny<string>())).Returns(_mockClientProxy.Object);
+
+        _hub = new BlackJackHub(_mockRoomManager.Object);
+        _hub.Context = mockContext.Object;
+        _hub.Groups = _mockGroups.Object;
+        _hub.Clients = _mockClients.Object;
+    }
+
+    // CreateRoom tests
+
+    [Fact]
+    public async Task CreateRoom_ReturnsCreatedRoom()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        _mockRoomManager.Setup(r => r.CreateRoom(4)).Returns(room);
+
+        var result = await _hub.CreateRoom(4);
+
+        Assert.Same(room, result);
+    }
+
+    [Fact]
+    public async Task CreateRoom_AddsCreatorToGroup()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        _mockRoomManager.Setup(r => r.CreateRoom(4)).Returns(room);
+
+        await _hub.CreateRoom(4);
+
+        _mockGroups.Verify(g => g.AddToGroupAsync(ConnectionId, "12345", default), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateRoom_JoinsCreatorToRoom()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        _mockRoomManager.Setup(r => r.CreateRoom(4)).Returns(room);
+
+        await _hub.CreateRoom(4);
+
+        _mockRoomManager.Verify(r => r.JoinRoom("12345", ConnectionId), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateRoom_ThrowsWhenMaxPlayersIsZero()
+    {
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _hub.CreateRoom(0));
+    }
+
+    // JoinRoom tests
+
+    [Fact]
+    public async Task JoinRoom_AddsPlayerToGroupAndNotifies()
+    {
+        await _hub.JoinRoom("12345");
+
+        _mockRoomManager.Verify(r => r.JoinRoom("12345", ConnectionId), Times.Once);
+        _mockGroups.Verify(g => g.AddToGroupAsync(ConnectionId, "12345", default), Times.Once);
+        _mockClientProxy.Verify(c => c.SendCoreAsync("JoinRoom",
+            It.Is<object[]>(args => args.Length == 1 && (string)args[0] == "12345"), default), Times.Once);
+    }
+
+    // StartGame tests
+
+    [Fact]
+    public async Task StartGame_ThrowsWhenRoomNotFound()
+    {
+        _mockRoomManager.Setup(r => r.GetRoom("99999")).Returns((BlackJackRoom?)null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.StartGame("99999"));
+    }
+
+    [Fact]
+    public async Task StartGame_CreatesGameAndNotifiesGroup()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add("conn-1", 0);
+        room.Players.Add("conn-2", 1);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await _hub.StartGame("12345");
+
+        Assert.NotNull(room.BlackJackGame);
+        _mockClientProxy.Verify(c => c.SendCoreAsync("StartGame",
+            It.IsAny<object[]>(), default), Times.Once);
+    }
+
+    // Hit tests
+
+    [Fact]
+    public async Task Hit_ThrowsWhenRoomNotFound()
+    {
+        _mockRoomManager.Setup(r => r.GetRoom("99999")).Returns((BlackJackRoom?)null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.BlackJackPlayerHit("99999"));
+    }
+
+    [Fact]
+    public async Task Hit_ThrowsWhenGameNotStarted()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.BlackJackPlayerHit("12345"));
+    }
+
+    [Fact]
+    public async Task Hit_ThrowsWhenPlayerNotInRoom()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add("other-conn", 0);
+        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.BlackJackPlayerHit("12345"));
+    }
+
+    [Fact]
+    public async Task Hit_ThrowsWhenNotPlayersTurn()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add("other-conn", 0);
+        room.Players.Add(ConnectionId, 1);
+        room.BlackJackGame = room.BlackJackTable.NewRound(2);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        // CurrentPlayerIndex is 0, but our ConnectionId maps to seat 1
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.BlackJackPlayerHit("12345"));
+    }
+
+    [Fact]
+    public async Task Hit_SucceedsAndNotifiesGroup()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add(ConnectionId, 0);
+        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await _hub.BlackJackPlayerHit("12345");
+
+        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerHit",
+            It.IsAny<object[]>(), default), Times.Once);
+    }
+
+    // Stand tests
+
+    [Fact]
+    public async Task Stand_ThrowsWhenRoomNotFound()
+    {
+        _mockRoomManager.Setup(r => r.GetRoom("99999")).Returns((BlackJackRoom?)null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.BlackJackPlayerStand("99999"));
+    }
+
+    [Fact]
+    public async Task Stand_ThrowsWhenGameNotStarted()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.BlackJackPlayerStand("12345"));
+    }
+
+    [Fact]
+    public async Task Stand_ThrowsWhenNotPlayersTurn()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add("other-conn", 0);
+        room.Players.Add(ConnectionId, 1);
+        room.BlackJackGame = room.BlackJackTable.NewRound(2);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.BlackJackPlayerStand("12345"));
+    }
+
+    [Fact]
+    public async Task Stand_ThrowsWhenPlayerNotInRoom()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add("other-conn", 0);
+        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.BlackJackPlayerStand("12345"));
+    }
+
+    [Fact]
+    public async Task Stand_SucceedsAndNotifiesGroup()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add(ConnectionId, 0);
+        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await _hub.BlackJackPlayerStand("12345");
+
+        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerStand",
+            It.IsAny<object[]>(), default), Times.Once);
+    }
+
+    // OnDisconnectedAsync tests
+
+    [Fact]
+    public async Task OnDisconnectedAsync_NotifiesGroupWhenPlayerInRoom()
+    {
+        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns("12345");
+
+        await _hub.OnDisconnectedAsync(null);
+
+        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerDisconnected",
+            It.IsAny<object[]>(), default), Times.Once);
+    }
+
+    [Fact]
+    public async Task OnDisconnectedAsync_DoesNotNotifyWhenPlayerNotInAnyRoom()
+    {
+        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns((string?)null);
+
+        await _hub.OnDisconnectedAsync(null);
+
+        _mockClientProxy.Verify(c => c.SendCoreAsync(It.IsAny<string>(),
+            It.IsAny<object[]>(), default), Times.Never);
+    }
+}
