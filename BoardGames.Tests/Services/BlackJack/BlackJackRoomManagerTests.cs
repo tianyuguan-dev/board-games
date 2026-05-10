@@ -89,18 +89,20 @@ public class BlackJackRoomManagerTests
         var room = _roomManager.CreateRoom(4);
         _roomManager.JoinRoom(room.RoomId, "conn-1");
 
-        var roomId = _roomManager.FindAndRemoveByConnectionId("conn-1");
+        var (roomId, seatIndex) = _roomManager.FindAndRemoveByConnectionId("conn-1");
 
         Assert.Equal(room.RoomId, roomId);
+        Assert.Equal(0, seatIndex);
         Assert.Empty(room.Players);
     }
 
     [Fact]
     public void FindAndRemoveByConnectionId_ReturnsNullWhenPlayerNotFound()
     {
-        var result = _roomManager.FindAndRemoveByConnectionId("conn-999");
+        var (roomId, seatIndex) = _roomManager.FindAndRemoveByConnectionId("conn-999");
 
-        Assert.Null(result);
+        Assert.Null(roomId);
+        Assert.Equal(-1, seatIndex);
     }
 
     [Fact]

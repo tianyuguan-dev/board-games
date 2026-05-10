@@ -1,3 +1,4 @@
+using BoardGames.Dtos.BlackJack;
 using BoardGames.Models.BlackJack;
 using BoardGames.Services.BlackJack;
 using Microsoft.AspNetCore.SignalR;
@@ -31,9 +32,10 @@ public class BlackJackHub(IBlackJackRoomManager roomManager):Hub
         var blackJackRoom = roomManager.GetRoom(roomId);
         if (blackJackRoom == null)
             throw new InvalidOperationException($"Room with id {roomId} not found");
+        blackJackRoom.ReassignSeats();
         BlackJackGame blackJackGame = blackJackRoom.BlackJackTable.NewRound(blackJackRoom.Players.Count);
         blackJackRoom.BlackJackGame = blackJackGame;
-        await Clients.Group(roomId).SendAsync("StartGame", roomId);
+        await Clients.Group(roomId).SendAsync("StartGame", new BlackJackGameStateDto(blackJackGame));
     }
 
     public async Task BlackJackPlayerHit(string roomId)
@@ -49,7 +51,7 @@ public class BlackJackHub(IBlackJackRoomManager roomManager):Hub
         if (playerIndex!=blackJackRoom.BlackJackGame.CurrentPlayerIndex)
             throw new InvalidOperationException($"Not this player's turn");
         blackJackRoom.BlackJackGame.Hit();
-        await Clients.Group(roomId).SendAsync("PlayerHit", roomId);
+        await Clients.Group(roomId).SendAsync("PlayerHit", new BlackJackGameStateDto(blackJackRoom.BlackJackGame));
     }
     public async Task BlackJackPlayerStand(string roomId)
     {
@@ -64,14 +66,16 @@ public class BlackJackHub(IBlackJackRoomManager roomManager):Hub
         if (playerIndex!=blackJackRoom.BlackJackGame.CurrentPlayerIndex)
             throw new InvalidOperationException($"Not this player's turn");
         blackJackRoom.BlackJackGame.Stand();
-        await Clients.Group(roomId).SendAsync("PlayerStand", roomId);
+        await Clients.Group(roomId).SendAsync("PlayerStand", new BlackJackGameStateDto(blackJackRoom.BlackJackGame));
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        string? roomId = roomManager.FindAndRemoveByConnectionId(Context.ConnectionId);
+        (string? roomId,int seatIndex) = roomManager.FindAndRemoveByConnectionId(Context.ConnectionId);
         if (roomId != null)
         {
+            BlackJackRoom? blackJackRoom = roomManager.GetRoom(roomId);
+            blackJackRoom?.BlackJackGame?.ForfeitPlayer(seatIndex);
             await Clients.Group(roomId).SendAsync("PlayerDisconnected", roomId);
         }
         await base.OnDisconnectedAsync(exception);

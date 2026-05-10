@@ -24,7 +24,7 @@ public class BlackJackGameTests
         var game = new BlackJackGame(CreateShuffledDeck());
         game.Start();
 
-        Assert.Equal(GameState.PlayerTurn, game.State);
+        Assert.Equal(BlackJackGameState.PlayerTurn, game.State);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class BlackJackGameTests
         game.Start();
         game.Stand();
 
-        Assert.Equal(GameState.Finished, game.State);
+        Assert.Equal(BlackJackGameState.Finished, game.State);
         Assert.True(game.Results[0].HasValue);
     }
 
@@ -67,10 +67,10 @@ public class BlackJackGameTests
         game.Start();
 
         game.Stand();
-        Assert.NotEqual(GameState.Finished, game.State);
+        Assert.NotEqual(BlackJackGameState.Finished, game.State);
 
         game.Stand();
-        Assert.Equal(GameState.Finished, game.State);
+        Assert.Equal(BlackJackGameState.Finished, game.State);
         Assert.True(game.Results[0].HasValue);
         Assert.True(game.Results[1].HasValue);
     }
@@ -84,7 +84,7 @@ public class BlackJackGameTests
             var game = new BlackJackGame(CreateShuffledDeck());
             game.Start();
             game.Stand();
-            if (game.Results[0] == GameResult.Push)
+            if (game.Results[0] == BlackJackGameResult.Push)
             {
                 pushFound = true;
                 break;
@@ -102,12 +102,12 @@ public class BlackJackGameTests
             var game = new BlackJackGame(CreateShuffledDeck());
             game.Start();
 
-            while (game.State == GameState.PlayerTurn)
+            while (game.State == BlackJackGameState.PlayerTurn)
             {
                 game.Hit();
             }
 
-            if (game.Results[0] == GameResult.DealerWin)
+            if (game.Results[0] == BlackJackGameResult.DealerWin)
             {
                 bustFound = true;
                 break;
@@ -124,11 +124,11 @@ public class BlackJackGameTests
 
         for (var i = 0; i < 3; i++)
         {
-            if (game.State == GameState.PlayerTurn)
+            if (game.State == BlackJackGameState.PlayerTurn)
                 game.Stand();
         }
 
-        Assert.Equal(GameState.Finished, game.State);
+        Assert.Equal(BlackJackGameState.Finished, game.State);
         Assert.All(game.Results, r => Assert.True(r.HasValue));
     }
 
@@ -141,9 +141,9 @@ public class BlackJackGameTests
 
         var result = game.Results[0];
         Assert.True(
-            result == GameResult.PlayerWin ||
-            result == GameResult.DealerWin ||
-            result == GameResult.Push
+            result == BlackJackGameResult.PlayerWin ||
+            result == BlackJackGameResult.DealerWin ||
+            result == BlackJackGameResult.Push
         );
     }
 

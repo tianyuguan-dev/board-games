@@ -11,7 +11,7 @@ public class BlackJackTableTests
 
         var game = table.NewRound(1);
 
-        Assert.Equal(GameState.PlayerTurn, game.State);
+        Assert.Equal(BlackJackGameState.PlayerTurn, game.State);
     }
 
     [Fact]
@@ -35,8 +35,8 @@ public class BlackJackTableTests
         var game2 = table.NewRound(1);
         game2.Stand();
         
-        Assert.Equal(GameState.Finished, game1.State);
-        Assert.Equal(GameState.Finished, game2.State);
+        Assert.Equal(BlackJackGameState.Finished, game1.State);
+        Assert.Equal(BlackJackGameState.Finished, game2.State);
     }
 
     [Fact]
@@ -65,11 +65,11 @@ public class BlackJackTableTests
         {
             var game = table.NewRound(3);
             // All players stand
-            while (game.State == GameState.PlayerTurn)
+            while (game.State == BlackJackGameState.PlayerTurn)
             {
                 game.Stand();
             }
-            Assert.Equal(GameState.Finished, game.State);
+            Assert.Equal(BlackJackGameState.Finished, game.State);
         }
     }
 }

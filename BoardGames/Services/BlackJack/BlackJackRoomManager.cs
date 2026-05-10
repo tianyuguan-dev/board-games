@@ -42,18 +42,20 @@ public class BlackJackRoomManager: IBlackJackRoomManager
         players.Add(connectionId, players.Count);
     }
 
-    public string? FindAndRemoveByConnectionId(string connectionId)
+    public (string? roomId, int seatIndex) FindAndRemoveByConnectionId(string connectionId)
     {
         string roomId=null;
+        int seatIndex=-1;
         _rooms.Values.ToList().ForEach(room =>
         {
             var connectionIds = room.Players.Keys;
             if (connectionIds.Contains(connectionId))
             {
+                seatIndex = room.Players[connectionId];
                 room.Players.Remove(connectionId);
                 roomId = room.RoomId;
             }
         });
-        return roomId;
+        return (roomId,seatIndex);
     }
 }

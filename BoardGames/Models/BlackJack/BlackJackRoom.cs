@@ -15,5 +15,17 @@ public class BlackJackRoom
         BlackJackTable = new BlackJackTable(maxPlayers);
         Players = new Dictionary<string, int>();
     }
-    
+
+    public void ReassignSeats()
+    {
+        Dictionary<string, int> newPlayers = new();
+        int seatIndex = 0;
+        foreach (var player in Players)
+        {
+            newPlayers.Add(player.Key, seatIndex);
+            seatIndex++;
+        }
+        Players =  newPlayers;
+    }
+
 }
