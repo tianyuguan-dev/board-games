@@ -117,4 +117,48 @@ public class BlackJackRoomManagerTests
         Assert.Single(room.Players);
         Assert.True(room.Players.ContainsKey("conn-2"));
     }
+
+    [Fact]
+    public void JoinRoom_ThrowsWhenGameInProgress()
+    {
+        var room = _roomManager.CreateRoom(4);
+        _roomManager.JoinRoom(room.RoomId, "conn-1");
+        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+
+        Assert.Throws<InvalidOperationException>(
+            () => _roomManager.JoinRoom(room.RoomId, "conn-2"));
+    }
+
+    [Fact]
+    public void JoinRoom_ThrowsWhenSamePlayerJoinsTwice()
+    {
+        var room = _roomManager.CreateRoom(4);
+        _roomManager.JoinRoom(room.RoomId, "conn-1");
+
+        Assert.Throws<InvalidOperationException>(
+            () => _roomManager.JoinRoom(room.RoomId, "conn-1"));
+    }
+
+    [Fact]
+    public void JoinRoom_AllowsJoinAfterGameFinished()
+    {
+        var room = _roomManager.CreateRoom(4);
+        _roomManager.JoinRoom(room.RoomId, "conn-1");
+        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        room.BlackJackGame.Stand();
+
+        _roomManager.JoinRoom(room.RoomId, "conn-2");
+
+        Assert.Equal(2, room.Players.Count);
+    }
+
+    [Fact]
+    public void RemoveRoom_RoomNoLongerAccessible()
+    {
+        var room = _roomManager.CreateRoom(4);
+
+        _roomManager.RemoveRoom(room.RoomId);
+
+        Assert.Null(_roomManager.GetRoom(room.RoomId));
+    }
 }

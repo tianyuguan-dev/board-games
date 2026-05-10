@@ -32,6 +32,14 @@ public class BlackJackRoomManager: IBlackJackRoomManager
         var blackJackRoom = GetRoom(roomId);
         if (blackJackRoom == null)
             throw new InvalidOperationException($"Cannot join room {roomId} because it doesn't exist");
+        if (blackJackRoom.BlackJackGame!=null&&blackJackRoom.BlackJackGame.State!=BlackJackGameState.Finished)
+        {
+            throw new InvalidOperationException(
+                $"Cannot join room {roomId} because the game is in progress");
+        }
+
+        if (blackJackRoom.Players.ContainsKey(connectionId))
+            throw new InvalidOperationException($"Same player cannot join room twice");
         var maxPlayers = blackJackRoom.MaxPlayers;
         var players = blackJackRoom.Players;
         if (players.Count>= maxPlayers)
@@ -57,5 +65,10 @@ public class BlackJackRoomManager: IBlackJackRoomManager
             }
         });
         return (roomId,seatIndex);
+    }
+
+    public void RemoveRoom(string roomId)
+    {
+        _rooms.Remove(roomId);
     }
 }

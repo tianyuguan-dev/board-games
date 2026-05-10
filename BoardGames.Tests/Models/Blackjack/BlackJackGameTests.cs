@@ -148,6 +148,62 @@ public class BlackJackGameTests
     }
 
     [Fact]
+    public void ForfeitPlayer_SkipsCurrentPlayer()
+    {
+        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 3);
+        game.Start();
+
+        // Player 0 is current, forfeit player 0
+        Assert.Equal(0, game.CurrentPlayerIndex);
+        game.ForfeitPlayer(0);
+
+        // Should skip to player 1 (or further if player 1 has blackjack)
+        Assert.NotEqual(0, game.CurrentPlayerIndex);
+    }
+
+    [Fact]
+    public void ForfeitPlayer_DoesNotSkipWhenNotCurrentPlayer()
+    {
+        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 3);
+        game.Start();
+
+        // Player 0 is current, forfeit player 2
+        Assert.Equal(0, game.CurrentPlayerIndex);
+        game.ForfeitPlayer(2);
+
+        // Current player should still be 0
+        Assert.Equal(0, game.CurrentPlayerIndex);
+    }
+
+    [Fact]
+    public void ForfeitPlayer_SkippedWhenNextPlayerReaches()
+    {
+        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 3);
+        game.Start();
+
+        // Forfeit player 1 while player 0 is active
+        game.ForfeitPlayer(1);
+
+        // Player 0 stands, should skip player 1 and go to player 2
+        game.Stand();
+
+        // Should be at player 2 or finished (if player 2 had blackjack)
+        Assert.True(game.CurrentPlayerIndex >= 2);
+    }
+
+    [Fact]
+    public void ForfeitPlayer_AllForfeited_FinishesGame()
+    {
+        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 2);
+        game.Start();
+
+        game.ForfeitPlayer(0);
+        game.ForfeitPlayer(1);
+
+        Assert.Equal(BlackJackGameState.Finished, game.State);
+    }
+
+    [Fact]
     public void Game_SharesDeck_AcrossMultipleRounds()
     {
         var deck = new Deck(count: 6);

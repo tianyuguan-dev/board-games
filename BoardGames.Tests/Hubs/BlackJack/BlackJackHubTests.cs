@@ -105,6 +105,8 @@ public class BlackJackHubTests
         var room = new BlackJackRoom("12345", 4);
         room.Players.Add("conn-1", 0);
         room.Players.Add("conn-2", 1);
+        room.ReadyPlayers.Add("conn-1");
+        room.ReadyPlayers.Add("conn-2");
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.StartGame("12345");
@@ -258,5 +260,157 @@ public class BlackJackHubTests
 
         _mockClientProxy.Verify(c => c.SendCoreAsync(It.IsAny<string>(),
             It.IsAny<object[]>(), default), Times.Never);
+    }
+
+    [Fact]
+    public async Task OnDisconnectedAsync_RemovesRoomWhenEmpty()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns(("12345", 0));
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await _hub.OnDisconnectedAsync(null);
+
+        _mockRoomManager.Verify(r => r.RemoveRoom("12345"), Times.Once);
+    }
+
+    // StartGame edge cases
+
+    [Fact]
+    public async Task StartGame_ThrowsWhenGameInProgress()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add(ConnectionId, 0);
+        room.ReadyPlayers.Add(ConnectionId);
+        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.StartGame("12345"));
+    }
+
+    [Fact]
+    public async Task StartGame_ThrowsWhenNotAllPlayersReady()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add("conn-1", 0);
+        room.Players.Add("conn-2", 1);
+        room.ReadyPlayers.Add("conn-1");
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.StartGame("12345"));
+    }
+
+    [Fact]
+    public async Task StartGame_ClearsReadyPlayersAfterStart()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add("conn-1", 0);
+        room.ReadyPlayers.Add("conn-1");
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await _hub.StartGame("12345");
+
+        Assert.Empty(room.ReadyPlayers);
+    }
+
+    // Ready tests
+
+    [Fact]
+    public async Task Ready_AddsPlayerToReadySet()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add(ConnectionId, 0);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await _hub.Ready("12345");
+
+        Assert.Contains(ConnectionId, room.ReadyPlayers);
+    }
+
+    [Fact]
+    public async Task Ready_ThrowsWhenRoomNotFound()
+    {
+        _mockRoomManager.Setup(r => r.GetRoom("99999")).Returns((BlackJackRoom?)null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.Ready("99999"));
+    }
+
+    [Fact]
+    public async Task Ready_ThrowsWhenPlayerNotInRoom()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.Ready("12345"));
+    }
+
+    [Fact]
+    public async Task Ready_NotifiesGroup()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add(ConnectionId, 0);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await _hub.Ready("12345");
+
+        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerReady",
+            It.IsAny<object[]>(), default), Times.Once);
+    }
+
+    // Unready tests
+
+    [Fact]
+    public async Task Unready_RemovesPlayerFromReadySet()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add(ConnectionId, 0);
+        room.ReadyPlayers.Add(ConnectionId);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await _hub.Unready("12345");
+
+        Assert.DoesNotContain(ConnectionId, room.ReadyPlayers);
+    }
+
+    [Fact]
+    public async Task Unready_ThrowsWhenPlayerNotReady()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add(ConnectionId, 0);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.Unready("12345"));
+    }
+
+    // LeaveRoom tests
+
+    [Fact]
+    public async Task LeaveRoom_RemovesFromGroupAndNotifies()
+    {
+        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns(("12345", 0));
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(new BlackJackRoom("12345", 4));
+
+        await _hub.LeaveRoom();
+
+        _mockGroups.Verify(g => g.RemoveFromGroupAsync(ConnectionId, "12345", default), Times.Once);
+        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerDisconnected",
+            It.IsAny<object[]>(), default), Times.Once);
+    }
+
+    [Fact]
+    public async Task LeaveRoom_RemovesRoomWhenEmpty()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns(("12345", 0));
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await _hub.LeaveRoom();
+
+        _mockRoomManager.Verify(r => r.RemoveRoom("12345"), Times.Once);
     }
 }
