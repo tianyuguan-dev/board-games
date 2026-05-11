@@ -11,8 +11,24 @@ export async function login(username, password) {
     throw new Error("Login failed");
   }
 
-  const data = await response.json();
-  return data.token;
+  return await response.json();
+}
+
+export async function updateNickname(token, nickname) {
+  const response = await fetch(`${BASE_URL}/auth/nickname`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ nickname }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Update nickname failed");
+  }
+
+  return await response.json();
 }
 
 export async function register(username, password) {

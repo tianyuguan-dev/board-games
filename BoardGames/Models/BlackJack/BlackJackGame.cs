@@ -37,7 +37,20 @@ public class BlackJackGame
             }
         }
         _dealerBlackJackHand = new BlackJackHand(_deck.Deal(), _deck.Deal());
+        if (_dealerBlackJackHand.IsBlackJack())
+        {
+            for (int i = 0; i < _playerCount; i++)
+            {
+                if (!Results[i].HasValue)
+                    Results[i] = BlackJackGameResult.DealerWin;
+                else if (Results[i] == BlackJackGameResult.PlayerWin)
+                    Results[i] = BlackJackGameResult.Push;
+            }
+            State = BlackJackGameState.Finished;
+            return;
+        }
         State = BlackJackGameState.PlayerTurn;
+        AdvancePastResolvedPlayers();
     }
 
     public void Hit()
@@ -51,6 +64,10 @@ public class BlackJackGame
             Results[CurrentPlayerIndex] = BlackJackGameResult.DealerWin;
             NextPlayer();
         }
+        else if (currentPlayerHand.GetValue() == 21)
+        {
+            NextPlayer();
+        }
     }
     public void Stand()
     {
@@ -62,6 +79,11 @@ public class BlackJackGame
     private void NextPlayer()
     {
         CurrentPlayerIndex++;
+        AdvancePastResolvedPlayers();
+    }
+
+    private void AdvancePastResolvedPlayers()
+    {
         while (CurrentPlayerIndex < _playerCount && (Results[CurrentPlayerIndex].HasValue||_forfeitedPlayers.Contains(CurrentPlayerIndex)))
         {
             CurrentPlayerIndex++;

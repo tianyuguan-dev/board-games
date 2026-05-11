@@ -5,11 +5,14 @@ import Game from "./components/Game";
 import { createConnection } from "./services/signalr";
 
 function App() {
-  const [token, setToken] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [nickname, setNickname] = useState(localStorage.getItem("nickname") || "");
   const [connection, setConnection] = useState(null);
   const [roomId, setRoomId] = useState(null);
   const [maxPlayers, setMaxPlayers] = useState(0);
   const [playerCount, setPlayerCount] = useState(0);
+  const [roomPlayers, setRoomPlayers] = useState([]);
+  const [isHost, setIsHost] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -17,6 +20,18 @@ function App() {
     const conn = createConnection(token);
     conn.on("PlayerJoined", (count) => setPlayerCount(count));
     conn.on("PlayerLeft", (count) => setPlayerCount(count));
+    conn.on("RoomUpdate", (data) => {
+      setRoomPlayers(data.players);
+      setIsHost(data.isHost);
+    });
+    conn.on("Kicked", () => {
+  
+      setRoomId(null);
+      setMaxPlayers(0);
+      setPlayerCount(0);
+      setRoomPlayers([]);
+      setIsHost(false);
+    });
     conn
       .start()
       .then(() => {
@@ -30,6 +45,18 @@ function App() {
     };
   }, [token]);
 
+  function handleLogin(t, nick) {
+    localStorage.setItem("token", t);
+    localStorage.setItem("nickname", nick || "");
+    setToken(t);
+    setNickname(nick || "");
+  }
+
+  function handleNicknameChange(nick) {
+    localStorage.setItem("nickname", nick);
+    setNickname(nick);
+  }
+
   function handleJoinRoom(id, max, count) {
     setRoomId(id);
     setMaxPlayers(max);
@@ -37,13 +64,26 @@ function App() {
   }
 
   function handleLeave() {
+
     setRoomId(null);
     setMaxPlayers(0);
     setPlayerCount(0);
+    setRoomPlayers([]);
+    setIsHost(false);
+  }
+
+  function handleLogout() {
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("nickname");
+    setToken(null);
+    setNickname("");
+    setConnection(null);
+    setRoomId(null);
   }
 
   if (!token) {
-    return <Login onLogin={setToken} />;
+    return <Login onLogin={handleLogin} />;
   }
 
   if (!connection) {
@@ -51,10 +91,10 @@ function App() {
   }
 
   if (!roomId) {
-    return <Lobby connection={connection} onJoinRoom={handleJoinRoom} />;
+    return <Lobby connection={connection} token={token} nickname={nickname} onNicknameChange={handleNicknameChange} onJoinRoom={handleJoinRoom} onLogout={handleLogout} />;
   }
 
-  return <Game connection={connection} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} onLeave={handleLeave} />;
+  return <Game connection={connection} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} isHost={isHost} onLeave={handleLeave} />;
 }
 
 export default App;

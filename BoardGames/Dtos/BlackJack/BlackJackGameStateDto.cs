@@ -10,6 +10,10 @@ public class BlackJackGameStateDto
     public int CurrentIndex { get; init; }
     public BlackJackGameState  State { get; init; }
     public List<BlackJackGameResult?> Results { get; init; }
+    public List<string> PlayerNames { get; set; } = new();
+    public int TotalCards { get; set; }
+    public int CardsRemaining { get; set; }
+    public int ReshuffleThreshold { get; set; }
 
     public BlackJackGameStateDto(BlackJackGame game)
     {

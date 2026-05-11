@@ -1,25 +1,53 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-export default function Game({ connection, roomId, maxPlayers, playerCount, onLeave }) {
+const TURN_TIME = 10;
+
+export default function Game({ connection, roomId, maxPlayers, playerCount, roomPlayers, isHost, onLeave }) {
   const [gameState, setGameState] = useState(null);
   const [ready, setReady] = useState(false);
+  const [myIndex, setMyIndex] = useState(-1);
+  const [timeLeft, setTimeLeft] = useState(TURN_TIME);
+  const timerRef = useRef(null);
+
+  function resetTimer() {
+    clearInterval(timerRef.current);
+    setTimeLeft(TURN_TIME);
+    timerRef.current = setInterval(() => {
+      setTimeLeft((t) => (t > 0 ? t - 1 : 0));
+    }, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerRef.current);
+    timerRef.current = null;
+  }
 
   useEffect(() => {
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  useEffect(() => {
+    function onGameState(state) {
+      setGameState(state);
+      if (state.state === 2) stopTimer();
+      else resetTimer();
+    }
+
+    connection.on("YourSeat", (index) => setMyIndex(index));
     connection.on("StartGame", (state) => {
       setGameState(state);
       setReady(false);
+      if (state.state === 2) stopTimer();
+      else resetTimer();
     });
-    connection.on("PlayerHit", (state) => setGameState(state));
-    connection.on("PlayerStand", (state) => setGameState(state));
-    connection.on("PlayerReady", () => console.log("A player is ready"));
-    connection.on("PlayerUnReady", () => console.log("A player is not ready"));
+    connection.on("PlayerHit", onGameState);
+    connection.on("PlayerStand", onGameState);
 
     return () => {
+      connection.off("YourSeat");
       connection.off("StartGame");
       connection.off("PlayerHit");
       connection.off("PlayerStand");
-      connection.off("PlayerReady");
-      connection.off("PlayerUnReady");
     };
   }, [connection]);
 
@@ -33,6 +61,10 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, onLe
     setReady(false);
   }
 
+  async function handleStart() {
+    await connection.invoke("StartGame", roomId);
+  }
+
   async function handleHit() {
     await connection.invoke("BlackJackPlayerHit", roomId);
   }
@@ -41,9 +73,42 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, onLe
     await connection.invoke("BlackJackPlayerStand", roomId);
   }
 
+  async function handleKick(seatIndex) {
+    await connection.invoke("KickPlayer", roomId, seatIndex);
+  }
+
   async function handleLeave() {
     await connection.invoke("LeaveRoom");
     onLeave();
+  }
+
+  function renderReadyOrStart(nextRound) {
+    if (isHost) {
+      const others = roomPlayers.filter(p => !p.isHost);
+      const allReady = others.length === 0 || others.every(p => p.isReady);
+      return <button onClick={handleStart} disabled={!allReady}>{nextRound ? "Start Next Round" : "Start Game"}</button>;
+    }
+    return ready ? (
+      <button onClick={handleUnready}>Cancel Ready</button>
+    ) : (
+      <button onClick={handleReady}>{nextRound ? "Ready (Next Round)" : "Ready"}</button>
+    );
+  }
+
+  function renderPlayerList(showKick) {
+    if (roomPlayers.length === 0) return null;
+    return (
+      <ul>
+        {roomPlayers.map((p, i) => (
+          <li key={i}>
+            {p.nickname} {p.isHost ? "👑" : p.isReady ? "✓ Ready" : "— Not Ready"}
+            {showKick && isHost && !p.isHost && (
+              <button onClick={() => handleKick(p.seatIndex)} style={{ marginLeft: 8 }}>Kick</button>
+            )}
+          </li>
+        ))}
+      </ul>
+    );
   }
 
   function renderCard(card) {
@@ -60,12 +125,10 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, onLe
       <div>
         <h2>Room: {roomId}</h2>
         <p>Players: {playerCount} / {maxPlayers}</p>
-        <p>Waiting for players...</p>
-        {ready ? (
-          <button onClick={handleUnready}>Cancel Ready</button>
-        ) : (
-          <button onClick={handleReady}>Ready</button>
-        )}
+
+        {renderPlayerList(true)}
+
+        {renderReadyOrStart(false)}
         <br />
         <button onClick={handleLeave}>Leave Room</button>
       </div>
@@ -78,6 +141,7 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, onLe
     <div>
       <h2>Room: {roomId}</h2>
       <p>Players: {playerCount} / {maxPlayers}</p>
+      <p>Deck: {gameState.cardsRemaining} / {gameState.totalCards} remaining (reshuffle at {gameState.reshuffleThreshold})</p>
 
       <div>
         <h3>Dealer</h3>
@@ -92,7 +156,7 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, onLe
       {gameState.playerHands.map((hand, i) => (
         <div key={i}>
           <h3>
-            Player {i} {i === gameState.currentIndex && !finished ? "⬅ your turn" : ""}
+            {gameState.playerNames?.[i] || `Player ${i}`} {i === gameState.currentIndex && !finished ? `⬅ (${timeLeft}s)` : ""}
           </h3>
           <p>
             {hand.cards.map((c, j) => (
@@ -112,7 +176,7 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, onLe
         </div>
       ))}
 
-      {!finished && (
+      {!finished && gameState.currentIndex === myIndex && (
         <div>
           <button onClick={handleHit}>Hit</button>
           <button onClick={handleStand}>Stand</button>
@@ -121,11 +185,8 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, onLe
 
       {finished && (
         <div>
-          {ready ? (
-            <button onClick={handleUnready}>Cancel Ready</button>
-          ) : (
-            <button onClick={handleReady}>Ready (Next Round)</button>
-          )}
+          {renderPlayerList(true)}
+          {renderReadyOrStart(true)}
           <button onClick={handleLeave}>Leave Room</button>
         </div>
       )}

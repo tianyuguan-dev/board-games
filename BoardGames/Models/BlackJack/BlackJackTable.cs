@@ -8,6 +8,10 @@ public class BlackJackTable
     private  readonly int _deckCount;
     private readonly int _deckThreshold;
 
+    public int TotalCards => _deckCount * 52;
+    public int CardsRemaining => _deck.Remaining;
+    public int ReshuffleThreshold => _deckThreshold;
+
     public BlackJackTable(int deckCount)
     {
         _deckCount = deckCount;

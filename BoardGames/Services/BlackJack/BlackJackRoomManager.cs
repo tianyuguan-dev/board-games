@@ -27,8 +27,15 @@ public class BlackJackRoomManager: IBlackJackRoomManager
         return room;
     }
 
+    public bool IsInAnyRoom(string connectionId)
+    {
+        return _rooms.Values.Any(r => r.Players.ContainsKey(connectionId));
+    }
+
     public void JoinRoom(string roomId, string connectionId)
     {
+        if (IsInAnyRoom(connectionId))
+            throw new InvalidOperationException("Player is already in a room");
         var blackJackRoom = GetRoom(roomId);
         if (blackJackRoom == null)
             throw new InvalidOperationException($"Cannot join room {roomId} because it doesn't exist");

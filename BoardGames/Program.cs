@@ -18,6 +18,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();                                            
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddSingleton<IBlackJackRoomManager, BlackJackRoomManager>();
+builder.Services.AddSingleton<ITurnTimerService, TurnTimerService>();
 builder.Services.AddSignalR();
 builder.Services.AddCors(options =>
 {

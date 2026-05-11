@@ -1,4 +1,7 @@
+using System.Security.Claims;
+using BoardGames.Data;
 using BoardGames.Hubs.BlackJack;
+using BoardGames.Models;
 using BoardGames.Models.BlackJack;
 using BoardGames.Services.BlackJack;
 using Microsoft.AspNetCore.SignalR;
@@ -11,7 +14,7 @@ public class BlackJackHubTests
     private readonly Mock<IBlackJackRoomManager> _mockRoomManager;
     private readonly Mock<IGroupManager> _mockGroups;
     private readonly Mock<IHubCallerClients> _mockClients;
-    private readonly Mock<IClientProxy> _mockClientProxy;
+    private readonly Mock<ISingleClientProxy> _mockClientProxy;
     private readonly BlackJackHub _hub;
     private const string ConnectionId = "test-conn-1";
 
@@ -20,14 +23,25 @@ public class BlackJackHubTests
         _mockRoomManager = new Mock<IBlackJackRoomManager>();
         _mockGroups = new Mock<IGroupManager>();
         _mockClients = new Mock<IHubCallerClients>();
-        _mockClientProxy = new Mock<IClientProxy>();
+        _mockClientProxy = new Mock<ISingleClientProxy>();
 
         var mockContext = new Mock<HubCallerContext>();
         mockContext.Setup(c => c.ConnectionId).Returns(ConnectionId);
+        var claims = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "1"),
+            new Claim(ClaimTypes.Name, "testuser"),
+        }, "test"));
+        mockContext.Setup(c => c.User).Returns(claims);
 
         _mockClients.Setup(c => c.Group(It.IsAny<string>())).Returns(_mockClientProxy.Object);
+        _mockClients.Setup(c => c.Client(It.IsAny<string>())).Returns(_mockClientProxy.Object);
 
-        _hub = new BlackJackHub(_mockRoomManager.Object);
+        var mockUserRepo = new Mock<IUserRepository>();
+        mockUserRepo.Setup(r => r.FindById(1)).ReturnsAsync(new User { Id = 1, Username = "testuser", Nickname = "TestPlayer" });
+
+        var mockTurnTimer = new Mock<ITurnTimerService>();
+        _hub = new BlackJackHub(_mockRoomManager.Object, mockUserRepo.Object, mockTurnTimer.Object);
         _hub.Context = mockContext.Object;
         _hub.Groups = _mockGroups.Object;
         _hub.Clients = _mockClients.Object;
@@ -109,15 +123,17 @@ public class BlackJackHubTests
     public async Task StartGame_CreatesGameAndNotifiesGroup()
     {
         var room = new BlackJackRoom("12345", 4);
-        room.Players.Add("conn-1", 0);
+        room.HostConnectionId = ConnectionId;
+        room.Players.Add(ConnectionId, 0);
         room.Players.Add("conn-2", 1);
-        room.ReadyPlayers.Add("conn-1");
         room.ReadyPlayers.Add("conn-2");
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.StartGame("12345");
 
         Assert.NotNull(room.BlackJackGame);
+        _mockClientProxy.Verify(c => c.SendCoreAsync("YourSeat",
+            It.IsAny<object[]>(), default), Times.Exactly(room.Players.Count));
         _mockClientProxy.Verify(c => c.SendCoreAsync("StartGame",
             It.IsAny<object[]>(), default), Times.Once);
     }
@@ -286,8 +302,8 @@ public class BlackJackHubTests
     public async Task StartGame_ThrowsWhenGameInProgress()
     {
         var room = new BlackJackRoom("12345", 4);
+        room.HostConnectionId = ConnectionId;
         room.Players.Add(ConnectionId, 0);
-        room.ReadyPlayers.Add(ConnectionId);
         room.BlackJackGame = room.BlackJackTable.NewRound(1);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
@@ -299,9 +315,21 @@ public class BlackJackHubTests
     public async Task StartGame_ThrowsWhenNotAllPlayersReady()
     {
         var room = new BlackJackRoom("12345", 4);
-        room.Players.Add("conn-1", 0);
+        room.HostConnectionId = ConnectionId;
+        room.Players.Add(ConnectionId, 0);
         room.Players.Add("conn-2", 1);
-        room.ReadyPlayers.Add("conn-1");
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _hub.StartGame("12345"));
+    }
+
+    [Fact]
+    public async Task StartGame_ThrowsWhenNotHost()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.HostConnectionId = "other-conn";
+        room.Players.Add(ConnectionId, 0);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -312,8 +340,10 @@ public class BlackJackHubTests
     public async Task StartGame_ClearsReadyPlayersAfterStart()
     {
         var room = new BlackJackRoom("12345", 4);
-        room.Players.Add("conn-1", 0);
-        room.ReadyPlayers.Add("conn-1");
+        room.HostConnectionId = ConnectionId;
+        room.Players.Add(ConnectionId, 0);
+        room.Players.Add("conn-2", 1);
+        room.ReadyPlayers.Add("conn-2");
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.StartGame("12345");
@@ -327,6 +357,7 @@ public class BlackJackHubTests
     public async Task Ready_AddsPlayerToReadySet()
     {
         var room = new BlackJackRoom("12345", 4);
+        room.HostConnectionId = "conn-2";
         room.Players.Add(ConnectionId, 0);
         room.Players.Add("conn-2", 1);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
@@ -359,13 +390,15 @@ public class BlackJackHubTests
     public async Task Ready_NotifiesGroup()
     {
         var room = new BlackJackRoom("12345", 4);
+        room.HostConnectionId = "conn-2";
         room.Players.Add(ConnectionId, 0);
+        room.Players.Add("conn-2", 1);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.Ready("12345");
 
-        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerReady",
-            It.IsAny<object[]>(), default), Times.Once);
+        _mockClientProxy.Verify(c => c.SendCoreAsync("RoomUpdate",
+            It.IsAny<object[]>(), default), Times.AtLeastOnce);
     }
 
     // Unready tests

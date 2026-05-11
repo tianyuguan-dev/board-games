@@ -15,6 +15,7 @@ public class AuthService(IUserRepository userRepository) : IAuthService
         User user = new User
         {
             Username = username,
+            Nickname = username,
             PasswordHash =  BCrypt.Net.BCrypt.HashPassword(password),
         };
         return await userRepository.Add(user);

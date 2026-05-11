@@ -8,6 +8,9 @@ public class BlackJackRoom
     public BlackJackTable BlackJackTable { get; set; }
     public BlackJackGame? BlackJackGame { get; set; }
     public HashSet<string> ReadyPlayers { get; init; } = new();
+    public Dictionary<string, string> PlayerNicknames { get; set; } = new();
+    public string? HostConnectionId { get; set; }
+    public List<string> GamePlayerNames { get; set; } = new();
     public BlackJackRoom(string roomId, int maxPlayers)
     {
         RoomId = roomId;

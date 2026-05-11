@@ -8,8 +8,8 @@ export default function Login({ onLogin }) {
 
   async function handleLogin() {
     try {
-      const token = await login(username, password);
-      onLogin(token);
+      const data = await login(username, password);
+      onLogin(data.token, data.nickname);
     } catch {
       setError("Login failed");
     }
