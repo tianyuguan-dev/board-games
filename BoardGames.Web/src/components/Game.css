@@ -167,17 +167,121 @@
   transform: translate(-50%, -50%);
 }
 
-/* Players grid */
-.players-grid {
+/* Dealer hand (smaller) */
+.dealer-area .card {
+  width: 44px;
+  height: 64px;
+}
+
+.dealer-area .card-rank {
+  font-size: 12px;
+}
+
+.dealer-area .card-suit {
+  font-size: 9px;
+}
+
+.dealer-area .card-center {
+  font-size: 18px;
+}
+
+/* My hand (large) */
+.my-hand {
+  margin-bottom: 16px;
+}
+
+.my-hand .card {
+  width: 64px;
+  height: 92px;
+}
+
+.my-hand .card-rank {
+  font-size: 16px;
+}
+
+.my-hand .card-suit {
+  font-size: 12px;
+}
+
+.my-hand .card-center {
+  font-size: 26px;
+}
+
+/* Other players (compact row) */
+.others-row {
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.other-player {
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.15);
+  min-width: 80px;
+  position: relative;
+}
+
+.other-player.active {
+  background: rgba(255, 215, 0, 0.1);
+  outline: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.other-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.other-label .name {
+  color: #fff;
+  font-weight: 600;
+}
+
+.other-label .value {
+  color: #ffd700;
+  margin-left: 4px;
+}
+
+.other-label .bet {
+  color: #f4a261;
+  margin-left: 4px;
+  font-size: 11px;
+}
+
+.other-label .timer {
+  color: #fbbf24;
+  margin-left: 4px;
+  animation: pulse 1s infinite;
+}
+
+/* Mini card symbols */
+.mini-cards {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
   flex-wrap: wrap;
 }
 
-.players-grid .hand-area {
-  flex: 0 1 200px;
-  min-width: 140px;
+.mini-card {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.9);
+  line-height: 1.2;
+}
+
+.mini-card.red {
+  color: #dc2626;
+}
+
+.mini-card.black {
+  color: #1e293b;
 }
 
 /* Divider */

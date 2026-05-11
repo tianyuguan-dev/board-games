@@ -24,4 +24,15 @@ public class GameBalanceRepository(AppDbContext db) : IGameBalanceRepository
         balance.Balance += delta;
         await db.SaveChangesAsync();
     }
+
+    public async Task<List<(string Nickname, int Balance)>> GetTopBalances(GameType gameType, int count)
+    {
+        var results = await db.GameBalances
+            .Where(b => b.GameType == gameType)
+            .OrderByDescending(b => b.Balance)
+            .Take(count)
+            .Join(db.Users, b => b.UserId, u => u.Id, (b, u) => new { u.Nickname, b.Balance })
+            .ToListAsync();
+        return results.Select(x => (x.Nickname, x.Balance)).ToList();
+    }
 }

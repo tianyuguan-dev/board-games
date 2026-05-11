@@ -31,6 +31,21 @@ function Card({ card }) {
   );
 }
 
+function MiniCards({ cards }) {
+  return (
+    <span className="mini-cards">
+      {cards.map((c, i) => {
+        const isRed = c.suit === 1 || c.suit === 4;
+        return (
+          <span key={i} className={`mini-card ${isRed ? "red" : "black"}`}>
+            {RANKS[c.rank]}{SUITS[c.suit]}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export default function Game({ connection, roomId, maxPlayers, playerCount, roomPlayers, isHost, onLeave }) {
   const [gameState, setGameState] = useState(null);
   const [ready, setReady] = useState(false);
@@ -54,8 +69,9 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
   }
 
   useEffect(() => {
+    connection.invoke("GetBalance").then(setBalance).catch(() => {});
     return () => clearInterval(timerRef.current);
-  }, []);
+  }, [connection]);
 
   useEffect(() => {
     function onGameState(state) {
@@ -107,7 +123,10 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
     await connection.invoke("StartGame", roomId);
   }
   async function handlePlaceBet() {
-    await connection.invoke("PlaceBet", roomId, betAmount);
+    const max = Math.min(MAX_BET, balance || MAX_BET);
+    const amount = Math.max(MIN_BET, Math.min(max, Number(betAmount) || MIN_BET));
+    setBetAmount(amount);
+    await connection.invoke("PlaceBet", roomId, amount);
   }
   async function handleHit() {
     await connection.invoke("BlackJackPlayerHit", roomId);
@@ -221,9 +240,10 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
                   min={MIN_BET}
                   max={Math.min(MAX_BET, balance || MAX_BET)}
                   value={betAmount}
-                  onChange={(e) => {
+                  onChange={(e) => setBetAmount(e.target.value)}
+                  onBlur={() => {
                     const max = Math.min(MAX_BET, balance || MAX_BET);
-                    setBetAmount(Math.max(MIN_BET, Math.min(max, Number(e.target.value))));
+                    setBetAmount(Math.max(MIN_BET, Math.min(max, Number(betAmount) || MIN_BET)));
                   }}
                 />
                 <button className="btn btn-success" onClick={handlePlaceBet}>Place Bet</button>
@@ -252,7 +272,7 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
         </div>
 
         {/* Dealer */}
-        <div className="hand-area">
+        <div className="hand-area dealer-area">
           <div className="hand-label">
             <span className="dealer-tag">Dealer</span>
             <span className="value">({gameState.dealerHand.value})</span>
@@ -266,28 +286,51 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
 
         <div className="table-divider" />
 
-        {/* Players */}
-        <div className="players-grid">
-          {gameState.playerHands.map((hand, i) => {
-            const isActive = i === gameState.currentIndex && !finished;
-            return (
-              <div key={i} className={`hand-area ${isActive ? "active" : ""}`}>
-                <div className="hand-label">
-                  <span className="name">{gameState.playerNames?.[i] || `Player ${i}`}</span>
-                  <span className="value">({hand.value})</span>
-                  <span className="bet">Bet: {gameState.bets[i]}</span>
-                  {isActive && <span className="timer">{timeLeft}s</span>}
+        {/* Other players (compact) */}
+        {gameState.playerHands.length > 1 && (
+          <div className="others-row">
+            {gameState.playerHands.map((hand, i) => {
+              if (i === myIndex) return null;
+              const isActive = i === gameState.currentIndex && !finished;
+              return (
+                <div key={i} className={`other-player ${isActive ? "active" : ""}`}>
+                  <div className="other-label">
+                    <span className="name">{gameState.playerNames?.[i] || `Player ${i}`}</span>
+                    <span className="value">({hand.value})</span>
+                    <span className="bet">Bet: {gameState.bets[i]}</span>
+                    {isActive && <span className="timer">{timeLeft}s</span>}
+                  </div>
+                  <MiniCards cards={hand.cards} />
+                  {finished && renderResult(i)}
                 </div>
-                <div className="cards">
-                  {hand.cards.map((c, j) => (
-                    <Card key={j} card={c} />
-                  ))}
-                </div>
-                {finished && renderResult(i)}
+              );
+            })}
+          </div>
+        )}
+
+        <div className="table-divider" />
+
+        {/* My hand (large, centered) */}
+        {myIndex >= 0 && gameState.playerHands[myIndex] && (() => {
+          const hand = gameState.playerHands[myIndex];
+          const isActive = myIndex === gameState.currentIndex && !finished;
+          return (
+            <div className={`hand-area my-hand ${isActive ? "active" : ""}`}>
+              <div className="hand-label">
+                <span className="name">{gameState.playerNames?.[myIndex] || "You"} (You)</span>
+                <span className="value">({hand.value})</span>
+                <span className="bet">Bet: {gameState.bets[myIndex]}</span>
+                {isActive && <span className="timer">{timeLeft}s</span>}
               </div>
-            );
-          })}
-        </div>
+              <div className="cards">
+                {hand.cards.map((c, j) => (
+                  <Card key={j} card={c} />
+                ))}
+              </div>
+              {finished && renderResult(myIndex)}
+            </div>
+          );
+        })()}
 
         {/* Actions */}
         {!finished && gameState.currentIndex === myIndex && (

@@ -151,3 +151,32 @@ hr {
   gap: 8px;
   align-items: center;
 }
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 6px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+}
+
+.leaderboard-table th {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.leaderboard-table td {
+  color: #1e293b;
+}
+
+.leaderboard-table tr.highlight td {
+  color: #2563eb;
+  font-weight: 600;
+}

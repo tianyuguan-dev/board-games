@@ -1,6 +1,6 @@
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 
-const BACKEND_URL = "http://localhost:5087/hub/blackjack";
+const BACKEND_URL = `http://${window.location.hostname}:5087/hub/blackjack`;
 
 export function createConnection(token) {
   return new HubConnectionBuilder()

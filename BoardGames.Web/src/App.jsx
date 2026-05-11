@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import Login from "./components/Login";
+import Home from "./components/Home";
+import Profile from "./components/Profile";
 import Lobby from "./components/Lobby";
 import Game from "./components/Game";
 import { createConnection } from "./services/signalr";
@@ -8,6 +10,8 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [nickname, setNickname] = useState(localStorage.getItem("nickname") || "");
   const [connection, setConnection] = useState(null);
+  const [selectedGame, setSelectedGame] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
   const [roomId, setRoomId] = useState(null);
   const [maxPlayers, setMaxPlayers] = useState(0);
   const [playerCount, setPlayerCount] = useState(0);
@@ -64,7 +68,6 @@ function App() {
   }
 
   function handleLeave() {
-
     setRoomId(null);
     setMaxPlayers(0);
     setPlayerCount(0);
@@ -72,14 +75,20 @@ function App() {
     setIsHost(false);
   }
 
-  function handleLogout() {
+  function handleBackToHome() {
+    handleLeave();
+    setSelectedGame(null);
+    setShowProfile(false);
+  }
 
+  function handleLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("nickname");
     setToken(null);
     setNickname("");
     setConnection(null);
     setRoomId(null);
+    setSelectedGame(null);
   }
 
   if (!token) {
@@ -90,11 +99,43 @@ function App() {
     return <p>Connecting...</p>;
   }
 
-  if (!roomId) {
-    return <Lobby connection={connection} token={token} nickname={nickname} onNicknameChange={handleNicknameChange} onJoinRoom={handleJoinRoom} onLogout={handleLogout} />;
+  if (showProfile) {
+    return (
+      <Profile
+        token={token}
+        nickname={nickname}
+        onNicknameChange={handleNicknameChange}
+        onBack={() => setShowProfile(false)}
+      />
+    );
   }
 
-  return <Game connection={connection} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} isHost={isHost} onLeave={handleLeave} />;
+  if (!selectedGame) {
+    return <Home nickname={nickname} onSelectGame={setSelectedGame} onProfile={() => setShowProfile(true)} onLogout={handleLogout} />;
+  }
+
+  if (!roomId) {
+    return (
+      <Lobby
+        connection={connection}
+        nickname={nickname}
+        onJoinRoom={handleJoinRoom}
+        onBack={handleBackToHome}
+      />
+    );
+  }
+
+  return (
+    <Game
+      connection={connection}
+      roomId={roomId}
+      maxPlayers={maxPlayers}
+      playerCount={playerCount}
+      roomPlayers={roomPlayers}
+      isHost={isHost}
+      onLeave={handleLeave}
+    />
+  );
 }
 
 export default App;

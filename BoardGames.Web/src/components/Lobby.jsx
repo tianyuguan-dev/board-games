@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
-import { updateNickname } from "../services/api";
 
-export default function Lobby({ connection, token, nickname, onNicknameChange, onJoinRoom, onLogout }) {
+export default function Lobby({ connection, nickname, onJoinRoom, onBack }) {
   const [roomId, setRoomId] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(4);
-  const [editNickname, setEditNickname] = useState(nickname);
   const [error, setError] = useState("");
   const [balance, setBalance] = useState(null);
+  const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
     connection.invoke("GetBalance").then(setBalance).catch(() => {});
+    connection.invoke("GetLeaderboard").then(setLeaderboard).catch(() => {});
   }, [connection]);
 
   async function handleCreate() {
@@ -40,21 +40,11 @@ export default function Lobby({ connection, token, nickname, onNicknameChange, o
     }
   }
 
-  async function handleSaveNickname() {
-    try {
-      const result = await updateNickname(token, editNickname);
-      onNicknameChange(result.nickname);
-      setError("");
-    } catch {
-      setError("Failed to update nickname");
-    }
-  }
-
   return (
-    <div className="page-center">
-      <h2>Lobby</h2>
+    <div className="page-center" style={{ maxWidth: 460 }}>
+      <h2>BlackJack Lobby</h2>
       {balance !== null && (
-        <p className="text-gold mb-16">Balance: {balance}</p>
+        <p className="text-gold mb-16">{nickname}'s balance: {balance}</p>
       )}
       {balance !== null && balance < 50 && (
         <div className="mb-16">
@@ -64,20 +54,25 @@ export default function Lobby({ connection, token, nickname, onNicknameChange, o
         </div>
       )}
 
-      <div className="section">
-        <h3>Nickname</h3>
-        <div className="inline-group">
-          <input
-            value={editNickname}
-            onChange={(e) => setEditNickname(e.target.value)}
-          />
-          {editNickname !== nickname ? (
-            <button onClick={handleSaveNickname} style={{ background: '#22c55e' }}>Save</button>
-          ) : (
-            <span style={{ color: '#4ade80' }}>&#10003;</span>
-          )}
+      {leaderboard.length > 0 && (
+        <div className="section">
+          <h3>Leaderboard</h3>
+          <table className="leaderboard-table">
+            <thead>
+              <tr><th>#</th><th>Player</th><th>Balance</th></tr>
+            </thead>
+            <tbody>
+              {leaderboard.map((entry, i) => (
+                <tr key={i} className={entry.nickname === nickname ? "highlight" : ""}>
+                  <td>{i + 1}</td>
+                  <td>{entry.nickname}</td>
+                  <td>{entry.balance}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+      )}
 
       <div className="section">
         <h3>Create Room</h3>
@@ -99,6 +94,7 @@ export default function Lobby({ connection, token, nickname, onNicknameChange, o
         <h3>Join Room</h3>
         <div className="inline-group">
           <input
+            type="text"
             placeholder="Room ID"
             value={roomId}
             onChange={(e) => setRoomId(e.target.value)}
@@ -110,7 +106,7 @@ export default function Lobby({ connection, token, nickname, onNicknameChange, o
 
       {error && <p className="error-msg">{error}</p>}
       <hr />
-      <button onClick={onLogout} style={{ background: '#94a3b8' }}>Logout</button>
+      <button onClick={onBack} style={{ background: '#94a3b8' }}>Back</button>
     </div>
   );
 }

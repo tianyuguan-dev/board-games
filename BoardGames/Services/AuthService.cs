@@ -29,4 +29,14 @@ public class AuthService(IUserRepository userRepository) : IAuthService
         else
             return user;
     }
+
+    public async Task<bool> ChangePassword(int userId, string oldPassword, string newPassword)
+    {
+        var user = await userRepository.FindById(userId);
+        if (user == null || !BCrypt.Net.BCrypt.Verify(oldPassword, user.PasswordHash))
+            return false;
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await userRepository.Update(user);
+        return true;
+    }
 }

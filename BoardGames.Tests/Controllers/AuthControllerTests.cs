@@ -13,6 +13,7 @@ public class AuthControllerTests
     private readonly Mock<IAuthService> _mockAuthService;
     private readonly Mock<IJwtService> _mockJwtService;
     private readonly Mock<IUserRepository> _mockUserRepository;
+    private readonly Mock<IGameBalanceRepository> _mockBalanceRepository;
     private readonly AuthController _controller;
 
     public AuthControllerTests()
@@ -20,7 +21,8 @@ public class AuthControllerTests
         _mockAuthService = new Mock<IAuthService>();
         _mockJwtService = new Mock<IJwtService>();
         _mockUserRepository = new Mock<IUserRepository>();
-        _controller = new AuthController(_mockJwtService.Object, _mockAuthService.Object, _mockUserRepository.Object);
+        _mockBalanceRepository = new Mock<IGameBalanceRepository>();
+        _controller = new AuthController(_mockJwtService.Object, _mockAuthService.Object, _mockUserRepository.Object, _mockBalanceRepository.Object);
     }
 
     [Fact]

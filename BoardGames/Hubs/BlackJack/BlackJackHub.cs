@@ -72,6 +72,12 @@ public class BlackJackHub(
         return balance.Balance;
     }
 
+    public async Task<List<object>> GetLeaderboard()
+    {
+        var top = await balanceRepo.GetTopBalances(GameType.BlackJack, 5);
+        return top.Select(x => (object)new { nickname = x.Nickname, balance = x.Balance }).ToList();
+    }
+
     public async Task<int> ClaimBonus()
     {
         var userId = GetUserId();
