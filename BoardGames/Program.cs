@@ -15,6 +15,7 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<AppDbContext>(options =>                                              
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IGameBalanceRepository, GameBalanceRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();                                            
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddSingleton<IBlackJackRoomManager, BlackJackRoomManager>();

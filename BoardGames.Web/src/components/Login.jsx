@@ -4,6 +4,8 @@ import { login, register } from "../services/api";
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState("");
 
   async function handleLogin() {
@@ -16,33 +18,62 @@ export default function Login({ onLogin }) {
   }
 
   async function handleRegister() {
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
     try {
       await register(username, password);
-      setError("Registered! Now login.");
-    } catch {
-      setError("Register failed");
+      const data = await login(username, password);
+      onLogin(data.token, data.nickname);
+    } catch (e) {
+      setError(e.message || "Register failed");
     }
   }
 
   return (
-    <div>
-      <h2>BlackJack Login</h2>
-      <input
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
-      <br />
-      <input
-        placeholder="Password"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <br />
-      <button onClick={handleLogin}>Login</button>
-      <button onClick={handleRegister}>Register</button>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <div className="page-center">
+      <h2>Tianyu Board Games</h2>
+      <div className="form-group">
+        <label>Username</label>
+        <input
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+      </div>
+      <div className="form-group">
+        <label>Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </div>
+      {isRegister && (
+        <div className="form-group">
+          <label>Confirm Password</label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+        </div>
+      )}
+      <div className="btn-row">
+        {isRegister ? (
+          <>
+            <button onClick={handleRegister}>Register</button>
+            <button onClick={() => { setIsRegister(false); setError(""); }} style={{ background: '#94a3b8' }}>Back to Login</button>
+          </>
+        ) : (
+          <>
+            <button onClick={handleLogin}>Login</button>
+            <button onClick={() => { setIsRegister(true); setError(""); }} style={{ background: '#94a3b8' }}>Register</button>
+          </>
+        )}
+      </div>
+      {error && <p className={error.includes("Registered") ? "success-msg" : "error-msg"}>{error}</p>}
     </div>
   );
 }

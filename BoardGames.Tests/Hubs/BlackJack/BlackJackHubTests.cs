@@ -3,6 +3,7 @@ using BoardGames.Data;
 using BoardGames.Hubs.BlackJack;
 using BoardGames.Models;
 using BoardGames.Models.BlackJack;
+using BoardGames.Models.Poker;
 using BoardGames.Services.BlackJack;
 using Microsoft.AspNetCore.SignalR;
 using Moq;
@@ -41,10 +42,21 @@ public class BlackJackHubTests
         mockUserRepo.Setup(r => r.FindById(1)).ReturnsAsync(new User { Id = 1, Username = "testuser", Nickname = "TestPlayer" });
 
         var mockTurnTimer = new Mock<ITurnTimerService>();
-        _hub = new BlackJackHub(_mockRoomManager.Object, mockUserRepo.Object, mockTurnTimer.Object);
+        var mockBalanceRepo = new Mock<IGameBalanceRepository>();
+        mockBalanceRepo.Setup(r => r.GetOrCreate(It.IsAny<int>(), It.IsAny<GameType>()))
+            .ReturnsAsync(new GameBalance { Balance = 1000 });
+        _hub = new BlackJackHub(_mockRoomManager.Object, mockUserRepo.Object, mockTurnTimer.Object, mockBalanceRepo.Object);
         _hub.Context = mockContext.Object;
         _hub.Groups = _mockGroups.Object;
         _hub.Clients = _mockClients.Object;
+    }
+
+    private static void SetupStartedGame(BlackJackRoom room, int playerCount)
+    {
+        room.BlackJackGame = new BlackJackGame(new Deck(), playerCount);
+        for (int i = 0; i < playerCount; i++)
+            room.BlackJackGame.PlaceBet(i, 10);
+        room.BlackJackGame.Start();
     }
 
     // CreateRoom tests
@@ -127,11 +139,14 @@ public class BlackJackHubTests
         room.Players.Add(ConnectionId, 0);
         room.Players.Add("conn-2", 1);
         room.ReadyPlayers.Add("conn-2");
+        room.PlayerUserIds[ConnectionId] = 1;
+        room.PlayerUserIds["conn-2"] = 2;
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.StartGame("12345");
 
         Assert.NotNull(room.BlackJackGame);
+        Assert.Equal(BlackJackGameState.Betting, room.BlackJackGame.State);
         _mockClientProxy.Verify(c => c.SendCoreAsync("YourSeat",
             It.IsAny<object[]>(), default), Times.Exactly(room.Players.Count));
         _mockClientProxy.Verify(c => c.SendCoreAsync("StartGame",
@@ -164,7 +179,7 @@ public class BlackJackHubTests
     {
         var room = new BlackJackRoom("12345", 4);
         room.Players.Add("other-conn", 0);
-        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        SetupStartedGame(room, 1);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -177,7 +192,7 @@ public class BlackJackHubTests
         var room = new BlackJackRoom("12345", 4);
         room.Players.Add("other-conn", 0);
         room.Players.Add(ConnectionId, 1);
-        room.BlackJackGame = room.BlackJackTable.NewRound(2);
+        SetupStartedGame(room, 2);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         // CurrentPlayerIndex is 0, but our ConnectionId maps to seat 1
@@ -190,7 +205,7 @@ public class BlackJackHubTests
     {
         var room = new BlackJackRoom("12345", 4);
         room.Players.Add(ConnectionId, 0);
-        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        SetupStartedGame(room, 1);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.BlackJackPlayerHit("12345");
@@ -226,7 +241,7 @@ public class BlackJackHubTests
         var room = new BlackJackRoom("12345", 4);
         room.Players.Add("other-conn", 0);
         room.Players.Add(ConnectionId, 1);
-        room.BlackJackGame = room.BlackJackTable.NewRound(2);
+        SetupStartedGame(room, 2);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -238,7 +253,7 @@ public class BlackJackHubTests
     {
         var room = new BlackJackRoom("12345", 4);
         room.Players.Add("other-conn", 0);
-        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        SetupStartedGame(room, 1);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -250,7 +265,7 @@ public class BlackJackHubTests
     {
         var room = new BlackJackRoom("12345", 4);
         room.Players.Add(ConnectionId, 0);
-        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        SetupStartedGame(room, 1);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.BlackJackPlayerStand("12345");
@@ -304,7 +319,7 @@ public class BlackJackHubTests
         var room = new BlackJackRoom("12345", 4);
         room.HostConnectionId = ConnectionId;
         room.Players.Add(ConnectionId, 0);
-        room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        SetupStartedGame(room, 1);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -344,6 +359,8 @@ public class BlackJackHubTests
         room.Players.Add(ConnectionId, 0);
         room.Players.Add("conn-2", 1);
         room.ReadyPlayers.Add("conn-2");
+        room.PlayerUserIds[ConnectionId] = 1;
+        room.PlayerUserIds["conn-2"] = 2;
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.StartGame("12345");

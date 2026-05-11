@@ -4,6 +4,8 @@ namespace BoardGames.Models.BlackJack;
 
 public class BlackJackGame
 {
+    public const int MinBet = 1;
+    public const int MaxBet = 100;
     private Deck _deck;
     private List<BlackJackHand> _playerHands=new ();
     private BlackJackHand _dealerBlackJackHand=new ();
@@ -14,6 +16,8 @@ public class BlackJackGame
     private HashSet<int> _forfeitedPlayers=new();
     public BlackJackGameState State { get; private set; }
     public List<BlackJackGameResult?> Results { get; } = new();
+    private List<int> _bets;
+    public IReadOnlyList<int> Bets => _bets;
 
     public BlackJackGame(Deck deck,int playerCount = 1)
     {
@@ -21,11 +25,37 @@ public class BlackJackGame
             throw  new ArgumentOutOfRangeException(nameof(playerCount), playerCount, "playerCount must be greater than 0");
         _deck = deck;
         _playerCount= playerCount;
+        _bets = Enumerable.Repeat(0, playerCount).ToList();
+        State = BlackJackGameState.Betting;
+    }
+
+    public void PlaceBet(int playerIndex, int amount)
+    {
+        if (State != BlackJackGameState.Betting) return;
+        if (playerIndex < 0 || playerIndex >= _playerCount) return;
+        if (amount < MinBet || amount > MaxBet) return;
+        _bets[playerIndex] = amount;
+    }
+
+    public bool AllBetsPlaced()
+    {
+        return Enumerable.Range(0, _playerCount)
+            .All(i => _bets[i] > 0 || _forfeitedPlayers.Contains(i));
+    }
+
+    public void AutoBetRemaining(int amount)
+    {
+        if (State != BlackJackGameState.Betting) return;
+        for (int i = 0; i < _playerCount; i++)
+        {
+            if (_bets[i] == 0 && !_forfeitedPlayers.Contains(i))
+                _bets[i] = amount;
+        }
     }
 
     public void Start()
     {
-        
+        if (State != BlackJackGameState.Betting) return;
         for (int i = 0; i < _playerCount; i++)
         {
             var hand = new BlackJackHand(_deck.Deal(),_deck.Deal());
@@ -73,6 +103,23 @@ public class BlackJackGame
     {
         if (State != BlackJackGameState.PlayerTurn)
             return;
+        NextPlayer();
+    }
+
+    public bool CanDoubleDown()
+    {
+        if (State != BlackJackGameState.PlayerTurn) return false;
+        return _playerHands[CurrentPlayerIndex].Cards.Count == 2;
+    }
+
+    public void DoubleDown()
+    {
+        if (!CanDoubleDown()) return;
+        _bets[CurrentPlayerIndex] *= 2;
+        var hand = _playerHands[CurrentPlayerIndex];
+        hand.AddCard(_deck.Deal());
+        if (hand.IsBust())
+            Results[CurrentPlayerIndex] = BlackJackGameResult.DealerWin;
         NextPlayer();
     }
 
@@ -139,5 +186,6 @@ public enum BlackJackGameState
 {
     PlayerTurn,
     DealerTurn,
-    Finished
+    Finished,
+    Betting
 }

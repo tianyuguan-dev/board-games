@@ -67,7 +67,7 @@ public class BlackJackDtoTests
     [Fact]
     public void GameStateDto_DuringPlayerTurn_DealerShowsOneCard()
     {
-        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 1);
+        var game = new BlackJackGame(new Deck(), playerCount: 1);
         game.Start();
 
         Assert.Equal(BlackJackGameState.PlayerTurn, game.State);
@@ -103,7 +103,7 @@ public class BlackJackDtoTests
     [Fact]
     public void GameStateDto_ContainsGameState()
     {
-        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 1);
+        var game = new BlackJackGame(new Deck(), playerCount: 1);
         game.Start();
 
         var dto = new BlackJackGameStateDto(game);

@@ -14,14 +14,26 @@ public class BlackJackGameStateDto
     public int TotalCards { get; set; }
     public int CardsRemaining { get; set; }
     public int ReshuffleThreshold { get; set; }
+    public List<int> Bets { get; init; }
+    public List<int?>? Winnings { get; init; }
 
     public BlackJackGameStateDto(BlackJackGame game)
     {
-        PlayerHands = game.PlayerHands.Select(x => new BlackJackHandDto(x)).ToList();
         CurrentIndex = game.CurrentPlayerIndex;
         State = game.State;
-        
-        if (State ==BlackJackGameState.PlayerTurn)
+        Results = game.Results;
+        Bets = game.Bets.ToList();
+
+        if (State == BlackJackGameState.Betting)
+        {
+            PlayerHands = new();
+            DealerHand = new BlackJackHandDto(new List<Card>(), 0);
+            return;
+        }
+
+        PlayerHands = game.PlayerHands.Select(x => new BlackJackHandDto(x)).ToList();
+
+        if (State == BlackJackGameState.PlayerTurn)
         {
             var card = game.DealerBlackJackHand.Cards[0];
             IReadOnlyList<Card> dealerCards = [card];
@@ -35,7 +47,26 @@ public class BlackJackGameStateDto
         {
             DealerHand = new BlackJackHandDto(game.DealerBlackJackHand);
         }
-        Results = game.Results;
+
+        if (State == BlackJackGameState.Finished)
+        {
+            Winnings = new List<int?>();
+            for (int i = 0; i < game.Bets.Count; i++)
+            {
+                if (game.Bets[i] <= 0)
+                {
+                    Winnings.Add(null);
+                    continue;
+                }
+                var bet = game.Bets[i];
+                Winnings.Add(game.Results[i] switch
+                {
+                    BlackJackGameResult.PlayerWin => game.PlayerHands[i].IsBlackJack() ? bet * 3 / 2 : bet,
+                    BlackJackGameResult.DealerWin => -bet,
+                    _ => 0
+                });
+            }
+        }
     }
-    
+
 }

@@ -39,7 +39,8 @@ export async function register(username, password) {
   });
 
   if (!response.ok) {
-    throw new Error("Register failed");
+    const msg = await response.text();
+    throw new Error(msg || "Register failed");
   }
 
   return true;

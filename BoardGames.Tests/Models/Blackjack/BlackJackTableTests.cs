@@ -4,22 +4,30 @@ namespace BoardGames.Tests.Models.Blackjack;
 
 public class BlackJackTableTests
 {
+    private static void PlaceBetsAndStart(BlackJackGame game, int playerCount)
+    {
+        for (int i = 0; i < playerCount; i++)
+            game.PlaceBet(i, 10);
+        game.Start();
+    }
+
     [Fact]
-    public void NewRound_ReturnsGameInPlayerTurnState()
+    public void NewRound_ReturnsGameInBettingState()
     {
         var table = new BlackJackTable(deckCount: 6);
 
         var game = table.NewRound(1);
 
-        Assert.Equal(BlackJackGameState.PlayerTurn, game.State);
+        Assert.Equal(BlackJackGameState.Betting, game.State);
     }
 
     [Fact]
-    public void NewRound_ReturnsGameWithCorrectPlayerCount()
+    public void NewRound_AfterBetsAndStart_ReturnsGameWithCorrectPlayerCount()
     {
         var table = new BlackJackTable(deckCount: 6);
 
         var game = table.NewRound(3);
+        PlaceBetsAndStart(game, 3);
 
         Assert.Equal(3, game.Results.Count);
     }
@@ -30,11 +38,13 @@ public class BlackJackTableTests
         var table = new BlackJackTable(deckCount: 6);
 
         var game1 = table.NewRound(1);
+        PlaceBetsAndStart(game1, 1);
         game1.Stand();
 
         var game2 = table.NewRound(1);
+        PlaceBetsAndStart(game2, 1);
         game2.Stand();
-        
+
         Assert.Equal(BlackJackGameState.Finished, game1.State);
         Assert.Equal(BlackJackGameState.Finished, game2.State);
     }
@@ -50,6 +60,7 @@ public class BlackJackTableTests
         for (var i = 0; i < 50; i++)
         {
             var game = table.NewRound(1);
+            PlaceBetsAndStart(game, 1);
             game.Stand();
         }
     }
@@ -64,6 +75,7 @@ public class BlackJackTableTests
         for (var i = 0; i < 20; i++)
         {
             var game = table.NewRound(3);
+            PlaceBetsAndStart(game, 3);
             // All players stand
             while (game.State == BlackJackGameState.PlayerTurn)
             {

@@ -21,7 +21,7 @@ public class BlackJackGameTests
     [Fact]
     public void Start_SetsStateToPlayerTurn()
     {
-        var game = new BlackJackGame(CreateShuffledDeck());
+        var game = new BlackJackGame(new Deck());
         game.Start();
 
         Assert.Equal(BlackJackGameState.PlayerTurn, game.State);
@@ -63,7 +63,7 @@ public class BlackJackGameTests
     [Fact]
     public void Stand_MultiplePlayer_FinishesAfterAllStand()
     {
-        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 2);
+        var game = new BlackJackGame(new Deck(), playerCount: 2);
         game.Start();
 
         game.Stand();
@@ -178,7 +178,7 @@ public class BlackJackGameTests
     [Fact]
     public void ForfeitPlayer_SkippedWhenNextPlayerReaches()
     {
-        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 3);
+        var game = new BlackJackGame(new Deck(), playerCount: 3);
         game.Start();
 
         // Forfeit player 1 while player 0 is active

@@ -24,8 +24,8 @@ function App() {
       setRoomPlayers(data.players);
       setIsHost(data.isHost);
     });
-    conn.on("Kicked", () => {
-  
+    conn.on("Kicked", (reason) => {
+      if (reason) alert(reason);
       setRoomId(null);
       setMaxPlayers(0);
       setPlayerCount(0);

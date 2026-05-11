@@ -145,6 +145,8 @@ public class BlackJackRoomManagerTests
         var room = _roomManager.CreateRoom(4);
         _roomManager.JoinRoom(room.RoomId, "conn-1");
         room.BlackJackGame = room.BlackJackTable.NewRound(1);
+        room.BlackJackGame.PlaceBet(0, 10);
+        room.BlackJackGame.Start();
         room.BlackJackGame.Stand();
 
         _roomManager.JoinRoom(room.RoomId, "conn-2");

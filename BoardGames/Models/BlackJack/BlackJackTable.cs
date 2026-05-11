@@ -28,7 +28,6 @@ public class BlackJackTable
             _deck.Shuffle();
         }
         var blackJackGame = new BlackJackGame(_deck, playerCount);
-        blackJackGame.Start();
         return blackJackGame;
     }
 }
