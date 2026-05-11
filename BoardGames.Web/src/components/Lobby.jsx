@@ -8,7 +8,7 @@ export default function Lobby({ connection, onJoinRoom }) {
   async function handleCreate() {
     try {
       const room = await connection.invoke("CreateRoom", maxPlayers);
-      onJoinRoom(room.roomId);
+      onJoinRoom(room.roomId, room.maxPlayers, 1);
     } catch {
       setError("Failed to create room");
     }
@@ -16,8 +16,8 @@ export default function Lobby({ connection, onJoinRoom }) {
 
   async function handleJoin() {
     try {
-      await connection.invoke("JoinRoom", roomId);
-      onJoinRoom(roomId);
+      const result = await connection.invoke("JoinRoom", roomId);
+      onJoinRoom(roomId, result.maxPlayers, result.playerCount);
     } catch {
       setError("Failed to join room");
     }

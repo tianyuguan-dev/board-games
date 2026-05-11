@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 
-export default function Game({ connection, roomId, onLeave }) {
+export default function Game({ connection, roomId, maxPlayers, playerCount, onLeave }) {
   const [gameState, setGameState] = useState(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    connection.on("StartGame", (state) => setGameState(state));
+    connection.on("StartGame", (state) => {
+      setGameState(state);
+      setReady(false);
+    });
     connection.on("PlayerHit", (state) => setGameState(state));
     connection.on("PlayerStand", (state) => setGameState(state));
-    connection.on("PlayerDisconnected", () => console.log("A player disconnected"));
     connection.on("PlayerReady", () => console.log("A player is ready"));
     connection.on("PlayerUnReady", () => console.log("A player is not ready"));
 
@@ -16,29 +18,19 @@ export default function Game({ connection, roomId, onLeave }) {
       connection.off("StartGame");
       connection.off("PlayerHit");
       connection.off("PlayerStand");
-      connection.off("PlayerDisconnected");
       connection.off("PlayerReady");
       connection.off("PlayerUnReady");
     };
   }, [connection]);
 
   async function handleReady() {
-    await connection.invoke("Ready", roomId);
     setReady(true);
+    await connection.invoke("Ready", roomId);
   }
 
   async function handleUnready() {
     await connection.invoke("Unready", roomId);
     setReady(false);
-  }
-
-  async function handleStartGame() {
-    try {
-      await connection.invoke("StartGame", roomId);
-      setReady(false);
-    } catch (err) {
-      console.error("Start failed:", err);
-    }
   }
 
   async function handleHit() {
@@ -67,13 +59,13 @@ export default function Game({ connection, roomId, onLeave }) {
     return (
       <div>
         <h2>Room: {roomId}</h2>
+        <p>Players: {playerCount} / {maxPlayers}</p>
         <p>Waiting for players...</p>
         {ready ? (
           <button onClick={handleUnready}>Cancel Ready</button>
         ) : (
           <button onClick={handleReady}>Ready</button>
         )}
-        <button onClick={handleStartGame}>Start Game</button>
         <br />
         <button onClick={handleLeave}>Leave Room</button>
       </div>
@@ -85,6 +77,7 @@ export default function Game({ connection, roomId, onLeave }) {
   return (
     <div>
       <h2>Room: {roomId}</h2>
+      <p>Players: {playerCount} / {maxPlayers}</p>
 
       <div>
         <h3>Dealer</h3>
@@ -133,7 +126,6 @@ export default function Game({ connection, roomId, onLeave }) {
           ) : (
             <button onClick={handleReady}>Ready (Next Round)</button>
           )}
-          <button onClick={handleStartGame}>Start Game</button>
           <button onClick={handleLeave}>Leave Room</button>
         </div>
       )}

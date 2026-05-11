@@ -17,15 +17,18 @@ public class BlackJackHub(IBlackJackRoomManager roomManager):Hub
         var blackJackRoom = roomManager.CreateRoom(maxPlayers);
         await Groups.AddToGroupAsync(contextConnectionId, blackJackRoom.RoomId);
         roomManager.JoinRoom(blackJackRoom.RoomId, contextConnectionId);
+        await Clients.Group(blackJackRoom.RoomId).SendAsync("PlayerJoined", blackJackRoom.Players.Count);
         return blackJackRoom;
     }
 
-    public async Task JoinRoom(string roomId)
+    public async Task<JoinRoomResult> JoinRoom(string roomId)
     {
         var contextConnectionId = Context.ConnectionId;
         roomManager.JoinRoom(roomId, contextConnectionId);
         await Groups.AddToGroupAsync(contextConnectionId, roomId);
-        await Clients.Group(roomId).SendAsync("JoinRoom", roomId);
+        var blackJackRoom = roomManager.GetRoom(roomId);
+        await Clients.Group(roomId).SendAsync("PlayerJoined", blackJackRoom!.Players.Count);
+        return new JoinRoomResult(blackJackRoom.MaxPlayers, blackJackRoom.Players.Count);
     }
     
     public async Task StartGame(string roomId)
@@ -88,7 +91,7 @@ public class BlackJackHub(IBlackJackRoomManager roomManager):Hub
             }
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
             blackJackRoom?.ReadyPlayers.Remove(Context.ConnectionId);
-            await Clients.Group(roomId).SendAsync("PlayerDisconnected", roomId);
+            await Clients.Group(roomId).SendAsync("PlayerLeft", blackJackRoom?.Players.Count ?? 0);
         }
         await base.OnDisconnectedAsync(exception);
     }
@@ -103,6 +106,10 @@ public class BlackJackHub(IBlackJackRoomManager roomManager):Hub
             throw new InvalidOperationException("Player not in room");
         blackJackRoom.ReadyPlayers.Add(contextConnectionId);
         await Clients.Group(roomId).SendAsync("PlayerReady", roomId);
+        if (blackJackRoom.ReadyPlayers.Count == blackJackRoom.Players.Count)
+        {
+            await StartGame(roomId);
+        }
     }
     
     public async Task Unready(string roomId)
@@ -131,8 +138,8 @@ public class BlackJackHub(IBlackJackRoomManager roomManager):Hub
             }
 
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
-            await Clients.Group(roomId).SendAsync("PlayerDisconnected", roomId);
+            await Clients.Group(roomId).SendAsync("PlayerLeft", blackJackRoom?.Players.Count ?? 0);
         }
-        
+
     }
 }

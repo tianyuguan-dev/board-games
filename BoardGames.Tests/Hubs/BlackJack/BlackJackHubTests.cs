@@ -80,12 +80,18 @@ public class BlackJackHubTests
     [Fact]
     public async Task JoinRoom_AddsPlayerToGroupAndNotifies()
     {
-        await _hub.JoinRoom("12345");
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add("other-conn", 0);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
+        var result = await _hub.JoinRoom("12345");
+
+        Assert.Equal(4, result.MaxPlayers);
+        Assert.Equal(room.Players.Count, result.PlayerCount);
         _mockRoomManager.Verify(r => r.JoinRoom("12345", ConnectionId), Times.Once);
         _mockGroups.Verify(g => g.AddToGroupAsync(ConnectionId, "12345", default), Times.Once);
-        _mockClientProxy.Verify(c => c.SendCoreAsync("JoinRoom",
-            It.Is<object[]>(args => args.Length == 1 && (string)args[0] == "12345"), default), Times.Once);
+        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerJoined",
+            It.IsAny<object[]>(), default), Times.Once);
     }
 
     // StartGame tests
@@ -247,7 +253,7 @@ public class BlackJackHubTests
 
         await _hub.OnDisconnectedAsync(null);
 
-        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerDisconnected",
+        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerLeft",
             It.IsAny<object[]>(), default), Times.Once);
     }
 
@@ -322,6 +328,7 @@ public class BlackJackHubTests
     {
         var room = new BlackJackRoom("12345", 4);
         room.Players.Add(ConnectionId, 0);
+        room.Players.Add("conn-2", 1);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.Ready("12345");
@@ -398,7 +405,7 @@ public class BlackJackHubTests
         await _hub.LeaveRoom();
 
         _mockGroups.Verify(g => g.RemoveFromGroupAsync(ConnectionId, "12345", default), Times.Once);
-        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerDisconnected",
+        _mockClientProxy.Verify(c => c.SendCoreAsync("PlayerLeft",
             It.IsAny<object[]>(), default), Times.Once);
     }
 

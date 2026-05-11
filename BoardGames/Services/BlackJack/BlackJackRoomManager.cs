@@ -52,7 +52,7 @@ public class BlackJackRoomManager: IBlackJackRoomManager
 
     public (string? roomId, int seatIndex) FindAndRemoveByConnectionId(string connectionId)
     {
-        string roomId=null;
+        string? roomId=null;
         int seatIndex=-1;
         _rooms.Values.ToList().ForEach(room =>
         {
