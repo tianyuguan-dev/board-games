@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using BoardGames.Controllers;
 using BoardGames.Data;
 using BoardGames.Dtos;
 using BoardGames.Models;
 using BoardGames.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 
@@ -23,6 +25,18 @@ public class AuthControllerTests
         _mockUserRepository = new Mock<IUserRepository>();
         _mockBalanceRepository = new Mock<IGameBalanceRepository>();
         _controller = new AuthController(_mockJwtService.Object, _mockAuthService.Object, _mockUserRepository.Object, _mockBalanceRepository.Object);
+    }
+
+    private void SetupAuthenticatedUser(int userId = 1)
+    {
+        var claims = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+        }, "test"));
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claims }
+        };
     }
 
     [Fact]
@@ -75,5 +89,67 @@ public class AuthControllerTests
             { Username = "terry", Password = "wrong" });
 
         Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task UpdateNickname_ReturnsOk_WhenUserExists()
+    {
+        SetupAuthenticatedUser();
+        var user = new User { Id = 1, Username = "terry", Nickname = "old" };
+        _mockUserRepository.Setup(r => r.FindById(1)).ReturnsAsync(user);
+
+        var result = await _controller.UpdateNickname(new UpdateNicknameDto { Nickname = "newname" });
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Contains("newname", okResult.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task UpdateNickname_ReturnsNotFound_WhenUserMissing()
+    {
+        SetupAuthenticatedUser(99);
+        _mockUserRepository.Setup(r => r.FindById(99)).ReturnsAsync((User?)null);
+
+        var result = await _controller.UpdateNickname(new UpdateNicknameDto { Nickname = "newname" });
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ReturnsOk_WhenSuccessful()
+    {
+        SetupAuthenticatedUser();
+        _mockAuthService.Setup(s => s.ChangePassword(1, "oldpass", "newpass")).ReturnsAsync(true);
+
+        var result = await _controller.ChangePassword(new ChangePasswordDto
+            { OldPassword = "oldpass", NewPassword = "newpass" });
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ReturnsBadRequest_WhenOldPasswordWrong()
+    {
+        SetupAuthenticatedUser();
+        _mockAuthService.Setup(s => s.ChangePassword(1, "wrong", "newpass")).ReturnsAsync(false);
+
+        var result = await _controller.ChangePassword(new ChangePasswordDto
+            { OldPassword = "wrong", NewPassword = "newpass" });
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetBalances_ReturnsAllGameBalances()
+    {
+        SetupAuthenticatedUser();
+        _mockBalanceRepository.Setup(r => r.GetOrCreate(1, GameType.BlackJack))
+            .ReturnsAsync(new GameBalance { Balance = 500 });
+
+        var result = await _controller.GetBalances();
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var balances = Assert.IsType<Dictionary<string, int>>(okResult.Value);
+        Assert.Equal(500, balances["BlackJack"]);
     }
 }

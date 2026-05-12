@@ -86,4 +86,41 @@ public class AuthServiceTests
 
         Assert.Null(result);
     }
+
+    [Fact]
+    public async Task ChangePassword_ReturnsTrue_WhenOldPasswordCorrect()
+    {
+        var hash = BCrypt.Net.BCrypt.HashPassword("oldpass");
+        var user = new User { Id = 1, Username = "terry", PasswordHash = hash };
+        _mockRepo.Setup(r => r.FindById(1)).ReturnsAsync(user);
+
+        var result = await _authService.ChangePassword(1, "oldpass", "newpass");
+
+        Assert.True(result);
+        Assert.True(BCrypt.Net.BCrypt.Verify("newpass", user.PasswordHash));
+        _mockRepo.Verify(r => r.Update(user), Times.Once);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ReturnsFalse_WhenOldPasswordWrong()
+    {
+        var hash = BCrypt.Net.BCrypt.HashPassword("oldpass");
+        _mockRepo.Setup(r => r.FindById(1))
+            .ReturnsAsync(new User { Id = 1, Username = "terry", PasswordHash = hash });
+
+        var result = await _authService.ChangePassword(1, "wrongpass", "newpass");
+
+        Assert.False(result);
+        _mockRepo.Verify(r => r.Update(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ReturnsFalse_WhenUserNotFound()
+    {
+        _mockRepo.Setup(r => r.FindById(99)).ReturnsAsync((User?)null);
+
+        var result = await _authService.ChangePassword(99, "oldpass", "newpass");
+
+        Assert.False(result);
+    }
 }

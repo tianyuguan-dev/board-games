@@ -203,6 +203,162 @@ public class BlackJackGameTests
         Assert.Equal(BlackJackGameState.Finished, game.State);
     }
 
+    // Betting tests
+
+    [Fact]
+    public void Constructor_InitializesBettingState()
+    {
+        var game = new BlackJackGame(new Deck());
+        Assert.Equal(BlackJackGameState.Betting, game.State);
+    }
+
+    [Fact]
+    public void PlaceBet_SetsBetAmount()
+    {
+        var game = new BlackJackGame(new Deck(), playerCount: 2);
+        game.PlaceBet(0, 50);
+        game.PlaceBet(1, 30);
+
+        Assert.Equal(50, game.Bets[0]);
+        Assert.Equal(30, game.Bets[1]);
+    }
+
+    [Fact]
+    public void PlaceBet_IgnoresInvalidAmount()
+    {
+        var game = new BlackJackGame(new Deck());
+        game.PlaceBet(0, 0);
+        Assert.Equal(0, game.Bets[0]);
+
+        game.PlaceBet(0, 200);
+        Assert.Equal(0, game.Bets[0]);
+    }
+
+    [Fact]
+    public void PlaceBet_IgnoresInvalidPlayerIndex()
+    {
+        var game = new BlackJackGame(new Deck());
+        game.PlaceBet(-1, 10);
+        game.PlaceBet(5, 10);
+        // No exception thrown
+    }
+
+    [Fact]
+    public void PlaceBet_IgnoresWhenNotBetting()
+    {
+        var game = new BlackJackGame(new Deck());
+        game.PlaceBet(0, 10);
+        game.Start();
+
+        game.PlaceBet(0, 50);
+        Assert.Equal(10, game.Bets[0]);
+    }
+
+    [Fact]
+    public void AllBetsPlaced_ReturnsTrueWhenAllBet()
+    {
+        var game = new BlackJackGame(new Deck(), playerCount: 2);
+        Assert.False(game.AllBetsPlaced());
+
+        game.PlaceBet(0, 10);
+        Assert.False(game.AllBetsPlaced());
+
+        game.PlaceBet(1, 10);
+        Assert.True(game.AllBetsPlaced());
+    }
+
+    [Fact]
+    public void AllBetsPlaced_SkipsForfeitedPlayers()
+    {
+        var game = new BlackJackGame(new Deck(), playerCount: 2);
+        game.ForfeitPlayer(1);
+        game.PlaceBet(0, 10);
+
+        Assert.True(game.AllBetsPlaced());
+    }
+
+    [Fact]
+    public void AutoBetRemaining_FillsUnplacedBets()
+    {
+        var game = new BlackJackGame(new Deck(), playerCount: 3);
+        game.PlaceBet(0, 50);
+        game.AutoBetRemaining(5);
+
+        Assert.Equal(50, game.Bets[0]);
+        Assert.Equal(5, game.Bets[1]);
+        Assert.Equal(5, game.Bets[2]);
+    }
+
+    [Fact]
+    public void Start_IgnoredWhenNotBetting()
+    {
+        var game = new BlackJackGame(new Deck());
+        game.PlaceBet(0, 10);
+        game.Start();
+        var state = game.State;
+
+        game.Start(); // second call should be ignored
+        Assert.Equal(state, game.State);
+    }
+
+    // Double Down tests
+
+    [Fact]
+    public void CanDoubleDown_TrueWithTwoCards()
+    {
+        var game = new BlackJackGame(new Deck());
+        game.PlaceBet(0, 10);
+        game.Start();
+
+        if (game.State == BlackJackGameState.PlayerTurn)
+            Assert.True(game.CanDoubleDown());
+    }
+
+    [Fact]
+    public void CanDoubleDown_FalseAfterHit()
+    {
+        var game = new BlackJackGame(new Deck());
+        game.PlaceBet(0, 10);
+        game.Start();
+
+        if (game.State == BlackJackGameState.PlayerTurn)
+        {
+            game.Hit();
+            if (game.State == BlackJackGameState.PlayerTurn)
+                Assert.False(game.CanDoubleDown());
+        }
+    }
+
+    [Fact]
+    public void DoubleDown_DoublesBetAndDealsOneCard()
+    {
+        var game = new BlackJackGame(new Deck());
+        game.PlaceBet(0, 10);
+        game.Start();
+
+        if (game.State == BlackJackGameState.PlayerTurn)
+        {
+            game.DoubleDown();
+            Assert.Equal(20, game.Bets[0]);
+            Assert.Equal(3, game.PlayerHands[0].Cards.Count);
+        }
+    }
+
+    [Fact]
+    public void DoubleDown_AutoStandsAfter()
+    {
+        var game = new BlackJackGame(new Deck());
+        game.PlaceBet(0, 10);
+        game.Start();
+
+        if (game.State == BlackJackGameState.PlayerTurn)
+        {
+            game.DoubleDown();
+            // Single player: game should be finished after double down
+            Assert.Equal(BlackJackGameState.Finished, game.State);
+        }
+    }
+
     [Fact]
     public void Game_SharesDeck_AcrossMultipleRounds()
     {
