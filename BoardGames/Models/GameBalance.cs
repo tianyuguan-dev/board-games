@@ -2,7 +2,8 @@ namespace BoardGames.Models;
 
 public enum GameType
 {
-    BlackJack
+    BlackJack,
+    Avalon
 }
 
 public class GameBalance

@@ -1,4 +1,6 @@
-const BASE_URL = `http://${window.location.hostname}:5087/api`;
+const BASE_URL = import.meta.env.VITE_BACKEND_URL
+  ? `${import.meta.env.VITE_BACKEND_URL}/api`
+  : (import.meta.env.PROD ? '/api' : `http://${window.location.hostname}:5087/api`);
 
 export async function login(username, password) {
   const response = await fetch(`${BASE_URL}/auth/login`, {

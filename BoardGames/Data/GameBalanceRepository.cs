@@ -11,7 +11,12 @@ public class GameBalanceRepository(AppDbContext db) : IGameBalanceRepository
             .FirstOrDefaultAsync(b => b.UserId == userId && b.GameType == gameType);
         if (balance == null)
         {
-            balance = new GameBalance { UserId = userId, GameType = gameType };
+            balance = new GameBalance
+            {
+                UserId = userId,
+                GameType = gameType,
+                Balance = gameType == GameType.Avalon ? 0 : 1000
+            };
             db.GameBalances.Add(balance);
             await db.SaveChangesAsync();
         }

@@ -1,14 +1,28 @@
 services:
-  postgres:
-    image: postgres:15-alpine
+  db:
+    image: postgres:16-alpine
+    restart: always
     environment:
+      POSTGRES_DB: boardgames
       POSTGRES_USER: boardgames
       POSTGRES_PASSWORD: boardgames123
-      POSTGRES_DB: boardgames
-    ports:
-      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    restart: always
+    ports:
+      - "80:5087"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=boardgames;Username=boardgames;Password=boardgames123
+      - Jwt__Key=ThisIsTheSecretKeyOfTianyu0122BoardGamePlatform!
+      - Jwt__Issuer=BoardGames
+      - ASPNETCORE_ENVIRONMENT=Production
+    depends_on:
+      - db
 
 volumes:
   pgdata:

@@ -145,11 +145,14 @@ public class AuthControllerTests
         SetupAuthenticatedUser();
         _mockBalanceRepository.Setup(r => r.GetOrCreate(1, GameType.BlackJack))
             .ReturnsAsync(new GameBalance { Balance = 500 });
+        _mockBalanceRepository.Setup(r => r.GetOrCreate(1, GameType.Avalon))
+            .ReturnsAsync(new GameBalance { Balance = 1000 });
 
         var result = await _controller.GetBalances();
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var balances = Assert.IsType<Dictionary<string, int>>(okResult.Value);
         Assert.Equal(500, balances["BlackJack"]);
+        Assert.Equal(1000, balances["Avalon"]);
     }
 }

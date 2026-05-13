@@ -1,0 +1,597 @@
+.av-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.av-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.av-header .room-info {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.role-badge {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.role-badge.good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.role-badge.evil {
+  background: #fce7e7;
+  color: #991b1b;
+}
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+}
+
+.btn-small:hover {
+  background: #f1f5f9;
+}
+
+/* Persistent night info bar */
+.night-info-bar {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+.night-info-hint {
+  color: #64748b;
+}
+
+.night-info-player {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.night-info-role {
+  font-weight: 400;
+  color: #64748b;
+}
+
+/* Mission track */
+.mission-track {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.mission-dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.mission-dot.current {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.mission-dot.success {
+  background: #22c55e;
+  color: #fff;
+}
+
+.mission-dot.fail {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Reject track */
+.reject-track {
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+.reject-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  margin: 0 3px;
+  vertical-align: middle;
+}
+
+.reject-dot.active {
+  background: #ef4444;
+}
+
+/* Players */
+.av-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.av-player {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+  background: #fff;
+  font-size: 14px;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.av-player.me {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.av-player.leader {
+  border-color: #f59e0b;
+}
+
+.av-player.on-team {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.av-player.selected {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.av-player.clickable {
+  cursor: pointer;
+}
+
+.av-player.clickable:hover {
+  transform: scale(1.05);
+}
+
+.player-name {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.me-tag {
+  font-size: 11px;
+  color: #3b82f6;
+  margin-left: 4px;
+}
+
+/* Night phase */
+.av-night {
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.role-card {
+  display: inline-block;
+  padding: 24px 32px;
+  border-radius: 16px;
+  margin: 16px 0;
+}
+
+.role-card.good {
+  background: #dcfce7;
+  border: 2px solid #22c55e;
+}
+
+.role-card.evil {
+  background: #fce7e7;
+  border: 2px solid #ef4444;
+}
+
+.role-emoji {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.role-card h3 {
+  margin: 0 0 4px;
+  color: #1e293b;
+}
+
+.role-team {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.role-desc {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0;
+}
+
+.night-info {
+  margin: 16px 0;
+}
+
+.night-hint {
+  color: #64748b;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.night-players {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.night-player {
+  padding: 4px 12px;
+  background: #fef3c7;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #92400e;
+  font-size: 14px;
+}
+
+/* Actions */
+.av-actions {
+  text-align: center;
+}
+
+.action-panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.action-panel p {
+  margin: 0 0 12px;
+  color: #475569;
+}
+
+.waiting {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Game over */
+.game-over {
+  text-align: center;
+  padding: 16px;
+}
+
+.good-win {
+  color: #16a34a;
+}
+
+.evil-win {
+  color: #dc2626;
+}
+
+.roles-reveal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.role-reveal {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.role-reveal.good {
+  background: #dcfce7;
+}
+
+.role-reveal.evil {
+  background: #fce7e7;
+}
+
+/* History */
+.history-panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: left;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.history-panel h3 {
+  margin: 0 0 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.history-mission {
+  margin-bottom: 12px;
+}
+
+.history-mission h4 {
+  font-size: 14px;
+  margin: 0 0 6px;
+  color: #1e293b;
+}
+
+.history-proposal {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.proposal-header {
+  margin-bottom: 4px;
+}
+
+.proposal-team {
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.proposal-votes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.vote-chip {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.vote-chip.approve {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.vote-chip.reject {
+  background: #fce7e7;
+  color: #991b1b;
+}
+
+.badge-approve {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-reject {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #fce7e7;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.proposal-mission-result {
+  margin-top: 4px;
+}
+
+/* Player list in lobby */
+.av-player-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+
+.av-player-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.seat-number {
+  color: #94a3b8;
+  font-size: 12px;
+  min-width: 18px;
+}
+
+.player-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.move-btn {
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.move-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.move-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.av-player-list .kick-btn {
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: none;
+  background: #fce7e7;
+  color: #991b1b;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* Role config display */
+.role-config {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.role-config-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  min-width: 120px;
+}
+
+.side-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.good-label { color: #16a34a; }
+.evil-label { color: #dc2626; }
+
+.role-chip {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.role-chip.good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.role-chip.evil {
+  background: #fce7e7;
+  color: #991b1b;
+}
+
+/* Role toggles */
+.role-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.role-toggle {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.role-toggle:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.role-toggle.active {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
+/* Role adjust controls */
+.role-adjust-section {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.role-adjust-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-adjust-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.role-adjust-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.role-adjust-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.role-adjust-label {
+  font-size: 13px;
+  color: #475569;
+  min-width: 100px;
+  text-align: center;
+}

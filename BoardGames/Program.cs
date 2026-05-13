@@ -1,7 +1,9 @@
 using System.Text;
 using BoardGames.Data;
+using BoardGames.Hubs.Avalon;
 using BoardGames.Hubs.BlackJack;
 using BoardGames.Services;
+using BoardGames.Services.Avalon;
 using BoardGames.Services.BlackJack;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +21,7 @@ builder.Services.AddScoped<IGameBalanceRepository, GameBalanceRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();                                            
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddSingleton<IBlackJackRoomManager, BlackJackRoomManager>();
+builder.Services.AddSingleton<IAvalonRoomManager, AvalonRoomManager>();
 builder.Services.AddSingleton<ITurnTimerService, TurnTimerService>();
 builder.Services.AddSignalR();
 builder.Services.AddCors(options =>
@@ -63,6 +66,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 var app = builder.Build();
 
+// Auto-apply database migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -71,8 +81,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
+
+// Serve frontend static files from wwwroot
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<BlackJackHub>("/hub/blackjack");
+app.MapHub<AvalonHub>("/hub/avalon");
+
+// SPA fallback: serve index.html for non-API/hub routes
+app.MapFallbackToFile("index.html");
+
 app.Run();
