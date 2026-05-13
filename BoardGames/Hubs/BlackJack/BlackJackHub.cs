@@ -15,6 +15,14 @@ public class BlackJackHub(
     ITurnTimerService turnTimer,
     IGameBalanceRepository balanceRepo) : Hub
 {
+    public override async Task OnConnectedAsync()
+    {
+        var userId = int.Parse(Context.User!.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var user = await userRepository.FindById(userId);
+        if (user != null) { user.LastActiveAt = DateTime.UtcNow; await userRepository.Update(user); }
+        await base.OnConnectedAsync();
+    }
+
     private void ManageTurnTimer(string roomId, BlackJackGame game)
     {
         if (game.State == BlackJackGameState.PlayerTurn)

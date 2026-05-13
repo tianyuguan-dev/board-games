@@ -12,6 +12,13 @@ namespace BoardGames.Hubs.Avalon;
 [Authorize]
 public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepository, IGameBalanceRepository balanceRepository) : Hub
 {
+    public override async Task OnConnectedAsync()
+    {
+        var user = await userRepository.FindById(GetUserId());
+        if (user != null) { user.LastActiveAt = DateTime.UtcNow; await userRepository.Update(user); }
+        await base.OnConnectedAsync();
+    }
+
     private int GetUserId() =>
         int.Parse(Context.User!.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 

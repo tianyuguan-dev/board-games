@@ -32,6 +32,8 @@ public class AuthController(IJwtService jwtService, IAuthService authService, IU
             return Unauthorized("Username or password is incorrect");
         }
 
+        user.LastActiveAt = DateTime.UtcNow;
+        await userRepository.Update(user);
         var token = jwtService.GenerateJwtToken(user);
         return Ok(new { token, nickname = user.Nickname });
     }
