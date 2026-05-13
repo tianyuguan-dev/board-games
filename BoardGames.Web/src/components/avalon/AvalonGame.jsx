@@ -38,11 +38,14 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
     connection.on("YourSeat", (index) => setMyIndex(index));
     connection.on("GameState", (state) => {
       setGameState(state);
+      setMyIndex(state.myIndex);
       setReady(false);
       setNightConfirmed(false);
-      setHasVoted(false);
-      setHasPlayedCard(false);
       setSelectedTeam([]);
+      // Restore vote/mission state on reconnect
+      const mi = state.myIndex;
+      setHasVoted(!!(state.phase === "TeamVote" && state.playersWhoVoted?.includes(mi)));
+      setHasPlayedCard(!!(state.phase === "Mission" && state.missionPlayersPlayed?.includes(mi)));
     });
     connection.on("VoteProgress", () => {});
     connection.on("MissionProgress", () => {});
@@ -209,6 +212,8 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
     setHasPlayedCard(true);
   }
   async function handleAssassinate(targetIndex) {
+    const name = gameState?.playerNames?.[targetIndex] || `Player ${targetIndex}`;
+    if (!window.confirm(`Assassinate ${name}?`)) return;
     await connection.invoke("Assassinate", roomId, targetIndex);
   }
 
@@ -293,13 +298,22 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
             <h4>Mission {mi + 1} {gameState.missionResults[mi] !== "Pending" && `(${gameState.missionResults[mi]})`}</h4>
             {proposals.length === 0 && <p className="text-muted">No proposals yet</p>}
             {proposals.map((p, pi) => (
-              <div key={pi} className="history-proposal">
+              <div key={pi} className={`history-proposal ${p.approved === true ? "approved" : p.approved === false ? "rejected" : ""}`}>
                 <div className="proposal-header">
-                  Proposal #{pi + 1} by <strong>{gameState.playerNames[p.leaderIndex]}</strong>
-                  {" "}{p.approved ? <span className="badge-approve">Approved</span> : <span className="badge-reject">Rejected</span>}
+                  <span className="proposal-label">#{pi + 1}</span>
+                  <span className="proposal-sub">Proposed by</span>
+                  <span className="proposal-leader">{gameState.playerNames[p.leaderIndex]}</span>
+                  {p.approved != null && (p.approved
+                    ? <span className="badge-approve">Approved</span>
+                    : <span className="badge-reject">Rejected</span>)}
                 </div>
-                <div className="proposal-team">
-                  Team: {p.team.map((t) => gameState.playerNames[t]).join(", ")}
+                <div className="proposal-team-row">
+                  <span className="proposal-sub">Team</span>
+                  <div className="proposal-team">
+                    {p.team.map((t) => (
+                      <span key={t} className="team-member">{gameState.playerNames[t]}</span>
+                    ))}
+                  </div>
                 </div>
                 {p.votes && (
                   <div className="proposal-votes">
@@ -311,9 +325,12 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
                   </div>
                 )}
                 {p.missionResult && p.missionResult !== "Pending" && (
-                  <div className="proposal-mission-result">
-                    Result: {p.successCount} success, {p.failCount} fail
-                    {" "}<span className={p.missionResult === "Success" ? "badge-approve" : "badge-reject"}>{p.missionResult}</span>
+                  <div className={`proposal-mission-result ${p.missionResult === "Success" ? "mission-success" : "mission-fail"}`}>
+                    <span className="mission-result-counts">
+                      <span className="count-success">{p.successCount} Success</span>
+                      <span className="count-divider">/</span>
+                      <span className="count-fail">{p.failCount} Fail</span>
+                    </span>
                   </div>
                 )}
               </div>
@@ -509,8 +526,8 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
       {/* Phase-specific actions */}
       <div className="av-actions">
         {gs.phase === "TeamProposal" && isLeader && (
-          <div className="action-panel">
-            <p>Select {gs.requiredTeamSize} players for the mission ({selectedTeam.length}/{gs.requiredTeamSize})</p>
+          <div className="action-panel action-highlight">
+            <p className="action-title">Your turn! Select {gs.requiredTeamSize} players ({selectedTeam.length}/{gs.requiredTeamSize})</p>
             <button
               className="btn btn-success"
               onClick={handleProposeTeam}
@@ -560,10 +577,10 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
         )}
 
         {gs.phase === "Assassination" && myIndex === gs.assassinIndex && (
-          <div className="action-panel">
+          <div className="action-panel action-highlight-danger">
             {gs.bonusAssassination
-              ? <p>Evil won 3 missions! Find Merlin for double points! Click on your target.</p>
-              : <p>Good side won 3 missions. Click on who you think is Merlin!</p>
+              ? <p className="action-title">Evil won 3 missions! Find Merlin for double points! Click on your target.</p>
+              : <p className="action-title">Good won 3 missions. Click on who you think is Merlin!</p>
             }
           </div>
         )}
@@ -578,11 +595,13 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
         {gs.phase === "GameOver" && (
           <div className="game-over">
             <h2 className={gs.winner === "Good" ? "good-win" : "evil-win"}>
-              {gs.winner === "Good" ? "Good Wins!" : "Evil Wins!"}
+              {gs.winReason?.includes("Double points")
+                ? "Evil Epic Victory!!"
+                : gs.winner === "Good" ? "Good Wins!" : "Evil Wins!"}
             </h2>
-            <p>{gs.winReason}</p>
+            <p className="win-reason">{gs.winReason}</p>
             {gs.assassinTarget != null && (
-              <p>Assassin targeted: {gs.playerNames[gs.assassinTarget]}</p>
+              <p className="assassin-target">Assassin targeted: <strong>{gs.playerNames[gs.assassinTarget]}</strong></p>
             )}
             <div className="roles-reveal">
               {gs.allRoles.map((role, i) => (

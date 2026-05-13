@@ -283,6 +283,34 @@
   color: #475569;
 }
 
+.action-highlight {
+  border: 2px solid #3b82f6;
+  background: #dbeafe;
+  animation: pulse-blue 1.5s ease-in-out 3;
+}
+
+.action-highlight-danger {
+  border: 2px solid #ef4444;
+  background: #fecaca;
+  animation: pulse-red 1.5s ease-in-out 3;
+}
+
+.action-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+@keyframes pulse-blue {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+}
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+
 .waiting {
   color: #94a3b8;
   font-style: italic;
@@ -300,6 +328,18 @@
 
 .evil-win {
   color: #dc2626;
+}
+
+.win-reason {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.assassin-target {
+  font-size: 14px;
+  color: #475569;
+  margin: 4px 0 12px;
 }
 
 .roles-reveal {
@@ -344,37 +384,90 @@
 }
 
 .history-mission {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .history-mission h4 {
   font-size: 14px;
-  margin: 0 0 6px;
+  font-weight: 700;
+  margin: 0 0 8px;
   color: #1e293b;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .history-proposal {
-  background: #f8fafc;
   border-radius: 8px;
-  padding: 8px 12px;
-  margin-bottom: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
   font-size: 13px;
+  border-left: 3px solid #cbd5e1;
+  background: #f8fafc;
+}
+
+.history-proposal.approved {
+  border-left-color: #22c55e;
+}
+
+.history-proposal.rejected {
+  border-left-color: #ef4444;
 }
 
 .proposal-header {
-  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.proposal-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.proposal-sub {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.proposal-leader {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.proposal-team-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 .proposal-team {
-  color: #475569;
-  margin-bottom: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.team-member {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .proposal-votes {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .vote-chip {
@@ -412,7 +505,40 @@
 }
 
 .proposal-mission-result {
-  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.proposal-mission-result.mission-success {
+  background: #dcfce7;
+}
+
+.proposal-mission-result.mission-fail {
+  background: #fce7e7;
+}
+
+.mission-result-counts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.count-success {
+  color: #16a34a;
+}
+
+.count-divider {
+  color: #94a3b8;
+}
+
+.count-fail {
+  color: #dc2626;
 }
 
 /* Player list in lobby */

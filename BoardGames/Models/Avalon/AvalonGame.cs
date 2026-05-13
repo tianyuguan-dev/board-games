@@ -165,7 +165,7 @@ public class AvalonGame
             if (ConsecutiveRejects >= MaxConsecutiveRejects)
             {
                 Winner = GameWinner.Evil;
-                WinReason = $"{MaxConsecutiveRejects} consecutive proposals rejected";
+                WinReason = $"{MaxConsecutiveRejects} proposals rejected!";
                 Phase = AvalonPhase.GameOver;
                 return;
             }
@@ -199,6 +199,8 @@ public class AvalonGame
         return CurrentProposal != null && _missionActions.Count == CurrentProposal.Team.Count;
     }
 
+    public List<int> GetMissionPlayersPlayed() => _missionActions.Keys.ToList();
+
     private void ResolveMission()
     {
         int fails = _missionActions.Count(a => !a.Value);
@@ -226,7 +228,7 @@ public class AvalonGame
             }
 
             Winner = GameWinner.Evil;
-            WinReason = "3 missions failed";
+            WinReason = "3 missions failed!";
             Phase = AvalonPhase.GameOver;
             return;
         }
@@ -241,7 +243,7 @@ public class AvalonGame
             }
 
             Winner = GameWinner.Good;
-            WinReason = "3 missions succeeded";
+            WinReason = "3 missions completed successfully!";
             Phase = AvalonPhase.GameOver;
             return;
         }
@@ -268,20 +270,20 @@ public class AvalonGame
             // Evil already won by missions; finding Merlin = double points
             Winner = GameWinner.Evil;
             WinReason = Roles[targetIndex] == AvalonRole.Merlin
-                ? "3 missions failed + Assassin killed Merlin (double points!)"
-                : "3 missions failed";
+                ? "3 missions failed + Merlin assassinated! Double points!"
+                : "3 missions failed. Assassin missed Merlin.";
         }
         else
         {
             if (Roles[targetIndex] == AvalonRole.Merlin)
             {
                 Winner = GameWinner.Evil;
-                WinReason = "Assassin killed Merlin";
+                WinReason = "Merlin has been assassinated!";
             }
             else
             {
                 Winner = GameWinner.Good;
-                WinReason = "Assassin failed to find Merlin";
+                WinReason = "Merlin survived! Assassin choose the wrong target.";
             }
         }
 

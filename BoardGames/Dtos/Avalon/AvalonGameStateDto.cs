@@ -65,6 +65,7 @@ public class AvalonGameStateDto
     // Mission state
     public int? MissionCardsPlayed { get; set; }
     public int? MissionCardsTotal { get; set; }
+    public List<int>? MissionPlayersPlayed { get; set; }
 
     // Assassination
     public int? AssassinIndex { get; set; }
@@ -131,8 +132,7 @@ public class AvalonGameStateDto
         if (game.Phase == AvalonPhase.Mission && game.CurrentProposal != null)
         {
             dto.MissionCardsTotal = game.CurrentProposal.Team.Count;
-            // We don't expose individual mission actions count to prevent info leak
-            // Just show it's in progress
+            dto.MissionPlayersPlayed = game.GetMissionPlayersPlayed();
         }
 
         // Assassination
@@ -149,6 +149,7 @@ public class AvalonGameStateDto
             dto.WinReason = game.WinReason;
             dto.AllRoles = game.Roles.Select(r => r.ToString()).ToList();
             dto.AssassinTarget = game.AssassinTarget;
+            dto.BonusAssassination = game.BonusAssassination;
         }
 
         // History
