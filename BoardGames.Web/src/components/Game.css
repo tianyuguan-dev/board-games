@@ -18,10 +18,27 @@
   color: #9ca3af;
 }
 
-.game-header .balance {
-  font-size: 14px;
+.balance-bar {
+  text-align: center;
+  font-size: 18px;
   color: #f4a261;
-  font-weight: 600;
+  font-weight: 700;
+  background: rgba(244, 162, 97, 0.1);
+  border: 1px solid rgba(244, 162, 97, 0.3);
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.player-bal {
+  font-size: 12px;
+  color: #f4a261;
+}
+
+.player-bal-inline {
+  font-size: 12px;
+  color: #f4a261;
+  margin-left: 4px;
 }
 
 .table {

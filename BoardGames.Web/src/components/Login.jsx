@@ -33,7 +33,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="page-center">
-      <h2>Tianyu Board Games</h2>
+      <h2>Guan Yu Board Games</h2>
       <div className="form-group">
         <label>Username</label>
         <input

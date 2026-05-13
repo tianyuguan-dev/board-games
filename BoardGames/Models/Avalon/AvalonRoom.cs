@@ -156,6 +156,19 @@ public class AvalonRoom
         Players[connB] = seatA;
     }
 
+    public void MoveSeat(int fromSeat, int toSeat)
+    {
+        // Get ordered list of connectionIds by seat
+        var ordered = Players.OrderBy(p => p.Value).Select(p => p.Key).ToList();
+        if (fromSeat < 0 || fromSeat >= ordered.Count || toSeat < 0 || toSeat >= ordered.Count) return;
+        var conn = ordered[fromSeat];
+        ordered.RemoveAt(fromSeat);
+        ordered.Insert(toSeat, conn);
+        // Reassign sequential seats
+        for (int i = 0; i < ordered.Count; i++)
+            Players[ordered[i]] = i;
+    }
+
     public void BuildSeatMap()
     {
         SeatToConnection = Players.ToDictionary(p => p.Value, p => p.Key);

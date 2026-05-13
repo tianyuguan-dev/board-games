@@ -275,6 +275,20 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         await BroadcastRoomPlayers(roomId);
     }
 
+    public async Task ReorderPlayer(string roomId, int fromSeat, int toSeat)
+    {
+        var room = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException("Room not found");
+        if (room.HostConnectionId != Context.ConnectionId)
+            throw new InvalidOperationException("Only host can reorder");
+        if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
+            throw new InvalidOperationException("Cannot reorder during game");
+        if (fromSeat == toSeat) return;
+
+        room.MoveSeat(fromSeat, toSeat);
+        await BroadcastRoomPlayers(roomId);
+    }
+
     public async Task KickPlayer(string roomId, int seatIndex)
     {
         var room = roomManager.GetRoom(roomId)
@@ -313,7 +327,6 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         if (room.Players.Where(p => p.Key != room.HostConnectionId).Any(p => !room.ReadyPlayers.Contains(p.Key)))
             throw new InvalidOperationException("Not all players are ready");
 
-        room.ReassignSeats();
         room.BuildSeatMap();
         room.RebuildRoleConfig(playerCount);
         room.Game = new AvalonGame(playerCount, room.RoleConfig, new Random().Next(playerCount), room.MaxRejects);

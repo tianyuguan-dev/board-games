@@ -27,6 +27,7 @@ public class BlackJackHub(
     {
         var dto = new BlackJackGameStateDto(room.BlackJackGame!);
         dto.PlayerNames = room.GamePlayerNames;
+        dto.PlayerBalances = room.GamePlayerBalances;
         dto.TotalCards = room.BlackJackTable.TotalCards;
         dto.CardsRemaining = room.BlackJackTable.CardsRemaining;
         dto.ReshuffleThreshold = room.BlackJackTable.ReshuffleThreshold;
@@ -37,19 +38,23 @@ public class BlackJackHub(
     {
         var room = roomManager.GetRoom(roomId);
         if (room == null) return;
-        var players = room.Players
-            .OrderBy(p => p.Value)
-            .Select(p => new
+        var playerList = new List<object>();
+        foreach (var p in room.Players.OrderBy(p => p.Value))
+        {
+            var uid = room.PlayerUserIds.GetValueOrDefault(p.Key);
+            var bal = uid > 0 ? (await balanceRepo.GetOrCreate(uid, GameType.BlackJack)).Balance : 0;
+            playerList.Add(new
             {
                 Nickname = room.PlayerNicknames.GetValueOrDefault(p.Key, "Player " + p.Value),
                 IsReady = room.ReadyPlayers.Contains(p.Key),
                 IsHost = p.Key == room.HostConnectionId,
-                SeatIndex = p.Value
-            })
-            .ToList();
+                SeatIndex = p.Value,
+                Balance = bal
+            });
+        }
         foreach (var connId in room.Players.Keys)
         {
-            await Clients.Client(connId).SendAsync("RoomUpdate", new { Players = players, IsHost = connId == room.HostConnectionId });
+            await Clients.Client(connId).SendAsync("RoomUpdate", new { Players = playerList, IsHost = connId == room.HostConnectionId });
         }
     }
 
@@ -113,6 +118,16 @@ public class BlackJackHub(
 
             if (delta != 0)
                 await balanceRepo.UpdateBalance(userId, GameType.BlackJack, delta);
+        }
+
+        // Update GamePlayerBalances so DTO reflects settled balances
+        for (int i = 0; i < room.GamePlayerUserIds.Count; i++)
+        {
+            var uid = room.GamePlayerUserIds[i];
+            if (uid == 0) continue;
+            var bal = await balanceRepo.GetOrCreate(uid, GameType.BlackJack);
+            if (i < room.GamePlayerBalances.Count)
+                room.GamePlayerBalances[i] = bal.Balance;
         }
 
         // Send updated balances and kick broke players

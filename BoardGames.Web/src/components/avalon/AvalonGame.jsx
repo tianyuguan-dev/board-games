@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import "./AvalonGame.css";
 
 const TOGGLE_EVIL = ["Mordred", "Oberon"];
@@ -105,8 +105,79 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   async function handleKick(seatIndex) {
     await connection.invoke("KickPlayer", roomId, seatIndex);
   }
-  async function handleMove(seatIndex, direction) {
-    await connection.invoke("MovePlayer", roomId, seatIndex, direction);
+  const [dragFrom, setDragFrom] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null); // insert position index
+  const listRef = useRef(null);
+
+  function calcDropTarget(clientY, fromIndex) {
+    if (!listRef.current) return null;
+    const items = listRef.current.querySelectorAll('li');
+    for (let i = 0; i < items.length; i++) {
+      const rect = items[i].getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (clientY < mid) {
+        // Insert before item i
+        return i === fromIndex || i === fromIndex + 1 ? null : i;
+      }
+    }
+    // Below last item
+    const last = items.length;
+    return last === fromIndex || last === fromIndex + 1 ? null : last;
+  }
+
+  function handleDragStart(index, e) {
+    setDragFrom(index);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    if (dragFrom === null) return;
+    setDropTarget(calcDropTarget(e.clientY, dragFrom));
+  }
+
+  async function handleDragDrop(e) {
+    e.preventDefault();
+    if (dragFrom !== null && dropTarget !== null) {
+      const to = dropTarget > dragFrom ? dropTarget - 1 : dropTarget;
+      if (to !== dragFrom) {
+        await connection.invoke("ReorderPlayer", roomId, dragFrom, to);
+      }
+    }
+    setDragFrom(null);
+    setDropTarget(null);
+  }
+
+  function handleDragEnd() {
+    setDragFrom(null);
+    setDropTarget(null);
+  }
+
+  // Touch drag support
+  const touchFromRef = useRef(null);
+
+  function handleTouchStart(index) {
+    touchFromRef.current = index;
+    setDragFrom(index);
+  }
+
+  function handleTouchMove(e) {
+    if (touchFromRef.current === null) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    setDropTarget(calcDropTarget(touch.clientY, touchFromRef.current));
+  }
+
+  async function handleTouchEnd() {
+    if (touchFromRef.current !== null && dropTarget !== null) {
+      const to = dropTarget > touchFromRef.current ? dropTarget - 1 : dropTarget;
+      if (to !== touchFromRef.current) {
+        await connection.invoke("ReorderPlayer", roomId, touchFromRef.current, to);
+      }
+    }
+    touchFromRef.current = null;
+    setDragFrom(null);
+    setDropTarget(null);
   }
   async function handleLeave() {
     if (gameState && gameState.phase !== "GameOver") {
@@ -150,20 +221,39 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   function renderPlayerList() {
     if (roomPlayers.length === 0) return null;
     return (
-      <ul className="av-player-list">
+      <ul
+        className="av-player-list"
+        ref={listRef}
+        onDragOver={isHost ? handleDragOver : undefined}
+        onDrop={isHost ? handleDragDrop : undefined}
+        onTouchMove={isHost ? handleTouchMove : undefined}
+        onTouchEnd={isHost ? handleTouchEnd : undefined}
+      >
         {roomPlayers.map((p, i) => (
-          <li key={i}>
+          <li
+            key={i}
+            draggable={isHost}
+            onDragStart={isHost ? (e) => handleDragStart(i, e) : undefined}
+            onDragEnd={isHost ? handleDragEnd : undefined}
+            onTouchStart={isHost ? () => handleTouchStart(i) : undefined}
+            className={[
+              isHost ? "draggable" : "",
+              dragFrom === i ? "dragging" : "",
+              dropTarget === i ? "drop-before" : "",
+              dropTarget === i + 1 && i === roomPlayers.length - 1 ? "" : "",
+            ].join(" ")}
+          >
             <span className="seat-number">{i + 1}.</span>
+            {isHost && <span className="drag-handle">&#9776;</span>}
             {p.nickname} {p.isHost ? "\uD83D\uDC51" : p.isReady ? "\u2713" : "\u2014"}
-            {isHost && (
+            {isHost && !p.isHost && (
               <span className="player-actions">
-                <button className="move-btn" disabled={i === 0} onClick={() => handleMove(p.seatIndex, -1)}>&uarr;</button>
-                <button className="move-btn" disabled={i === roomPlayers.length - 1} onClick={() => handleMove(p.seatIndex, 1)}>&darr;</button>
-                {!p.isHost && <button className="kick-btn" onClick={() => handleKick(p.seatIndex)}>Kick</button>}
+                <button className="kick-btn" onClick={() => handleKick(p.seatIndex)}>Kick</button>
               </span>
             )}
           </li>
         ))}
+        {dropTarget === roomPlayers.length && <li className="drop-indicator-last" />}
       </ul>
     );
   }

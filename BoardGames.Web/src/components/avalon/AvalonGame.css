@@ -445,24 +445,51 @@
   align-items: center;
 }
 
-.move-btn {
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  color: #475569;
-  font-size: 12px;
-  cursor: pointer;
-  line-height: 1;
+.drag-handle {
+  cursor: grab;
+  color: #94a3b8;
+  font-size: 14px;
+  user-select: none;
+  touch-action: none;
 }
 
-.move-btn:hover:not(:disabled) {
-  background: #f1f5f9;
+.av-player-list li.draggable {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: opacity 0.15s;
 }
 
-.move-btn:disabled {
-  opacity: 0.25;
-  cursor: default;
+.av-player-list li.draggable:active {
+  cursor: grabbing;
+}
+
+.av-player-list li.dragging {
+  opacity: 0.3;
+}
+
+.av-player-list li.drop-before {
+  position: relative;
+}
+
+.av-player-list li.drop-before::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #60a5fa;
+  border-radius: 2px;
+}
+
+.av-player-list .drop-indicator-last {
+  list-style: none;
+  height: 3px;
+  background: #60a5fa;
+  border-radius: 2px;
+  padding: 0;
+  border: none;
 }
 
 .av-player-list .kick-btn {

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import "./Game.css";
 
-const TURN_TIME = 10;
-const BETTING_TIME = 10;
+const TURN_TIME = 20;
+const BETTING_TIME = 20;
 const MIN_BET = 1;
 const MAX_BET = 100;
 
@@ -152,6 +152,7 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
         {roomPlayers.map((p, i) => (
           <li key={i}>
             {p.nickname} {p.isHost ? "\uD83D\uDC51" : p.isReady ? "\u2713" : "\u2014"}
+            {p.balance != null && <span className="player-bal-inline"> [{p.balance}]</span>}
             {showKick && isHost && !p.isHost && (
               <button className="kick-btn" onClick={() => handleKick(p.seatIndex)}>Kick</button>
             )}
@@ -206,6 +207,8 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
 
   const finished = gameState.state === 2;
   const betting = gameState.state === 3;
+  const myBet = myIndex >= 0 ? (gameState.bets?.[myIndex] || 0) : 0;
+  const availableBalance = balance !== null ? balance - myBet : null;
 
   // Betting phase
   if (betting) {
@@ -214,7 +217,6 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
       <div className="game-container">
         <div className="game-header">
           <span className="room-info">Room {roomId} &middot; {playerCount}/{maxPlayers}</span>
-          {balance !== null && <span className="balance">Balance: {balance}</span>}
         </div>
         <div className="table">
           <div className="betting-area">
@@ -226,12 +228,14 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
               {gameState.playerNames?.map((name, i) => (
                 <div className="betting-player" key={i}>
                   <div className="name">{name}</div>
+                  <div className="player-bal">{gameState.playerBalances?.[i] ?? "?"}</div>
                   <div className={`status ${gameState.bets[i] > 0 ? "placed" : ""}`}>
                     {gameState.bets[i] > 0 ? `Bet: ${gameState.bets[i]}` : "Waiting..."}
                   </div>
                 </div>
               ))}
             </div>
+            {availableBalance !== null && <div className="balance-bar">Balance: {availableBalance}{myBet > 0 ? ` (Bet: ${myBet})` : ""}</div>}
             {!myBetPlaced && myIndex >= 0 && (
               <div className="bet-input-group">
                 <input
@@ -263,7 +267,6 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
     <div className="game-container">
       <div className="game-header">
         <span className="room-info">Room {roomId} &middot; {playerCount}/{maxPlayers}</span>
-        {balance !== null && <span className="balance">Balance: {balance}</span>}
       </div>
 
       <div className="table">
@@ -296,6 +299,7 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
                 <div key={i} className={`other-player ${isActive ? "active" : ""}`}>
                   <div className="other-label">
                     <span className="name">{gameState.playerNames?.[i] || `Player ${i}`}</span>
+                    <span className="player-bal-inline">[{gameState.playerBalances?.[i] ?? "?"}]</span>
                     <span className="value">({hand.value})</span>
                     <span className="bet">Bet: {gameState.bets[i]}</span>
                     {isActive && <span className="timer">{timeLeft}s</span>}
@@ -332,7 +336,8 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
           );
         })()}
 
-        {/* Actions */}
+        {/* Balance + Actions */}
+        {availableBalance !== null && !finished && <div className="balance-bar">Balance: {availableBalance}{myBet > 0 ? ` (Bet: ${myBet})` : ""}</div>}
         {!finished && gameState.currentIndex === myIndex && (
           <div className="actions">
             <button className="btn btn-success" onClick={handleHit}>Hit</button>
@@ -348,6 +353,7 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
         {finished && (
           <div className="lobby-area">
             {renderPlayerList(true)}
+            {balance !== null && <div className="balance-bar">Balance: {balance}</div>}
             <div className="btn-row">
               {isHost ? (
                 <button
