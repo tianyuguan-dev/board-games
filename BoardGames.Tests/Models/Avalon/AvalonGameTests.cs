@@ -372,6 +372,111 @@ public class AvalonGameTests
         Assert.Equal(5, game.MissionHistory[0][0].Votes.Count);
     }
 
+    // Early Assassination
+
+    [Fact]
+    public void EarlyAssassination_TransitionsToAssassinationPhase()
+    {
+        var game = new AvalonGame(5, DefaultRoles(5), startLeader: 0);
+        game.StartProposalPhase();
+        int assassinIndex = game.GetAssassinIndex();
+
+        var result = game.BeginEarlyAssassination(assassinIndex);
+
+        Assert.True(result);
+        Assert.Equal(AvalonPhase.Assassination, game.Phase);
+        Assert.True(game.EarlyAssassination);
+    }
+
+    [Fact]
+    public void EarlyAssassination_OnlyAssassinCanTrigger()
+    {
+        var game = new AvalonGame(5, DefaultRoles(5), startLeader: 0);
+        game.StartProposalPhase();
+        int nonAssassin = Enumerable.Range(0, 5).First(i => game.Roles[i] != AvalonRole.Assassin);
+
+        var result = game.BeginEarlyAssassination(nonAssassin);
+
+        Assert.False(result);
+        Assert.Equal(AvalonPhase.TeamProposal, game.Phase);
+    }
+
+    [Fact]
+    public void EarlyAssassination_NotAllowedDuringNightReveal()
+    {
+        var game = new AvalonGame(5, DefaultRoles(5), startLeader: 0);
+        int assassinIndex = game.GetAssassinIndex();
+
+        var result = game.BeginEarlyAssassination(assassinIndex);
+
+        Assert.False(result);
+        Assert.Equal(AvalonPhase.NightReveal, game.Phase);
+    }
+
+    [Fact]
+    public void EarlyAssassination_NotAllowedDuringGameOver()
+    {
+        var game = CreateGameAtAssassination();
+        int assassinIndex = game.GetAssassinIndex();
+        int merlinIndex = game.Roles.IndexOf(AvalonRole.Merlin);
+        game.Assassinate(assassinIndex, merlinIndex);
+        Assert.Equal(AvalonPhase.GameOver, game.Phase);
+
+        var result = game.BeginEarlyAssassination(assassinIndex);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void EarlyAssassination_KillingMerlinEvilWins()
+    {
+        var game = new AvalonGame(5, DefaultRoles(5), startLeader: 0);
+        game.StartProposalPhase();
+        int assassinIndex = game.GetAssassinIndex();
+        int merlinIndex = game.Roles.IndexOf(AvalonRole.Merlin);
+
+        game.BeginEarlyAssassination(assassinIndex);
+        game.Assassinate(assassinIndex, merlinIndex);
+
+        Assert.Equal(AvalonPhase.GameOver, game.Phase);
+        Assert.Equal(GameWinner.Evil, game.Winner);
+        Assert.Contains("mid-game", game.WinReason);
+    }
+
+    [Fact]
+    public void EarlyAssassination_MissingMerlinGoodWins()
+    {
+        var game = new AvalonGame(5, DefaultRoles(5), startLeader: 0);
+        game.StartProposalPhase();
+        int assassinIndex = game.GetAssassinIndex();
+        var target = Enumerable.Range(0, 5)
+            .First(i => game.Roles[i] != AvalonRole.Merlin && AvalonConfig.GetTeam(game.Roles[i]) == AvalonTeam.Good);
+
+        game.BeginEarlyAssassination(assassinIndex);
+        game.Assassinate(assassinIndex, target);
+
+        Assert.Equal(AvalonPhase.GameOver, game.Phase);
+        Assert.Equal(GameWinner.Good, game.Winner);
+        Assert.Contains("early", game.WinReason);
+    }
+
+    // GetMissionPlayersPlayed
+
+    [Fact]
+    public void GetMissionPlayersPlayed_TracksWhoPlayed()
+    {
+        var game = new AvalonGame(5, DefaultRoles(5), startLeader: 0);
+        game.StartProposalPhase();
+        game.ProposeTeam(0, new List<int> { 0, 1 });
+        for (int p = 0; p < 5; p++) game.CastVote(p, true);
+
+        Assert.Empty(game.GetMissionPlayersPlayed());
+
+        game.PlayMissionCard(0, true);
+        Assert.Single(game.GetMissionPlayersPlayed());
+        Assert.Contains(0, game.GetMissionPlayersPlayed());
+    }
+
     private AvalonGame CreateGameAtAssassination()
     {
         var game = new AvalonGame(5, DefaultRoles(5), startLeader: 0);
