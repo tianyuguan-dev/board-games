@@ -216,6 +216,10 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
     if (!window.confirm(`Assassinate ${name}?`)) return;
     await connection.invoke("Assassinate", roomId, targetIndex);
   }
+  async function handleEarlyAssassinate() {
+    if (!window.confirm("Are you sure you want to assassinate Merlin now? This will end the current game immediately!")) return;
+    await connection.invoke("EarlyAssassinate", roomId);
+  }
 
   function toggleTeamMember(index) {
     setSelectedTeam((prev) =>
@@ -481,6 +485,12 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
         <button className="btn-small" style={{ color: "#dc2626" }} onClick={handleLeave}>Leave</button>
       </div>
 
+      {myIndex === gs.assassinIndex && gs.phase !== "Assassination" && gs.phase !== "GameOver" && (
+        <div className="early-assassinate-bar">
+          <button className="btn-early-assassinate" onClick={handleEarlyAssassinate}>Assassinate Merlin</button>
+        </div>
+      )}
+
       {gs.visiblePlayers && gs.visiblePlayers.length > 0 && (
         <div className="night-info-bar">
           <span className="night-info-hint">{gs.visibleHint}:</span>
@@ -580,6 +590,8 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
           <div className="action-panel action-highlight-danger">
             {gs.bonusAssassination
               ? <p className="action-title">Evil won 3 missions! Find Merlin for double points! Click on your target.</p>
+              : gs.earlyAssassination
+              ? <p className="action-title">Choose your target! Click on who you think is Merlin!</p>
               : <p className="action-title">Good won 3 missions. Click on who you think is Merlin!</p>
             }
           </div>
@@ -588,6 +600,8 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
           <p className="waiting">
             {gs.bonusAssassination
               ? "Evil won 3 missions. Assassin is attempting to find Merlin for double points..."
+              : gs.earlyAssassination
+              ? "Assassin is attempting to assassinate Merlin..."
               : "Assassin is choosing a target..."}
           </p>
         )}

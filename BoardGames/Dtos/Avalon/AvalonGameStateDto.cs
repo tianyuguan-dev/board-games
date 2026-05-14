@@ -71,6 +71,7 @@ public class AvalonGameStateDto
     public int? AssassinIndex { get; set; }
     public int? AssassinTarget { get; set; }
     public bool BonusAssassination { get; set; }
+    public bool EarlyAssassination { get; set; }
 
     // Game over
     public string? Winner { get; set; }
@@ -96,6 +97,8 @@ public class AvalonGameStateDto
             ConsecutiveRejects = game.ConsecutiveRejects,
             MaxConsecutiveRejects = game.MaxConsecutiveRejects,
             ProposedTeam = game.ProposedTeam,
+            AssassinIndex = game.Roles.Contains(AvalonRole.Assassin) ? game.GetAssassinIndex() : null,
+            EarlyAssassination = game.EarlyAssassination,
         };
 
         // Mission results
@@ -138,7 +141,6 @@ public class AvalonGameStateDto
         // Assassination
         if (game.Phase == AvalonPhase.Assassination)
         {
-            dto.AssassinIndex = game.GetAssassinIndex();
             dto.BonusAssassination = game.BonusAssassination;
         }
 

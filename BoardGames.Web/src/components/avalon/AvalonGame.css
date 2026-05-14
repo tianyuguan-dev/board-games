@@ -49,6 +49,27 @@
   background: #f1f5f9;
 }
 
+/* Early assassinate */
+.early-assassinate-bar {
+  text-align: right;
+  margin-bottom: 8px;
+}
+
+.btn-early-assassinate {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  background: #fff;
+  color: #dc2626;
+  cursor: pointer;
+}
+
+.btn-early-assassinate:hover {
+  background: #fef2f2;
+}
+
 /* Persistent night info bar */
 .night-info-bar {
   background: #f8fafc;

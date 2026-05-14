@@ -18,6 +18,7 @@ public class AvalonGame
     public string? WinReason { get; private set; }
     public int? AssassinTarget { get; private set; }
     public bool BonusAssassination { get; private set; } // true when evil already won 3 missions but gets a chance to find Merlin for double points
+    public bool EarlyAssassination { get; private set; } // true when assassin chose to assassinate mid-game
 
     // History: all proposals grouped by mission
     public List<List<AvalonProposal>> MissionHistory { get; } = new();
@@ -257,6 +258,15 @@ public class AvalonGame
         CurrentProposal = null;
     }
 
+    public bool BeginEarlyAssassination(int assassinIndex)
+    {
+        if (Phase == AvalonPhase.NightReveal || Phase == AvalonPhase.Assassination || Phase == AvalonPhase.GameOver) return false;
+        if (Roles[assassinIndex] != AvalonRole.Assassin) return false;
+        EarlyAssassination = true;
+        Phase = AvalonPhase.Assassination;
+        return true;
+    }
+
     public void Assassinate(int assassinIndex, int targetIndex)
     {
         if (Phase != AvalonPhase.Assassination) return;
@@ -265,7 +275,21 @@ public class AvalonGame
 
         AssassinTarget = targetIndex;
 
-        if (BonusAssassination)
+        if (EarlyAssassination && !BonusAssassination)
+        {
+            // Mid-game assassination
+            if (Roles[targetIndex] == AvalonRole.Merlin)
+            {
+                Winner = GameWinner.Evil;
+                WinReason = "Merlin has been assassinated mid-game!";
+            }
+            else
+            {
+                Winner = GameWinner.Good;
+                WinReason = "Assassin struck early but chose the wrong target!";
+            }
+        }
+        else if (BonusAssassination)
         {
             // Evil already won by missions; finding Merlin = double points
             Winner = GameWinner.Evil;
@@ -283,7 +307,7 @@ public class AvalonGame
             else
             {
                 Winner = GameWinner.Good;
-                WinReason = "Merlin survived! Assassin choose the wrong target.";
+                WinReason = "Merlin survived! Assassin chose the wrong target.";
             }
         }
 

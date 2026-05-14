@@ -172,9 +172,9 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         var room = roomManager.GetRoom(roomId)
             ?? throw new InvalidOperationException("Room not found");
 
-        // If game in progress, try rejoin instead of blocking
+        // If game exists (in progress or game over), try rejoin
         var userId = GetUserId();
-        if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
+        if (room.Game != null)
         {
             var info = room.TryRejoin(Context.ConnectionId, userId);
             if (info == null)
@@ -438,6 +438,20 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         }
     }
 
+    public async Task EarlyAssassinate(string roomId)
+    {
+        var room = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException("Room not found");
+        var game = room.Game ?? throw new InvalidOperationException("No game");
+        if (!room.Players.TryGetValue(Context.ConnectionId, out int seatIndex))
+            throw new InvalidOperationException("Not in this room");
+
+        if (!game.BeginEarlyAssassination(seatIndex))
+            throw new InvalidOperationException("Cannot assassinate now");
+
+        await SendGameStateToAll(room);
+    }
+
     public async Task Assassinate(string roomId, int targetIndex)
     {
         var room = roomManager.GetRoom(roomId)
@@ -467,7 +481,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         await Clients.Group(roomId).SendAsync("PlayerReconnected", info.Nickname);
         await BroadcastRoomPlayers(roomId);
 
-        if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
+        if (room.Game != null)
         {
             await Clients.Client(Context.ConnectionId).SendAsync("YourSeat", info.SeatIndex);
             await SendGameStateToPlayer(room, Context.ConnectionId, info.SeatIndex);
