@@ -78,14 +78,13 @@ export default function Lobby({ connection, nickname, onJoinRoom, onBack }) {
         <h3>Create Room</h3>
         <div className="inline-group">
           <label className="text-muted" style={{ whiteSpace: 'nowrap' }}>Max Players:</label>
-          <input
-            type="number"
-            min="1"
-            max="7"
+          <select
             value={maxPlayers}
             onChange={(e) => setMaxPlayers(Number(e.target.value))}
             style={{ width: 60 }}
-          />
+          >
+            {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
           <button onClick={handleCreate}>Create</button>
         </div>
       </div>
