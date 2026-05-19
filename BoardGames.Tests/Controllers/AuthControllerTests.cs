@@ -6,16 +6,18 @@ using BoardGames.Models;
 using BoardGames.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 
 namespace BoardGames.Tests.Controllers;
 
-public class AuthControllerTests
+public class AuthControllerTests : IDisposable
 {
     private readonly Mock<IAuthService> _mockAuthService;
     private readonly Mock<IJwtService> _mockJwtService;
     private readonly Mock<IUserRepository> _mockUserRepository;
     private readonly Mock<IGameBalanceRepository> _mockBalanceRepository;
+    private readonly AppDbContext _dbContext;
     private readonly AuthController _controller;
 
     public AuthControllerTests()
@@ -24,7 +26,16 @@ public class AuthControllerTests
         _mockJwtService = new Mock<IJwtService>();
         _mockUserRepository = new Mock<IUserRepository>();
         _mockBalanceRepository = new Mock<IGameBalanceRepository>();
-        _controller = new AuthController(_mockJwtService.Object, _mockAuthService.Object, _mockUserRepository.Object, _mockBalanceRepository.Object);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        _dbContext = new AppDbContext(options);
+        _controller = new AuthController(_mockJwtService.Object, _mockAuthService.Object, _mockUserRepository.Object, _mockBalanceRepository.Object, _dbContext);
+    }
+
+    public void Dispose()
+    {
+        _dbContext.Dispose();
     }
 
     private void SetupAuthenticatedUser(int userId = 1)

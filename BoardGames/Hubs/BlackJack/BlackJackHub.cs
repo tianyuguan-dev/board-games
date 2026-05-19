@@ -202,11 +202,16 @@ public class BlackJackHub(
     {
         await EnsureSufficientBalance();
         var contextConnectionId = Context.ConnectionId;
+        var userId = GetUserId();
+        var existingRoom = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException($"Room {roomId} not found");
+        if (existingRoom.PlayerUserIds.ContainsValue(userId))
+            throw new InvalidOperationException("You are already in this room");
         roomManager.JoinRoom(roomId, contextConnectionId);
         await Groups.AddToGroupAsync(contextConnectionId, roomId);
         var blackJackRoom = roomManager.GetRoom(roomId);
         blackJackRoom!.PlayerNicknames[contextConnectionId] = await GetNickname();
-        blackJackRoom.PlayerUserIds[contextConnectionId] = GetUserId();
+        blackJackRoom.PlayerUserIds[contextConnectionId] = userId;
         await Clients.Group(roomId).SendAsync("PlayerJoined", blackJackRoom!.Players.Count);
         await BroadcastRoomPlayers(roomId);
         return new JoinRoomResult(blackJackRoom.MaxPlayers, blackJackRoom.Players.Count);

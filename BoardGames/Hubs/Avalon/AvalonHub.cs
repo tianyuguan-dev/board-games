@@ -187,6 +187,9 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             return new { room.MaxPlayers, PlayerCount = room.Players.Count, GameInProgress = true };
         }
 
+        if (room.PlayerUserIds.ContainsValue(userId))
+            throw new InvalidOperationException("You are already in this room");
+
         roomManager.JoinRoom(roomId, Context.ConnectionId);
         room.PlayerNicknames[Context.ConnectionId] = await GetNickname();
         room.PlayerUserIds[Context.ConnectionId] = userId;

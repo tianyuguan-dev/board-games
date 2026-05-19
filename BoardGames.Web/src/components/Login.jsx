@@ -11,7 +11,7 @@ export default function Login({ onLogin }) {
   async function handleLogin() {
     try {
       const data = await login(username, password);
-      onLogin(data.token, data.nickname);
+      onLogin(data.token, data.refreshToken, data.nickname);
     } catch {
       setError("Login failed");
     }
@@ -25,7 +25,7 @@ export default function Login({ onLogin }) {
     try {
       await register(username, password);
       const data = await login(username, password);
-      onLogin(data.token, data.nickname);
+      onLogin(data.token, data.refreshToken, data.nickname);
     } catch (e) {
       setError(e.message || "Register failed");
     }

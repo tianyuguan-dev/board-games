@@ -5,12 +5,18 @@ using BoardGames.Models;
 using BoardGames.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace BoardGames.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController(IJwtService jwtService, IAuthService authService, IUserRepository userRepository, IGameBalanceRepository balanceRepository) : ControllerBase
+public class AuthController(
+    IJwtService jwtService,
+    IAuthService authService,
+    IUserRepository userRepository,
+    IGameBalanceRepository balanceRepository,
+    AppDbContext dbContext) : ControllerBase
 {
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequestDto registerRequestDto)
@@ -35,7 +41,51 @@ public class AuthController(IJwtService jwtService, IAuthService authService, IU
         user.LastActiveAt = DateTime.UtcNow;
         await userRepository.Update(user);
         var token = jwtService.GenerateJwtToken(user);
-        return Ok(new { token, nickname = user.Nickname });
+        var refreshToken = await CreateRefreshToken(user.Id);
+        return Ok(new { token, refreshToken = refreshToken.Token, nickname = user.Nickname });
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(RefreshRequestDto dto)
+    {
+        var principal = jwtService.GetPrincipalFromExpiredToken(dto.AccessToken);
+        if (principal == null)
+            return Unauthorized("Invalid access token");
+
+        var userId = int.Parse(principal.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var storedToken = await dbContext.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken
+                                       && rt.UserId == userId
+                                       && !rt.IsRevoked
+                                       && rt.ExpiresAt > DateTime.UtcNow);
+        if (storedToken == null)
+            return Unauthorized("Invalid refresh token");
+
+        storedToken.IsRevoked = true;
+
+        var user = await userRepository.FindById(userId);
+        if (user == null)
+            return Unauthorized();
+
+        var newAccessToken = jwtService.GenerateJwtToken(user);
+        var newRefreshToken = await CreateRefreshToken(user.Id);
+        await dbContext.SaveChangesAsync();
+
+        return Ok(new { token = newAccessToken, refreshToken = newRefreshToken.Token });
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(RefreshRequestDto dto)
+    {
+        var token = await dbContext.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken && !rt.IsRevoked);
+        if (token != null)
+        {
+            token.IsRevoked = true;
+            await dbContext.SaveChangesAsync();
+        }
+        return Ok();
     }
 
     [Authorize]
@@ -72,5 +122,18 @@ public class AuthController(IJwtService jwtService, IAuthService authService, IU
             balances[gameType.ToString()] = balance.Balance;
         }
         return Ok(balances);
+    }
+
+    private async Task<RefreshToken> CreateRefreshToken(int userId)
+    {
+        var refreshToken = new RefreshToken
+        {
+            Token = Guid.NewGuid().ToString(),
+            UserId = userId,
+            ExpiresAt = DateTime.UtcNow.AddDays(15)
+        };
+        dbContext.RefreshTokens.Add(refreshToken);
+        await dbContext.SaveChangesAsync();
+        return refreshToken;
     }
 }

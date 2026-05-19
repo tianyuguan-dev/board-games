@@ -8,6 +8,7 @@ import AvalonLobby from "./components/avalon/AvalonLobby";
 import AvalonGame from "./components/avalon/AvalonGame";
 import { createConnection } from "./services/signalr";
 import { createAvalonConnection } from "./services/avalonSignalr";
+import { logout } from "./services/api";
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
@@ -39,8 +40,8 @@ function App() {
     }
 
     const conn = selectedGame === "blackjack"
-      ? createConnection(token)
-      : createAvalonConnection(token);
+      ? createConnection()
+      : createAvalonConnection();
 
     conn.on("PlayerJoined", (count) => setPlayerCount(count));
     conn.on("PlayerLeft", (count) => setPlayerCount(count));
@@ -88,8 +89,9 @@ function App() {
     };
   }, [token, selectedGame]);
 
-  function handleLogin(t, nick) {
+  function handleLogin(t, refreshToken, nick) {
     localStorage.setItem("token", t);
+    localStorage.setItem("refreshToken", refreshToken);
     localStorage.setItem("nickname", nick || "");
     setToken(t);
     setNickname(nick || "");
@@ -136,15 +138,7 @@ function App() {
   }
 
   function handleLogout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("nickname");
-    sessionStorage.removeItem("selectedGame");
-    sessionStorage.removeItem("roomId");
-    setToken(null);
-    setNickname("");
-    setConnection(null);
-    setRoomId(null);
-    setSelectedGame(null);
+    logout();
   }
 
   if (!token) {
