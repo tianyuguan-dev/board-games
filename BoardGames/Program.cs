@@ -67,11 +67,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 var app = builder.Build();
 
-// Auto-apply database migrations on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    if (db.Database.IsRelational())
+        db.Database.Migrate();
+    else
+        db.Database.EnsureCreated();
 }
 
 if (app.Environment.IsDevelopment())
@@ -97,3 +99,5 @@ app.MapHub<AvalonHub>("/hub/avalon");
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+public partial class Program { }
