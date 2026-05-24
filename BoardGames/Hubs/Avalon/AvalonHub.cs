@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.SignalR;
 namespace BoardGames.Hubs.Avalon;
 
 [Authorize]
-public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepository, IGameBalanceRepository balanceRepository) : Hub
+public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepository, IGameBalanceRepository balanceRepository, IHubContext<AvalonHub> hubContext, IServiceScopeFactory scopeFactory) : Hub
 {
     public override async Task OnConnectedAsync()
     {
@@ -77,14 +77,18 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
     private async Task SettleGame(AvalonRoom room)
     {
-        if (room.IsSettled) return;
-        room.IsSettled = true;
+        if (!room.TrySetSettled()) return;
 
         var game = room.Game!;
         bool bonusKill = game.BonusAssassination
                          && game.AssassinTarget.HasValue
                          && game.Roles[game.AssassinTarget.Value] == AvalonRole.Merlin;
-        int points = bonusKill ? 2 : 1;
+        decimal points = bonusKill ? 2 : 1;
+
+        bool shielded = game.Winner == GameWinner.Good
+                        && game.AssassinTarget.HasValue
+                        && game.Roles[game.AssassinTarget.Value] != AvalonRole.Merlin
+                        && game.Roles[game.AssassinTarget.Value] != AvalonRole.Percival;
 
         for (int i = 0; i < game.PlayerCount; i++)
         {
@@ -94,18 +98,13 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             var team = AvalonConfig.GetTeam(game.Roles[i]);
             bool isWinner = (team == AvalonTeam.Good && game.Winner == GameWinner.Good)
                             || (team == AvalonTeam.Evil && game.Winner == GameWinner.Evil);
-            int delta = isWinner ? points : -points;
+            decimal delta = isWinner ? points : -points;
+            if (shielded && game.AssassinTarget.HasValue && i == game.AssassinTarget.Value)
+                delta += 0.5m;
             await balanceRepository.UpdateBalance(userId, GameType.Avalon, delta);
         }
 
         await SendBalancesToAll(room);
-    }
-
-    private async Task PenalizeLeaver(AvalonRoom room, string connectionId)
-    {
-        var uid = room.PlayerUserIds.GetValueOrDefault(connectionId);
-        if (uid > 0)
-            await balanceRepository.UpdateBalance(uid, GameType.Avalon, -5);
     }
 
     private async Task SendBalancesToAll(AvalonRoom room)
@@ -140,7 +139,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         return roomManager.FindRoomByUserId(GetUserId());
     }
 
-    public async Task<int> GetBalance()
+    public async Task<decimal> GetBalance()
     {
         var balance = await balanceRepository.GetOrCreate(GetUserId(), GameType.Avalon);
         return balance.Balance;
@@ -172,20 +171,29 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         var room = roomManager.GetRoom(roomId)
             ?? throw new InvalidOperationException("Room not found");
 
-        // If game exists (in progress or game over), try rejoin
         var userId = GetUserId();
-        if (room.Game != null)
+
+        // Try rejoin if player is in disconnected list (lobby or in-game)
+        if (room.DisconnectedPlayers.ContainsKey(userId))
         {
             var info = room.TryRejoin(Context.ConnectionId, userId);
-            if (info == null)
-                throw new InvalidOperationException("Game is in progress");
-            await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
-            await Clients.Group(roomId).SendAsync("PlayerReconnected", info.Nickname);
-            await BroadcastRoomPlayers(roomId);
-            await Clients.Client(Context.ConnectionId).SendAsync("YourSeat", info.SeatIndex);
-            await SendGameStateToPlayer(room, Context.ConnectionId, info.SeatIndex);
-            return new { room.MaxPlayers, PlayerCount = room.Players.Count, GameInProgress = true };
+            if (info != null)
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+                await Clients.Group(roomId).SendAsync("PlayerReconnected", info.Nickname);
+                await BroadcastRoomPlayers(roomId);
+                if (room.Game != null)
+                {
+                    await Clients.Client(Context.ConnectionId).SendAsync("YourSeat", info.SeatIndex);
+                    await SendGameStateToPlayer(room, Context.ConnectionId, info.SeatIndex);
+                }
+                return new { room.MaxPlayers, PlayerCount = room.Players.Count, GameInProgress = room.Game != null };
+            }
         }
+
+        // Game in progress but player not in disconnected list
+        if (room.Game != null)
+            throw new InvalidOperationException("Game is in progress");
 
         if (room.PlayerUserIds.ContainsValue(userId))
             throw new InvalidOperationException("You are already in this room");
@@ -330,8 +338,8 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             throw new InvalidOperationException("Game already in progress");
 
         int playerCount = room.Players.Count;
-        if (!AvalonConfig.IsValidPlayerCount(playerCount))
-            throw new InvalidOperationException("Need 5-10 players");
+        if (playerCount != room.MaxPlayers)
+            throw new InvalidOperationException($"Need {room.MaxPlayers} players, currently {playerCount}");
 
         // Check all non-host players are ready
         if (room.Players.Where(p => p.Key != room.HostConnectionId).Any(p => !room.ReadyPlayers.Contains(p.Key)))
@@ -437,7 +445,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         else
         {
             await Clients.Group(room.RoomId).SendAsync("MissionProgress",
-                game.CurrentProposal?.Team.Count ?? 0);
+                game.GetMissionPlayersPlayed(), game.CurrentProposal?.Team.Count ?? 0);
         }
     }
 
@@ -508,34 +516,24 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
     private async Task HandlePlayerDisconnect(string connectionId)
     {
-        // Find which room this player is in
         var room = FindRoomByConnectionId(connectionId);
         if (room == null) return;
 
         var roomId = room.RoomId;
         await Groups.RemoveFromGroupAsync(connectionId, roomId);
 
-        // If game in progress, give grace period for reconnection
-        if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
+        var info = room.MarkDisconnected(connectionId);
+        if (info == null) return;
+
+        await Clients.Group(roomId).SendAsync("PlayerDisconnected", info.Nickname);
+        await BroadcastRoomPlayers(roomId);
+
+        var userId = info.UserId;
+        _ = Task.Run(async () =>
         {
-            room.MarkDisconnected(connectionId);
-            await Clients.Group(roomId).SendAsync("PlayerDisconnected",
-                room.DisconnectedPlayers.Values.LastOrDefault()?.Nickname ?? "A player");
-            await BroadcastRoomPlayers(roomId);
-
-            // Schedule cleanup after grace period
-            var userId = room.DisconnectedPlayers.Values.LastOrDefault()?.UserId ?? 0;
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(TimeSpan.FromSeconds(ReconnectGraceSeconds));
-                await CheckDisconnectedPlayer(roomId, userId);
-            });
-            return;
-        }
-
-        // No game in progress — remove immediately
-        room.Players.Remove(connectionId);
-        await FinishPlayerRemoval(room, connectionId);
+            await Task.Delay(TimeSpan.FromSeconds(ReconnectGraceSeconds));
+            await CheckDisconnectedPlayer(roomId, userId);
+        });
     }
 
     private async Task HandlePlayerLeave(string connectionId)
@@ -546,10 +544,15 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         var roomId = room.RoomId;
         await Groups.RemoveFromGroupAsync(connectionId, roomId);
 
-        // Explicit leave during game = penalize and abort
-        if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
+        if (room.Game != null && room.Game.Phase == AvalonPhase.GameOver)
         {
-            await PenalizeLeaver(room, connectionId);
+            await Clients.Group(roomId).SendAsync("RoomDisbanded");
+            roomManager.RemoveRoom(roomId);
+            return;
+        }
+
+        if (room.Game != null)
+        {
             room.Game = null;
             room.Players.Remove(connectionId);
             room.PlayerNicknames.Remove(connectionId);
@@ -604,30 +607,57 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         if (room == null) return;
         if (!room.DisconnectedPlayers.TryGetValue(userId, out var info)) return;
 
-        // Check if this is still the same disconnect (player may have reconnected and disconnected again)
         if ((DateTime.UtcNow - info.DisconnectedAt).TotalSeconds < ReconnectGraceSeconds)
             return;
 
-        // Still disconnected after grace period — abort game
         room.DisconnectedPlayers.Remove(userId);
 
         if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
         {
-            // Penalize the leaver
-            if (userId > 0)
-                await balanceRepository.UpdateBalance(userId, GameType.Avalon, -5);
             room.Game = null;
 
-            await Clients.Group(roomId).SendAsync("GameAborted",
+            await hubContext.Clients.Group(roomId).SendAsync("GameAborted",
                 $"{info.Nickname} did not reconnect in time");
-            await SendBalancesToAll(room);
+
+            using var scope = scopeFactory.CreateScope();
+            var balanceRepo = scope.ServiceProvider.GetRequiredService<IGameBalanceRepository>();
+            foreach (var (connId, _) in room.Players)
+            {
+                var uid = room.PlayerUserIds.GetValueOrDefault(connId);
+                if (uid > 0)
+                {
+                    var balance = await balanceRepo.GetOrCreate(uid, GameType.Avalon);
+                    await hubContext.Clients.Client(connId).SendAsync("BalanceUpdate", balance.Balance);
+                }
+            }
         }
 
         if (room.Players.Count == 0) { roomManager.RemoveRoom(roomId); return; }
 
+        if (room.HostConnectionId == null || !room.Players.ContainsKey(room.HostConnectionId))
+            room.HostConnectionId = room.Players.Keys.FirstOrDefault();
+
         room.ReassignSeats();
         room.RebuildRoleConfig();
-        await Clients.Group(roomId).SendAsync("PlayerLeft", room.Players.Count);
-        await BroadcastRoomPlayers(roomId);
+        await hubContext.Clients.Group(roomId).SendAsync("PlayerLeft", room.Players.Count);
+
+        foreach (var (connId, _) in room.Players)
+        {
+            var isHost = connId == room.HostConnectionId;
+            await hubContext.Clients.Client(connId).SendAsync("RoomUpdate", new
+            {
+                players = room.Players.OrderBy(p => p.Value).Select(p => new
+                {
+                    nickname = room.PlayerNicknames.GetValueOrDefault(p.Key, "Player"),
+                    isReady = room.ReadyPlayers.Contains(p.Key),
+                    isHost = p.Key == room.HostConnectionId,
+                    seatIndex = p.Value,
+                    isDisconnected = false
+                }),
+                isHost,
+                roleConfig = room.RoleConfig.Select(r => r.ToString()).ToList(),
+                maxRejects = room.MaxRejects
+            });
+        }
     }
 }

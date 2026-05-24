@@ -150,7 +150,7 @@ public class BlackJackGameTests
     [Fact]
     public void ForfeitPlayer_SkipsCurrentPlayer()
     {
-        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 3);
+        var game = new BlackJackGame(new Deck(), playerCount: 3);
         game.Start();
 
         // Player 0 is current, forfeit player 0

@@ -6,6 +6,7 @@ import Lobby from "./components/Lobby";
 import Game from "./components/Game";
 import AvalonLobby from "./components/avalon/AvalonLobby";
 import AvalonGame from "./components/avalon/AvalonGame";
+import Admin from "./components/Admin";
 import { createConnection } from "./services/signalr";
 import { createAvalonConnection } from "./services/avalonSignalr";
 import { logout } from "./services/api";
@@ -24,6 +25,8 @@ function App() {
   const [roleConfig, setRoleConfig] = useState([]);
   const [maxRejects, setMaxRejects] = useState(5);
   const [gameInProgress, setGameInProgress] = useState(false);
+  const [connState, setConnState] = useState("disconnected");
+  const [connRetry, setConnRetry] = useState(0);
   const connRef = useRef(null);
   const roomIdRef = useRef(sessionStorage.getItem("roomId") || null);
   const needsRejoinRef = useRef(!!sessionStorage.getItem("roomId"));
@@ -38,6 +41,8 @@ function App() {
       }
       return;
     }
+
+    let intentionalStop = false;
 
     const conn = selectedGame === "blackjack"
       ? createConnection()
@@ -63,14 +68,44 @@ function App() {
       setRoleConfig([]);
       setMaxRejects(5);
     });
+    conn.on("RoomDisbanded", () => {
+      setRoomId(null);
+      roomIdRef.current = null;
+      sessionStorage.removeItem("roomId");
+      setMaxPlayers(0);
+      setPlayerCount(0);
+      setRoomPlayers([]);
+      setIsHost(false);
+      setRoleConfig([]);
+      setMaxRejects(5);
+      setGameInProgress(false);
+    });
+
+    conn.onreconnecting(() => {
+      console.log("SignalR reconnecting...");
+      setConnState("reconnecting");
+    });
 
     conn.onreconnected(() => {
       console.log("SignalR reconnected");
+      setConnState("connected");
       if (roomIdRef.current) {
         conn.invoke("Rejoin", roomIdRef.current).catch((err) => {
           console.warn("Rejoin failed:", err);
         });
       }
+    });
+
+    conn.onclose(() => {
+      if (intentionalStop) return;
+      console.log("SignalR connection closed, will retry in 5s...");
+      setConnState("disconnected");
+      setConnection(null);
+      connRef.current = null;
+      needsRejoinRef.current = !!roomIdRef.current;
+      setTimeout(() => {
+        if (!intentionalStop) setConnRetry((c) => c + 1);
+      }, 5000);
     });
 
     conn
@@ -79,15 +114,24 @@ function App() {
         console.log(`SignalR connected (${selectedGame})`);
         connRef.current = conn;
         setConnection(conn);
+        setConnState("connected");
       })
-      .catch((err) => console.error("SignalR connection failed:", err));
+      .catch((err) => {
+        console.error("SignalR connection failed:", err);
+        setConnState("disconnected");
+        setTimeout(() => {
+          if (!intentionalStop) setConnRetry((c) => c + 1);
+        }, 5000);
+      });
 
     return () => {
+      intentionalStop = true;
       conn.stop();
       connRef.current = null;
       setConnection(null);
+      setConnState("disconnected");
     };
-  }, [token, selectedGame]);
+  }, [token, selectedGame, connRetry]);
 
   function handleLogin(t, refreshToken, nick) {
     localStorage.setItem("token", t);
@@ -141,6 +185,10 @@ function App() {
     logout();
   }
 
+  if (window.location.hash === "#admin") {
+    return <Admin />;
+  }
+
   if (!token) {
     return <Login onLogin={handleLogin} />;
   }
@@ -162,7 +210,9 @@ function App() {
 
   // Waiting for connection
   if (!connection) {
-    return <p style={{ textAlign: "center", marginTop: 60 }}>Connecting...</p>;
+    return <p style={{ textAlign: "center", marginTop: 60 }}>
+      {connState === "reconnecting" ? "Reconnecting..." : "Connecting..."}
+    </p>;
   }
 
   // BlackJack

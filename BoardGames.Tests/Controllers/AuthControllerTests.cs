@@ -162,8 +162,8 @@ public class AuthControllerTests : IDisposable
         var result = await _controller.GetBalances();
 
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var balances = Assert.IsType<Dictionary<string, int>>(okResult.Value);
-        Assert.Equal(500, balances["BlackJack"]);
-        Assert.Equal(1000, balances["Avalon"]);
+        var balances = Assert.IsType<Dictionary<string, decimal>>(okResult.Value);
+        Assert.Equal(500m, balances["BlackJack"]);
+        Assert.Equal(1000m, balances["Avalon"]);
     }
 }

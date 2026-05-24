@@ -23,14 +23,14 @@ public class GameBalanceRepository(AppDbContext db) : IGameBalanceRepository
         return balance;
     }
 
-    public async Task UpdateBalance(int userId, GameType gameType, int delta)
+    public async Task UpdateBalance(int userId, GameType gameType, decimal delta)
     {
         var balance = await GetOrCreate(userId, gameType);
         balance.Balance += delta;
         await db.SaveChangesAsync();
     }
 
-    public async Task<List<(string Nickname, int Balance)>> GetTopBalances(GameType gameType, int count)
+    public async Task<List<(string Nickname, decimal Balance)>> GetTopBalances(GameType gameType, int count)
     {
         var results = await db.GameBalances
             .Where(b => b.GameType == gameType)

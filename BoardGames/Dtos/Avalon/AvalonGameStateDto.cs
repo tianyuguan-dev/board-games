@@ -72,6 +72,7 @@ public class AvalonGameStateDto
     public int? AssassinTarget { get; set; }
     public bool BonusAssassination { get; set; }
     public bool EarlyAssassination { get; set; }
+    public List<int>? AssassinationTargets { get; set; }
 
     // Game over
     public string? Winner { get; set; }
@@ -142,6 +143,12 @@ public class AvalonGameStateDto
         if (game.Phase == AvalonPhase.Assassination)
         {
             dto.BonusAssassination = game.BonusAssassination;
+            if (game.Roles[playerIndex] == AvalonRole.Assassin)
+            {
+                dto.AssassinationTargets = Enumerable.Range(0, game.PlayerCount)
+                    .Where(i => AvalonConfig.GetTeam(game.Roles[i]) == AvalonTeam.Good)
+                    .ToList();
+            }
         }
 
         // Game over: reveal everything

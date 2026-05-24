@@ -33,6 +33,7 @@ public class BlackJackGame
     {
         if (State != BlackJackGameState.Betting) return;
         if (playerIndex < 0 || playerIndex >= _playerCount) return;
+        if (_forfeitedPlayers.Contains(playerIndex)) return;
         if (amount < MinBet || amount > MaxBet) return;
         _bets[playerIndex] = amount;
     }

@@ -79,7 +79,7 @@ public class BlackJackHub(
         return string.IsNullOrEmpty(user.Nickname) ? user.Username : user.Nickname;
     }
 
-    public async Task<int> GetBalance()
+    public async Task<decimal> GetBalance()
     {
         var balance = await balanceRepo.GetOrCreate(GetUserId(), GameType.BlackJack);
         return balance.Balance;
@@ -91,7 +91,7 @@ public class BlackJackHub(
         return top.Select(x => (object)new { nickname = x.Nickname, balance = x.Balance }).ToList();
     }
 
-    public async Task<int> ClaimBonus()
+    public async Task<decimal> ClaimBonus()
     {
         var userId = GetUserId();
         var balance = await balanceRepo.GetOrCreate(userId, GameType.BlackJack);
@@ -99,15 +99,13 @@ public class BlackJackHub(
             throw new InvalidOperationException("Balance too high to claim bonus");
         var bonus = Random.Shared.Next(10, 21);
         await balanceRepo.UpdateBalance(userId, GameType.BlackJack, bonus);
-        return balance.Balance;
+        return balance.Balance + bonus;
     }
 
     private async Task SettleIfFinished(string roomId, BlackJackRoom room)
     {
-        if (room.BlackJackGame?.State != BlackJackGameState.Finished || room.IsSettled)
+        if (room.BlackJackGame?.State != BlackJackGameState.Finished || !room.TrySetSettled())
             return;
-
-        room.IsSettled = true;
         var game = room.BlackJackGame;
 
         for (int i = 0; i < game.Bets.Count; i++)
@@ -181,7 +179,7 @@ public class BlackJackHub(
             throw new InvalidOperationException("Insufficient balance");
     }
 
-    public async Task<BlackJackRoom> CreateRoom(int maxPlayers)
+    public async Task<object> CreateRoom(int maxPlayers)
     {
         if (maxPlayers is <= 0 or > 7)
             throw new ArgumentOutOfRangeException(nameof(maxPlayers));
@@ -195,7 +193,7 @@ public class BlackJackHub(
         blackJackRoom.PlayerUserIds[contextConnectionId] = GetUserId();
         await Clients.Group(blackJackRoom.RoomId).SendAsync("PlayerJoined", blackJackRoom.Players.Count);
         await BroadcastRoomPlayers(blackJackRoom.RoomId);
-        return blackJackRoom;
+        return new { blackJackRoom.RoomId, blackJackRoom.MaxPlayers };
     }
 
     public async Task<JoinRoomResult> JoinRoom(string roomId)
@@ -238,8 +236,8 @@ public class BlackJackHub(
             .OrderBy(p => p.Value)
             .Select(p => blackJackRoom.PlayerUserIds.GetValueOrDefault(p.Key, 0))
             .ToList();
-        blackJackRoom.IsSettled = false;
-        blackJackRoom.GamePlayerBalances = new List<int>();
+        blackJackRoom.ResetSettled();
+        blackJackRoom.GamePlayerBalances = new List<decimal>();
         BlackJackGame blackJackGame = blackJackRoom.BlackJackTable.NewRound(blackJackRoom.Players.Count);
         blackJackRoom.BlackJackGame = blackJackGame;
         blackJackRoom.ReadyPlayers.Clear();
@@ -399,10 +397,8 @@ public class BlackJackHub(
 
         await Groups.RemoveFromGroupAsync(connectionId, roomId);
 
-        if (blackJackRoom?.BlackJackGame != null &&
-            (blackJackRoom.BlackJackGame.CurrentPlayerIndex != prevIndex || blackJackRoom.BlackJackGame.State != prevState))
+        if (blackJackRoom?.BlackJackGame != null)
         {
-            // Check if all bets placed after forfeit during betting
             if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Betting &&
                 blackJackRoom.BlackJackGame.AllBetsPlaced())
             {
@@ -413,7 +409,7 @@ public class BlackJackHub(
                     await SettleIfFinished(roomId, blackJackRoom);
                 ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
             }
-            else
+            else if (blackJackRoom.BlackJackGame.CurrentPlayerIndex != prevIndex || blackJackRoom.BlackJackGame.State != prevState)
             {
                 await Clients.Group(roomId).SendAsync("PlayerStand", CreateGameDto(blackJackRoom));
                 if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)

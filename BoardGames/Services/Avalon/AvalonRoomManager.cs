@@ -1,10 +1,11 @@
+using System.Collections.Concurrent;
 using BoardGames.Models.Avalon;
 
 namespace BoardGames.Services.Avalon;
 
 public class AvalonRoomManager : IAvalonRoomManager
 {
-    private readonly Dictionary<string, AvalonRoom> _rooms = new();
+    private readonly ConcurrentDictionary<string, AvalonRoom> _rooms = new();
     private readonly Random _random = new();
 
     public AvalonRoom CreateRoom(int maxPlayers)
@@ -17,7 +18,7 @@ public class AvalonRoomManager : IAvalonRoomManager
             roomId = _random.Next(10000, 100000).ToString();
 
         var room = new AvalonRoom(roomId, maxPlayers);
-        _rooms.Add(roomId, room);
+        _rooms.TryAdd(roomId, room);
         return room;
     }
 
@@ -83,6 +84,6 @@ public class AvalonRoomManager : IAvalonRoomManager
 
     public void RemoveRoom(string roomId)
     {
-        _rooms.Remove(roomId);
+        _rooms.TryRemove(roomId, out _);
     }
 }

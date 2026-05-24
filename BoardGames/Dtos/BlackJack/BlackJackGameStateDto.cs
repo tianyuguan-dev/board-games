@@ -16,7 +16,7 @@ public class BlackJackGameStateDto
     public int ReshuffleThreshold { get; set; }
     public List<int> Bets { get; init; }
     public List<int?>? Winnings { get; init; }
-    public List<int> PlayerBalances { get; set; } = new();
+    public List<decimal> PlayerBalances { get; set; } = new();
 
     public BlackJackGameStateDto(BlackJackGame game)
     {

@@ -35,10 +35,16 @@ export default function AvalonLobby({ connection, nickname, onJoinRoom, onBack }
 
   async function handleRejoin() {
     try {
-      const result = await connection.invoke("JoinRoom", activeRoom);
-      onJoinRoom(activeRoom, result.maxPlayers, result.playerCount, result.gameInProgress);
-    } catch (e) {
-      setError(e.message || "Failed to rejoin");
+      const result = await connection.invoke("Rejoin", activeRoom);
+      onJoinRoom(activeRoom, result.maxPlayers, result.playerCount, true);
+    } catch {
+      try {
+        const result = await connection.invoke("JoinRoom", activeRoom);
+        onJoinRoom(activeRoom, result.maxPlayers, result.playerCount, result.gameInProgress);
+      } catch (e) {
+        setError(e.message || "Failed to rejoin");
+        setActiveRoom(null);
+      }
     }
   }
 

@@ -1,23 +1,23 @@
+using System.Collections.Concurrent;
 using BoardGames.Models.BlackJack;
 
 namespace BoardGames.Services.BlackJack;
 
 public class BlackJackRoomManager: IBlackJackRoomManager
 {
-    private Dictionary<string, BlackJackRoom> _rooms = new();
+    private readonly ConcurrentDictionary<string, BlackJackRoom> _rooms = new();
     private readonly Random _random = new();
     
     public BlackJackRoom CreateRoom(int maxPlayers)
     {
         string roomId = _random.Next(10000, 100000).ToString();
-        var roomsIds = _rooms.Keys;
-        while (roomsIds.Contains(roomId))
+        while (_rooms.ContainsKey(roomId))
         {
             roomId = _random.Next(10000, 100000).ToString();
         }
 
         var blackJackRoom = new BlackJackRoom(roomId, maxPlayers);
-        _rooms.Add(roomId, blackJackRoom);
+        _rooms.TryAdd(roomId, blackJackRoom);
         return blackJackRoom;
     }
 
@@ -76,6 +76,6 @@ public class BlackJackRoomManager: IBlackJackRoomManager
 
     public void RemoveRoom(string roomId)
     {
-        _rooms.Remove(roomId);
+        _rooms.TryRemove(roomId, out _);
     }
 }

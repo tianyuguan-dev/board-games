@@ -272,6 +272,7 @@ public class AvalonGame
         if (Phase != AvalonPhase.Assassination) return;
         if (Roles[assassinIndex] != AvalonRole.Assassin) return;
         if (targetIndex < 0 || targetIndex >= PlayerCount) return;
+        if (AvalonConfig.GetTeam(Roles[targetIndex]) == AvalonTeam.Evil) return;
 
         AssassinTarget = targetIndex;
 

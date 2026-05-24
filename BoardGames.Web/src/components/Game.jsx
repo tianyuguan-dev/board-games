@@ -112,36 +112,42 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
   }, [connection]);
 
   async function handleReady() {
-    setReady(true);
-    await connection.invoke("Ready", roomId);
+    try { setReady(true); await connection.invoke("Ready", roomId); }
+    catch { setReady(false); }
   }
   async function handleUnready() {
-    await connection.invoke("Unready", roomId);
-    setReady(false);
+    try { await connection.invoke("Unready", roomId); setReady(false); }
+    catch {}
   }
   async function handleStart() {
-    await connection.invoke("StartGame", roomId);
+    try { await connection.invoke("StartGame", roomId); }
+    catch (e) { alert(e.message); }
   }
   async function handlePlaceBet() {
     const max = Math.min(MAX_BET, balance || MAX_BET);
     const amount = Math.max(MIN_BET, Math.min(max, Number(betAmount) || MIN_BET));
     setBetAmount(amount);
-    await connection.invoke("PlaceBet", roomId, amount);
+    try { await connection.invoke("PlaceBet", roomId, amount); }
+    catch (e) { alert(e.message); }
   }
   async function handleHit() {
-    await connection.invoke("BlackJackPlayerHit", roomId);
+    try { await connection.invoke("BlackJackPlayerHit", roomId); }
+    catch {}
   }
   async function handleStand() {
-    await connection.invoke("BlackJackPlayerStand", roomId);
+    try { await connection.invoke("BlackJackPlayerStand", roomId); }
+    catch {}
   }
   async function handleDoubleDown() {
-    await connection.invoke("BlackJackPlayerDoubleDown", roomId);
+    try { await connection.invoke("BlackJackPlayerDoubleDown", roomId); }
+    catch (e) { alert(e.message); }
   }
   async function handleKick(seatIndex) {
-    await connection.invoke("KickPlayer", roomId, seatIndex);
+    try { await connection.invoke("KickPlayer", roomId, seatIndex); }
+    catch (e) { alert(e.message); }
   }
   async function handleLeave() {
-    await connection.invoke("LeaveRoom");
+    try { await connection.invoke("LeaveRoom"); } catch {}
     onLeave();
   }
 

@@ -100,7 +100,7 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
         var conn = CreateHubConnection("/hub/avalon", token);
         await conn.StartAsync();
 
-        var balance = await conn.InvokeAsync<int>("GetBalance");
+        var balance = await conn.InvokeAsync<decimal>("GetBalance");
         Assert.True(balance >= 0);
     }
 
@@ -117,7 +117,7 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
 
         var ex = await Assert.ThrowsAsync<HubException>(
             () => conn.InvokeAsync("StartGame", roomId));
-        Assert.Contains("5-10 players", ex.Message);
+        Assert.Contains("Need 5 players", ex.Message);
     }
 
     [Fact]
@@ -162,5 +162,16 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
 
         var ex = await Record.ExceptionAsync(() => conn.StartAsync());
         Assert.NotNull(ex);
+    }
+
+    [Fact]
+    public async Task GetLeaderboard_ReturnsList()
+    {
+        var token = await RegisterAndGetToken("av_leader");
+        var conn = CreateHubConnection("/hub/avalon", token);
+        await conn.StartAsync();
+
+        var result = await conn.InvokeAsync<object>("GetLeaderboard");
+        Assert.NotNull(result);
     }
 }

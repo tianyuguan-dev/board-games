@@ -13,8 +13,10 @@ public class BlackJackRoom
     public string? HostConnectionId { get; set; }
     public List<string> GamePlayerNames { get; set; } = new();
     public List<int> GamePlayerUserIds { get; set; } = new();
-    public List<int> GamePlayerBalances { get; set; } = new();
-    public bool IsSettled { get; set; }
+    public List<decimal> GamePlayerBalances { get; set; } = new();
+    private int _isSettled;
+    public bool TrySetSettled() => Interlocked.CompareExchange(ref _isSettled, 1, 0) == 0;
+    public void ResetSettled() => Interlocked.Exchange(ref _isSettled, 0);
     public BlackJackRoom(string roomId, int maxPlayers)
     {
         RoomId = roomId;

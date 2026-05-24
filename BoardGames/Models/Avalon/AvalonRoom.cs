@@ -28,27 +28,34 @@ public class AvalonRoom
     public Dictionary<int, string> SeatToConnection { get; set; } = new();
     public List<string> GamePlayerNames { get; set; } = new();
     public List<int> GamePlayerUserIds { get; set; } = new();
-    public bool IsSettled { get; set; }
+    private int _isSettled;
+    public bool TrySetSettled() => Interlocked.CompareExchange(ref _isSettled, 1, 0) == 0;
+    public void ResetSettled() => Interlocked.Exchange(ref _isSettled, 0);
 
     // Disconnected players awaiting reconnection (userId => info)
     public Dictionary<int, DisconnectedPlayer> DisconnectedPlayers { get; set; } = new();
 
-    public void MarkDisconnected(string connectionId)
+    public DisconnectedPlayer? MarkDisconnected(string connectionId)
     {
-        if (!Players.TryGetValue(connectionId, out int seatIndex)) return;
+        if (!Players.TryGetValue(connectionId, out int seatIndex)) return null;
         var userId = PlayerUserIds.GetValueOrDefault(connectionId);
+        if (userId <= 0) return null;
         var nickname = PlayerNicknames.GetValueOrDefault(connectionId, "Player");
-        DisconnectedPlayers[userId] = new DisconnectedPlayer
+        var info = new DisconnectedPlayer
         {
             UserId = userId,
             SeatIndex = seatIndex,
             Nickname = nickname,
             DisconnectedAt = DateTime.UtcNow
         };
+        DisconnectedPlayers[userId] = info;
         Players.Remove(connectionId);
         PlayerNicknames.Remove(connectionId);
         PlayerUserIds.Remove(connectionId);
         ReadyPlayers.Remove(connectionId);
+        if (HostConnectionId == connectionId)
+            HostConnectionId = Players.Keys.FirstOrDefault();
+        return info;
     }
 
     public DisconnectedPlayer? TryRejoin(string newConnectionId, int userId)
@@ -140,6 +147,8 @@ public class AvalonRoom
 
         int goodCount = total - evilRoles.Count;
         var goodRoles = new List<AvalonRole> { AvalonRole.Merlin, AvalonRole.Percival };
+        while (goodRoles.Count > goodCount && goodRoles.Count > 1)
+            goodRoles.RemoveAt(goodRoles.Count - 1);
         while (goodRoles.Count < goodCount) goodRoles.Add(AvalonRole.LoyalServant);
 
         RoleConfig = new List<AvalonRole>();
@@ -180,6 +189,6 @@ public class AvalonRoom
             .OrderBy(p => p.Value)
             .Select(p => PlayerUserIds.GetValueOrDefault(p.Key, 0))
             .ToList();
-        IsSettled = false;
+        ResetSettled();
     }
 }

@@ -69,7 +69,10 @@ public class BlackJackHubTests
 
         var result = await _hub.CreateRoom(4);
 
-        Assert.Same(room, result);
+        var json = System.Text.Json.JsonSerializer.Serialize(result);
+        var doc = System.Text.Json.JsonDocument.Parse(json);
+        Assert.Equal("12345", doc.RootElement.GetProperty("RoomId").GetString());
+        Assert.Equal(4, doc.RootElement.GetProperty("MaxPlayers").GetInt32());
     }
 
     [Fact]

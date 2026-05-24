@@ -41,7 +41,8 @@ public class AuthController(
         user.LastActiveAt = DateTime.UtcNow;
         await userRepository.Update(user);
         var token = jwtService.GenerateJwtToken(user);
-        var refreshToken = await CreateRefreshToken(user.Id);
+        var refreshToken = CreateRefreshToken(user.Id);
+        await dbContext.SaveChangesAsync();
         return Ok(new { token, refreshToken = refreshToken.Token, nickname = user.Nickname });
     }
 
@@ -69,7 +70,7 @@ public class AuthController(
             return Unauthorized();
 
         var newAccessToken = jwtService.GenerateJwtToken(user);
-        var newRefreshToken = await CreateRefreshToken(user.Id);
+        var newRefreshToken = CreateRefreshToken(user.Id);
         await dbContext.SaveChangesAsync();
 
         return Ok(new { token = newAccessToken, refreshToken = newRefreshToken.Token });
@@ -115,7 +116,7 @@ public class AuthController(
     public async Task<IActionResult> GetBalances()
     {
         var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var balances = new Dictionary<string, int>();
+        var balances = new Dictionary<string, decimal>();
         foreach (var gameType in Enum.GetValues<GameType>())
         {
             var balance = await balanceRepository.GetOrCreate(userId, gameType);
@@ -124,7 +125,7 @@ public class AuthController(
         return Ok(balances);
     }
 
-    private async Task<RefreshToken> CreateRefreshToken(int userId)
+    private RefreshToken CreateRefreshToken(int userId)
     {
         var refreshToken = new RefreshToken
         {
@@ -133,7 +134,6 @@ public class AuthController(
             ExpiresAt = DateTime.UtcNow.AddDays(15)
         };
         dbContext.RefreshTokens.Add(refreshToken);
-        await dbContext.SaveChangesAsync();
         return refreshToken;
     }
 }

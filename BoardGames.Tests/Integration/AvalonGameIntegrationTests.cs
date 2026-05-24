@@ -163,8 +163,8 @@ public class AvalonGameIntegrationTests : IClassFixture<CustomWebApplicationFact
         {
             var assassinSeat = players[0].AssassinIndex!.Value;
             var assassin = players.First(p => p.SeatIndex == assassinSeat);
-            var target = assassin.SeatIndex == 0 ? 1 : 0;
-            await assassin.Connection.InvokeAsync("Assassinate", roomId, target);
+            var goodPlayer = players.First(p => p.MyTeam == "Good");
+            await assassin.Connection.InvokeAsync("Assassinate", roomId, goodPlayer.SeatIndex);
             await WaitForAllStates(players);
         }
 
@@ -461,11 +461,94 @@ public class AvalonGameIntegrationTests : IClassFixture<CustomWebApplicationFact
 
         Assert.Equal("Assassination", players[0].Phase);
 
-        // Assassin picks target (just pick seat 0 or 1, doesn't matter)
-        var target = assassin.SeatIndex == 0 ? 1 : 0;
-        await assassin.Connection.InvokeAsync("Assassinate", roomId, target);
+        // Assassin picks a good player as target
+        var goodPlayer = players.First(p => p.MyTeam == "Good");
+        await assassin.Connection.InvokeAsync("Assassinate", roomId, goodPlayer.SeatIndex);
         await WaitForAllStates(players);
 
         Assert.Equal("GameOver", players[0].Phase);
+    }
+
+    [Fact]
+    public async Task LeaveRoom_DuringGameOver_DisbandsRoom()
+    {
+        var (players, roomId) = await SetupGameInProgress("av_disband");
+
+        // Play to GameOver via consecutive rejects
+        for (int reject = 0; reject < 5 && players[0].Phase == "TeamProposal"; reject++)
+        {
+            var leader = players.First(p => p.SeatIndex == players[0].CurrentLeaderIndex);
+            var team = Enumerable.Range(0, players[0].RequiredTeamSize).ToList();
+            await leader.Connection.InvokeAsync("ProposeTeam", roomId, team);
+            await WaitForAllStates(players);
+
+            for (int i = 0; i < 5; i++)
+                await players[i].Connection.InvokeAsync("CastVote", roomId, false);
+            await WaitForAllStates(players);
+        }
+
+        Assert.Equal("GameOver", players[0].Phase);
+
+        var disbanded = new TaskCompletionSource<bool>();
+        players[1].Connection.On("RoomDisbanded", () => disbanded.TrySetResult(true));
+
+        await players[0].Connection.InvokeAsync("LeaveRoom");
+
+        var result = await Task.WhenAny(disbanded.Task, Task.Delay(3000));
+        Assert.True(disbanded.Task.IsCompletedSuccessfully, "Room should be disbanded for all players");
+    }
+
+    [Fact]
+    public async Task Disconnect_InLobby_GracePeriod_AllowsRejoin()
+    {
+        var tokens = new string[2];
+        var conns = new HubConnection[2];
+        for (int i = 0; i < 2; i++)
+        {
+            tokens[i] = await RegisterAndGetToken($"av_lobby_disc_{i}");
+            conns[i] = CreateHubConnection(tokens[i]);
+            await conns[i].StartAsync();
+        }
+
+        var roomJson = await conns[0].InvokeAsync<object>("CreateRoom", 5);
+        var roomId = JsonSerializer.Deserialize<Dictionary<string, object>>(
+            roomJson.ToString()!, JsonOpts)!["roomId"].ToString()!;
+        await conns[1].InvokeAsync<object>("JoinRoom", roomId);
+
+        var disconnectNotified = new TaskCompletionSource<string>();
+        conns[0].On<string>("PlayerDisconnected", name => disconnectNotified.TrySetResult(name));
+
+        // Player 1 disconnects in lobby
+        await conns[1].StopAsync();
+        var notified = await Task.WhenAny(disconnectNotified.Task, Task.Delay(3000));
+        Assert.True(disconnectNotified.Task.IsCompletedSuccessfully,
+            "Host should be notified of disconnect");
+
+        // Player 1 reconnects before grace period
+        var newConn = CreateHubConnection(tokens[1]);
+        var reconnected = new TaskCompletionSource<string>();
+        conns[0].On<string>("PlayerReconnected", name => reconnected.TrySetResult(name));
+        await newConn.StartAsync();
+
+        var rejoinResult = await newConn.InvokeAsync<object>("Rejoin", roomId);
+        Assert.NotNull(rejoinResult);
+
+        var reconnectedResult = await Task.WhenAny(reconnected.Task, Task.Delay(3000));
+        Assert.True(reconnected.Task.IsCompletedSuccessfully,
+            "Host should be notified of reconnection");
+    }
+
+    [Fact]
+    public async Task GetGameState_DuringGame_ReturnsState()
+    {
+        var (players, roomId) = await SetupGameInProgress("av_getstate");
+
+        var stateReceived = new TaskCompletionSource<bool>();
+        players[0].Connection.On<object>("GameState", _ => stateReceived.TrySetResult(true));
+
+        await players[0].Connection.InvokeAsync("GetGameState", roomId);
+
+        var result = await Task.WhenAny(stateReceived.Task, Task.Delay(3000));
+        Assert.True(stateReceived.Task.IsCompletedSuccessfully, "Should receive game state");
     }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./AvalonGame.css";
 
 const TOGGLE_EVIL = ["Mordred", "Oberon"];
@@ -33,6 +33,8 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   const [hasVoted, setHasVoted] = useState(false);
   const [hasPlayedCard, setHasPlayedCard] = useState(false);
   const [balance, setBalance] = useState(null);
+  const [playersWhoVoted, setPlayersWhoVoted] = useState([]);
+  const [missionPlayersPlayed, setMissionPlayersPlayed] = useState([]);
 
   useEffect(() => {
     connection.on("YourSeat", (index) => setMyIndex(index));
@@ -46,9 +48,11 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
       const mi = state.myIndex;
       setHasVoted(!!(state.phase === "TeamVote" && state.playersWhoVoted?.includes(mi)));
       setHasPlayedCard(!!(state.phase === "Mission" && state.missionPlayersPlayed?.includes(mi)));
+      setPlayersWhoVoted(state.playersWhoVoted || []);
+      setMissionPlayersPlayed(state.missionPlayersPlayed || []);
     });
-    connection.on("VoteProgress", () => {});
-    connection.on("MissionProgress", () => {});
+    connection.on("VoteProgress", (voted) => setPlayersWhoVoted(voted));
+    connection.on("MissionProgress", (played) => setMissionPlayersPlayed(played));
     connection.on("NightRevealProgress", () => {});
     connection.on("BalanceUpdate", (bal) => setBalance(bal));
     connection.invoke("GetBalance").then(setBalance).catch(() => {});
@@ -84,12 +88,12 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   }, [connection]);
 
   async function handleReady() {
-    setReady(true);
-    await connection.invoke("Ready", roomId);
+    try { setReady(true); await connection.invoke("Ready", roomId); }
+    catch { setReady(false); }
   }
   async function handleUnready() {
-    await connection.invoke("Unready", roomId);
-    setReady(false);
+    try { await connection.invoke("Unready", roomId); setReady(false); }
+    catch {}
   }
   async function handleStart() {
     try {
@@ -106,7 +110,8 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
     }
   }
   async function handleKick(seatIndex) {
-    await connection.invoke("KickPlayer", roomId, seatIndex);
+    try { await connection.invoke("KickPlayer", roomId, seatIndex); }
+    catch (e) { alert(e.message); }
   }
   const [dragFrom, setDragFrom] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // insert position index
@@ -144,7 +149,7 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
     if (dragFrom !== null && dropTarget !== null) {
       const to = dropTarget > dragFrom ? dropTarget - 1 : dropTarget;
       if (to !== dragFrom) {
-        await connection.invoke("ReorderPlayer", roomId, dragFrom, to);
+        try { await connection.invoke("ReorderPlayer", roomId, dragFrom, to); } catch {}
       }
     }
     setDragFrom(null);
@@ -175,7 +180,7 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
     if (touchFromRef.current !== null && dropTarget !== null) {
       const to = dropTarget > touchFromRef.current ? dropTarget - 1 : dropTarget;
       if (to !== touchFromRef.current) {
-        await connection.invoke("ReorderPlayer", roomId, touchFromRef.current, to);
+        try { await connection.invoke("ReorderPlayer", roomId, touchFromRef.current, to); } catch {}
       }
     }
     touchFromRef.current = null;
@@ -184,19 +189,20 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   }
   async function handleLeave() {
     if (gameState && gameState.phase !== "GameOver") {
-      if (!window.confirm("Leaving during a game will abort the game and you will lose 5 points. Are you sure?")) {
+      if (!window.confirm("Leaving during a game will abort the game. Are you sure?")) {
         return;
       }
     }
-    await connection.invoke("LeaveRoom");
+    try { await connection.invoke("LeaveRoom"); } catch {}
     onLeave();
   }
   async function handleConfirmNight() {
-    setNightConfirmed(true);
-    await connection.invoke("ConfirmNightReveal", roomId);
+    try { setNightConfirmed(true); await connection.invoke("ConfirmNightReveal", roomId); }
+    catch { setNightConfirmed(false); }
   }
   async function handleProposeTeam() {
-    await connection.invoke("ProposeTeam", roomId, selectedTeam);
+    try { await connection.invoke("ProposeTeam", roomId, selectedTeam); }
+    catch (e) { alert(e.message); }
   }
   async function handleVote(approve) {
     if (!approve && gameState && gameState.consecutiveRejects >= (gameState.maxConsecutiveRejects || 5) - 1) {
@@ -204,21 +210,23 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
         return;
       }
     }
-    await connection.invoke("CastVote", roomId, approve);
-    setHasVoted(true);
+    try { await connection.invoke("CastVote", roomId, approve); setHasVoted(true); }
+    catch (e) { alert(e.message); }
   }
   async function handleMissionCard(success) {
-    await connection.invoke("PlayMissionCard", roomId, success);
-    setHasPlayedCard(true);
+    try { await connection.invoke("PlayMissionCard", roomId, success); setHasPlayedCard(true); }
+    catch (e) { alert(e.message); }
   }
   async function handleAssassinate(targetIndex) {
     const name = gameState?.playerNames?.[targetIndex] || `Player ${targetIndex}`;
     if (!window.confirm(`Assassinate ${name}?`)) return;
-    await connection.invoke("Assassinate", roomId, targetIndex);
+    try { await connection.invoke("Assassinate", roomId, targetIndex); }
+    catch (e) { alert(e.message); }
   }
   async function handleEarlyAssassinate() {
     if (!window.confirm("Are you sure you want to assassinate Merlin now? This will end the current game immediately!")) return;
-    await connection.invoke("EarlyAssassinate", roomId);
+    try { await connection.invoke("EarlyAssassinate", roomId); }
+    catch (e) { alert(e.message); }
   }
 
   function toggleTeamMember(index) {
@@ -347,7 +355,7 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
 
   // Pre-game lobby
   if (!gameState) {
-    const canStart = roomPlayers.length >= 5 &&
+    const canStart = roomPlayers.length === maxPlayers &&
       (roomPlayers.length <= 1 || roomPlayers.filter((p) => !p.isHost).every((p) => p.isReady));
     return (
       <div className="page-center" style={{ maxWidth: 500 }}>
@@ -516,18 +524,21 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
           const isMe = i === myIndex;
           const selectable = gs.phase === "TeamProposal" && isLeader;
           const selected = selectedTeam.includes(i);
-          const assassinating = gs.phase === "Assassination" && myIndex === gs.assassinIndex;
+          const isAssassinPhase = gs.phase === "Assassination" && myIndex === gs.assassinIndex;
+          const canAssassinate = isAssassinPhase && gs.assassinationTargets?.includes(i);
+          const isAlly = isAssassinPhase && !gs.assassinationTargets?.includes(i) && i !== myIndex;
           return (
             <div
               key={i}
-              className={`av-player ${isMe ? "me" : ""} ${onTeam ? "on-team" : ""} ${isCurrLeader ? "leader" : ""} ${selected ? "selected" : ""} ${selectable || assassinating ? "clickable" : ""}`}
+              className={`av-player ${isMe ? "me" : ""} ${onTeam ? "on-team" : ""} ${isCurrLeader ? "leader" : ""} ${selected ? "selected" : ""} ${selectable || canAssassinate ? "clickable" : ""} ${isAlly ? "ally-disabled" : ""}`}
               onClick={() => {
                 if (selectable) toggleTeamMember(i);
-                if (assassinating) handleAssassinate(i);
+                if (canAssassinate) handleAssassinate(i);
               }}
             >
               <span className="player-name">{name} {isCurrLeader ? "\uD83D\uDC51" : ""}</span>
               {isMe && <span className="me-tag">(You)</span>}
+              {isAlly && <span className="ally-tag">Ally</span>}
             </div>
           );
         })}
@@ -554,6 +565,13 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
         {gs.phase === "TeamVote" && (
           <div className="action-panel">
             <p>Team: {gs.proposedTeam.map((i) => gs.playerNames[i]).join(", ")}</p>
+            <div className="progress-status">
+              {gs.playerNames.map((name, i) => (
+                <span key={i} className={`status-chip ${playersWhoVoted.includes(i) ? "acted" : "pending"}`}>
+                  {name} {playersWhoVoted.includes(i) ? "●" : "…"}
+                </span>
+              ))}
+            </div>
             {hasVoted ? (
               <p className="waiting">Voted! Waiting for others...</p>
             ) : (
@@ -565,25 +583,33 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
           </div>
         )}
 
-        {gs.phase === "Mission" && gs.proposedTeam?.includes(myIndex) && (
+        {gs.phase === "Mission" && (
           <div className="action-panel">
-            {hasPlayedCard ? (
-              <p className="waiting">Card played! Waiting for others...</p>
+            <div className="progress-status">
+              {gs.proposedTeam?.map((i) => (
+                <span key={i} className={`status-chip ${missionPlayersPlayed.includes(i) ? "acted" : "pending"}`}>
+                  {gs.playerNames[i]} {missionPlayersPlayed.includes(i) ? "●" : "…"}
+                </span>
+              ))}
+            </div>
+            {gs.proposedTeam?.includes(myIndex) ? (
+              hasPlayedCard ? (
+                <p className="waiting">Card played! Waiting for others...</p>
+              ) : (
+                <>
+                  <p>You're on the mission! Play your card:</p>
+                  <div className="btn-row">
+                    <button className="btn btn-success" onClick={() => handleMissionCard(true)}>Success</button>
+                    {isEvil && (
+                      <button className="btn btn-danger" onClick={() => handleMissionCard(false)}>Fail</button>
+                    )}
+                  </div>
+                </>
+              )
             ) : (
-              <>
-                <p>You're on the mission! Play your card:</p>
-                <div className="btn-row">
-                  <button className="btn btn-success" onClick={() => handleMissionCard(true)}>Success</button>
-                  {isEvil && (
-                    <button className="btn btn-danger" onClick={() => handleMissionCard(false)}>Fail</button>
-                  )}
-                </div>
-              </>
+              <p className="waiting">Mission in progress...</p>
             )}
           </div>
-        )}
-        {gs.phase === "Mission" && !gs.proposedTeam?.includes(myIndex) && (
-          <p className="waiting">Mission in progress...</p>
         )}
 
         {gs.phase === "Assassination" && myIndex === gs.assassinIndex && (
@@ -624,11 +650,18 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
                 </div>
               ))}
             </div>
-            <div className="btn-row" style={{ marginTop: 16 }}>
+            <div className="progress-status" style={{ marginTop: 16 }}>
+              {roomPlayers.map((p, i) => (
+                <span key={i} className={`status-chip ${p.isHost || p.isReady ? "ready" : "pending"}`}>
+                  {p.nickname} {p.isHost ? "👑" : p.isReady ? "✓" : "…"}
+                </span>
+              ))}
+            </div>
+            <div className="btn-row" style={{ marginTop: 12 }}>
               {isHost ? (
                 <button className="btn btn-success" onClick={handleStart}
-                  disabled={roomPlayers.filter((p) => !p.isHost).some((p) => !p.isReady) && roomPlayers.length > 1}>
-                  Play Again
+                  disabled={roomPlayers.length !== maxPlayers || (roomPlayers.filter((p) => !p.isHost).some((p) => !p.isReady) && roomPlayers.length > 1)}>
+                  Play Again{roomPlayers.length !== maxPlayers ? ` (${roomPlayers.length}/${maxPlayers})` : ""}
                 </button>
               ) : ready ? (
                 <button className="btn btn-warning" onClick={handleUnready}>Cancel Ready</button>

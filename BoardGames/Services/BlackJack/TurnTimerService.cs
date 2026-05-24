@@ -14,8 +14,8 @@ public class TurnTimerService(
     IServiceScopeFactory scopeFactory)
     : ITurnTimerService
 {
-    public const int TurnTimeSeconds = 10;
-    public const int BettingTimeSeconds = 10;
+    public const int TurnTimeSeconds = 20;
+    public const int BettingTimeSeconds = 20;
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _turnTimers = new();
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _bettingTimers = new();
 
@@ -132,10 +132,8 @@ public class TurnTimerService(
 
     private async Task SettleIfFinished(BlackJackRoom room)
     {
-        if (room.BlackJackGame?.State != BlackJackGameState.Finished || room.IsSettled)
+        if (room.BlackJackGame?.State != BlackJackGameState.Finished || !room.TrySetSettled())
             return;
-
-        room.IsSettled = true;
         var game = room.BlackJackGame;
 
         using var scope = scopeFactory.CreateScope();
@@ -157,6 +155,16 @@ public class TurnTimerService(
 
             if (delta != 0)
                 await balanceRepo.UpdateBalance(userId, GameType.BlackJack, delta);
+        }
+
+        // Update GamePlayerBalances so DTO reflects settled balances
+        for (int i = 0; i < room.GamePlayerUserIds.Count; i++)
+        {
+            var uid = room.GamePlayerUserIds[i];
+            if (uid == 0) continue;
+            var bal = await balanceRepo.GetOrCreate(uid, GameType.BlackJack);
+            if (i < room.GamePlayerBalances.Count)
+                room.GamePlayerBalances[i] = bal.Balance;
         }
 
         // Send updated balances and kick broke players
@@ -199,6 +207,7 @@ public class TurnTimerService(
     {
         var dto = new BlackJackGameStateDto(room.BlackJackGame!);
         dto.PlayerNames = room.GamePlayerNames;
+        dto.PlayerBalances = room.GamePlayerBalances;
         dto.TotalCards = room.BlackJackTable.TotalCards;
         dto.CardsRemaining = room.BlackJackTable.CardsRemaining;
         dto.ReshuffleThreshold = room.BlackJackTable.ReshuffleThreshold;
@@ -207,20 +216,27 @@ public class TurnTimerService(
 
     private async Task BroadcastRoomPlayers(BlackJackRoom room)
     {
-        var players = room.Players
-            .OrderBy(p => p.Value)
-            .Select(p => new
+        using var scope = scopeFactory.CreateScope();
+        var balanceRepo = scope.ServiceProvider.GetRequiredService<IGameBalanceRepository>();
+
+        var playerList = new List<object>();
+        foreach (var p in room.Players.OrderBy(p => p.Value))
+        {
+            var uid = room.PlayerUserIds.GetValueOrDefault(p.Key);
+            var bal = uid > 0 ? (await balanceRepo.GetOrCreate(uid, GameType.BlackJack)).Balance : 0;
+            playerList.Add(new
             {
                 Nickname = room.PlayerNicknames.GetValueOrDefault(p.Key, "Player " + p.Value),
                 IsReady = room.ReadyPlayers.Contains(p.Key),
                 IsHost = p.Key == room.HostConnectionId,
-                SeatIndex = p.Value
-            })
-            .ToList();
+                SeatIndex = p.Value,
+                Balance = bal
+            });
+        }
         foreach (var connId in room.Players.Keys)
         {
             await hubContext.Clients.Client(connId).SendAsync("RoomUpdate",
-                new { Players = players, IsHost = connId == room.HostConnectionId });
+                new { Players = playerList, IsHost = connId == room.HostConnectionId });
         }
     }
 }

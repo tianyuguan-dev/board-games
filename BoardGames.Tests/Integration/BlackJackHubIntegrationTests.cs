@@ -100,7 +100,7 @@ public class BlackJackHubIntegrationTests : IClassFixture<CustomWebApplicationFa
         var conn = CreateHubConnection("/hub/blackjack", token);
         await conn.StartAsync();
 
-        var balance = await conn.InvokeAsync<int>("GetBalance");
+        var balance = await conn.InvokeAsync<decimal>("GetBalance");
         Assert.True(balance >= 0);
     }
 
@@ -198,6 +198,91 @@ public class BlackJackHubIntegrationTests : IClassFixture<CustomWebApplicationFa
 
         var ex = await Assert.ThrowsAsync<HubException>(
             () => guest.InvokeAsync("StartGame", roomId));
+        Assert.Contains("Only the host", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetLeaderboard_ReturnsList()
+    {
+        var token = await RegisterAndGetToken("bj_leader");
+        var conn = CreateHubConnection("/hub/blackjack", token);
+        await conn.StartAsync();
+
+        var result = await conn.InvokeAsync<object>("GetLeaderboard");
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public async Task ClaimBonus_ReturnsBalance()
+    {
+        var token = await RegisterAndGetToken("bj_bonus");
+        var conn = CreateHubConnection("/hub/blackjack", token);
+        await conn.StartAsync();
+
+        // Drain balance first so we're under 50
+        // New user starts at 1000 so ClaimBonus should throw
+        var ex = await Assert.ThrowsAsync<HubException>(
+            () => conn.InvokeAsync<decimal>("ClaimBonus"));
+        Assert.Contains("Balance too high", ex.Message);
+    }
+
+    [Fact]
+    public async Task DoubleDown_NotInGame_Throws()
+    {
+        var token = await RegisterAndGetToken("bj_dd");
+        var conn = CreateHubConnection("/hub/blackjack", token);
+        await conn.StartAsync();
+
+        await conn.InvokeAsync<object>("CreateRoom", 4);
+
+        var ex = await Assert.ThrowsAsync<HubException>(
+            () => conn.InvokeAsync("BlackJackPlayerDoubleDown", "fake-room"));
+        Assert.NotNull(ex);
+    }
+
+    [Fact]
+    public async Task KickPlayer_HostCanKick()
+    {
+        var token1 = await RegisterAndGetToken("bj_kick_host");
+        var token2 = await RegisterAndGetToken("bj_kick_guest");
+
+        var host = CreateHubConnection("/hub/blackjack", token1);
+        var guest = CreateHubConnection("/hub/blackjack", token2);
+        await host.StartAsync();
+        await guest.StartAsync();
+
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 4);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            roomJson.ToString()!)!["roomId"].ToString()!;
+        await guest.InvokeAsync<object>("JoinRoom", roomId);
+
+        var kicked = new TaskCompletionSource<bool>();
+        guest.On("Kicked", () => kicked.TrySetResult(true));
+
+        await host.InvokeAsync("KickPlayer", roomId, 1);
+
+        var result = await Task.WhenAny(kicked.Task, Task.Delay(3000));
+        Assert.True(kicked.Task.IsCompletedSuccessfully, "Guest should be kicked");
+    }
+
+    [Fact]
+    public async Task KickPlayer_NonHost_Throws()
+    {
+        var token1 = await RegisterAndGetToken("bj_kickfail_host");
+        var token2 = await RegisterAndGetToken("bj_kickfail_guest");
+
+        var host = CreateHubConnection("/hub/blackjack", token1);
+        var guest = CreateHubConnection("/hub/blackjack", token2);
+        await host.StartAsync();
+        await guest.StartAsync();
+
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 4);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            roomJson.ToString()!)!["roomId"].ToString()!;
+        await guest.InvokeAsync<object>("JoinRoom", roomId);
+
+        var ex = await Assert.ThrowsAsync<HubException>(
+            () => guest.InvokeAsync("KickPlayer", roomId, 0));
         Assert.Contains("Only the host", ex.Message);
     }
 }

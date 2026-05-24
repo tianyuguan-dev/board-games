@@ -2,16 +2,16 @@ import "./Home.css";
 
 const GAMES = [
   {
-    id: "blackjack",
-    name: "BlackJack",
-    description: "Classic casino card game. Beat the dealer by getting closer to 21 without going over.",
-    icon: "\u2660",
-  },
-  {
     id: "avalon",
     name: "Avalon",
     description: "Social deduction game for 5-10 players. Find the spies, protect Merlin, complete the missions.",
     icon: "\uD83D\uDDE1\uFE0F",
+  },
+  {
+    id: "blackjack",
+    name: "BlackJack",
+    description: "Classic casino card game. Beat the dealer by getting closer to 21 without going over.",
+    icon: "\u2660",
   },
 ];
 
