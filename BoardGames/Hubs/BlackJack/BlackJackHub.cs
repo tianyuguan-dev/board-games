@@ -15,6 +15,22 @@ public class BlackJackHub(
     ITurnTimerService turnTimer,
     IGameBalanceRepository balanceRepo) : Hub
 {
+    // Serialize all operations on a single room (shared with the background turn/betting timers).
+    // Acquire at public entry points only; private helpers below assume the lock is already held.
+    private static async Task WithLock(BlackJackRoom room, Func<Task> body)
+    {
+        await room.Lock.WaitAsync();
+        try { await body(); }
+        finally { room.Lock.Release(); }
+    }
+
+    private static async Task<T> WithLock<T>(BlackJackRoom room, Func<Task<T>> body)
+    {
+        await room.Lock.WaitAsync();
+        try { return await body(); }
+        finally { room.Lock.Release(); }
+    }
+
     public override async Task OnConnectedAsync()
     {
         var userId = int.Parse(Context.User!.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -42,6 +58,7 @@ public class BlackJackHub(
         return dto;
     }
 
+    // Assumes the room lock is held by the caller.
     private async Task BroadcastRoomPlayers(string roomId)
     {
         var room = roomManager.GetRoom(roomId);
@@ -87,7 +104,7 @@ public class BlackJackHub(
 
     public async Task<List<object>> GetLeaderboard()
     {
-        var top = await balanceRepo.GetTopBalances(GameType.BlackJack, 5);
+        var top = await balanceRepo.GetTopBalances(GameType.BlackJack, 100);
         return top.Select(x => (object)new { nickname = x.Nickname, balance = x.Balance }).ToList();
     }
 
@@ -102,6 +119,7 @@ public class BlackJackHub(
         return balance.Balance + bonus;
     }
 
+    // Assumes the room lock is held by the caller.
     private async Task SettleIfFinished(string roomId, BlackJackRoom room)
     {
         if (room.BlackJackGame?.State != BlackJackGameState.Finished || !room.TrySetSettled())
@@ -186,14 +204,17 @@ public class BlackJackHub(
         await EnsureSufficientBalance();
         var contextConnectionId = Context.ConnectionId;
         var blackJackRoom = roomManager.CreateRoom(maxPlayers);
-        await Groups.AddToGroupAsync(contextConnectionId, blackJackRoom.RoomId);
-        roomManager.JoinRoom(blackJackRoom.RoomId, contextConnectionId);
-        blackJackRoom.HostConnectionId = contextConnectionId;
-        blackJackRoom.PlayerNicknames[contextConnectionId] = await GetNickname();
-        blackJackRoom.PlayerUserIds[contextConnectionId] = GetUserId();
-        await Clients.Group(blackJackRoom.RoomId).SendAsync("PlayerJoined", blackJackRoom.Players.Count);
-        await BroadcastRoomPlayers(blackJackRoom.RoomId);
-        return new { blackJackRoom.RoomId, blackJackRoom.MaxPlayers };
+        return await WithLock(blackJackRoom, async () =>
+        {
+            await Groups.AddToGroupAsync(contextConnectionId, blackJackRoom.RoomId);
+            roomManager.JoinRoom(blackJackRoom.RoomId, contextConnectionId);
+            blackJackRoom.HostConnectionId = contextConnectionId;
+            blackJackRoom.PlayerNicknames[contextConnectionId] = await GetNickname();
+            blackJackRoom.PlayerUserIds[contextConnectionId] = GetUserId();
+            await Clients.Group(blackJackRoom.RoomId).SendAsync("PlayerJoined", blackJackRoom.Players.Count);
+            await BroadcastRoomPlayers(blackJackRoom.RoomId);
+            return (object)new { blackJackRoom.RoomId, blackJackRoom.MaxPlayers };
+        });
     }
 
     public async Task<JoinRoomResult> JoinRoom(string roomId)
@@ -201,169 +222,181 @@ public class BlackJackHub(
         await EnsureSufficientBalance();
         var contextConnectionId = Context.ConnectionId;
         var userId = GetUserId();
-        var existingRoom = roomManager.GetRoom(roomId)
+        var room = roomManager.GetRoom(roomId)
             ?? throw new InvalidOperationException($"Room {roomId} not found");
-        if (existingRoom.PlayerUserIds.ContainsValue(userId))
-            throw new InvalidOperationException("You are already in this room");
-        roomManager.JoinRoom(roomId, contextConnectionId);
-        await Groups.AddToGroupAsync(contextConnectionId, roomId);
-        var blackJackRoom = roomManager.GetRoom(roomId);
-        blackJackRoom!.PlayerNicknames[contextConnectionId] = await GetNickname();
-        blackJackRoom.PlayerUserIds[contextConnectionId] = userId;
-        await Clients.Group(roomId).SendAsync("PlayerJoined", blackJackRoom!.Players.Count);
-        await BroadcastRoomPlayers(roomId);
-        return new JoinRoomResult(blackJackRoom.MaxPlayers, blackJackRoom.Players.Count);
+        return await WithLock(room, async () =>
+        {
+            if (room.PlayerUserIds.ContainsValue(userId))
+                throw new InvalidOperationException("You are already in this room");
+            roomManager.JoinRoom(roomId, contextConnectionId);
+            await Groups.AddToGroupAsync(contextConnectionId, roomId);
+            room.PlayerNicknames[contextConnectionId] = await GetNickname();
+            room.PlayerUserIds[contextConnectionId] = userId;
+            await Clients.Group(roomId).SendAsync("PlayerJoined", room.Players.Count);
+            await BroadcastRoomPlayers(roomId);
+            return new JoinRoomResult(room.MaxPlayers, room.Players.Count);
+        });
     }
 
     public async Task StartGame(string roomId)
     {
-        var blackJackRoom = roomManager.GetRoom(roomId);
-        if (blackJackRoom == null)
-            throw new InvalidOperationException($"Room with id {roomId} not found");
-        if (blackJackRoom.HostConnectionId != Context.ConnectionId)
-            throw new InvalidOperationException("Only the host can start the game");
-        if (blackJackRoom.BlackJackGame != null && blackJackRoom.BlackJackGame.State != BlackJackGameState.Finished)
-            throw new InvalidOperationException($"The game is in progress in room with id {roomId}");
-        var nonHostPlayers = blackJackRoom.Players.Keys.Where(k => k != blackJackRoom.HostConnectionId).ToList();
-        if (nonHostPlayers.Count > 0 && !nonHostPlayers.All(p => blackJackRoom.ReadyPlayers.Contains(p)))
-            throw new InvalidOperationException("Not all players are ready");
-        blackJackRoom.ReassignSeats();
-        blackJackRoom.GamePlayerNames = blackJackRoom.Players
-            .OrderBy(p => p.Value)
-            .Select(p => blackJackRoom.PlayerNicknames.GetValueOrDefault(p.Key, "Player " + p.Value))
-            .ToList();
-        blackJackRoom.GamePlayerUserIds = blackJackRoom.Players
-            .OrderBy(p => p.Value)
-            .Select(p => blackJackRoom.PlayerUserIds.GetValueOrDefault(p.Key, 0))
-            .ToList();
-        blackJackRoom.ResetSettled();
-        blackJackRoom.GamePlayerBalances = new List<decimal>();
-        BlackJackGame blackJackGame = blackJackRoom.BlackJackTable.NewRound(blackJackRoom.Players.Count);
-        blackJackRoom.BlackJackGame = blackJackGame;
-        blackJackRoom.ReadyPlayers.Clear();
-        await BroadcastRoomPlayers(roomId);
-        foreach (var (connectionId, playerIndex) in blackJackRoom.Players.OrderBy(p => p.Value))
+        var blackJackRoom = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException($"Room with id {roomId} not found");
+        await WithLock(blackJackRoom, async () =>
         {
-            var userId = blackJackRoom.PlayerUserIds.GetValueOrDefault(connectionId);
-            var bal = userId > 0 ? await balanceRepo.GetOrCreate(userId, GameType.BlackJack) : null;
-            blackJackRoom.GamePlayerBalances.Add(bal?.Balance ?? 0);
-            if (bal != null)
-                await Clients.Client(connectionId).SendAsync("BalanceUpdate", bal.Balance);
-            await Clients.Client(connectionId).SendAsync("YourSeat", blackJackRoom.Players[connectionId]);
-        }
-        // Auto-forfeit players with insufficient balance
-        int activePlayers = 0;
-        for (int i = 0; i < blackJackRoom.GamePlayerBalances.Count; i++)
-        {
-            if (blackJackRoom.GamePlayerBalances[i] < BlackJackGame.MinBet)
-                blackJackGame.ForfeitPlayer(i);
-            else
-                activePlayers++;
-        }
-        if (activePlayers == 0)
-            throw new InvalidOperationException("No players have sufficient balance to play");
-        await Clients.Group(roomId).SendAsync("StartGame", CreateGameDto(blackJackRoom));
-        turnTimer.StartBettingTimer(roomId);
+            if (blackJackRoom.HostConnectionId != Context.ConnectionId)
+                throw new InvalidOperationException("Only the host can start the game");
+            if (blackJackRoom.BlackJackGame != null && blackJackRoom.BlackJackGame.State != BlackJackGameState.Finished)
+                throw new InvalidOperationException($"The game is in progress in room with id {roomId}");
+            var nonHostPlayers = blackJackRoom.Players.Keys.Where(k => k != blackJackRoom.HostConnectionId).ToList();
+            if (nonHostPlayers.Count > 0 && !nonHostPlayers.All(p => blackJackRoom.ReadyPlayers.Contains(p)))
+                throw new InvalidOperationException("Not all players are ready");
+            blackJackRoom.ReassignSeats();
+            blackJackRoom.GamePlayerNames = blackJackRoom.Players
+                .OrderBy(p => p.Value)
+                .Select(p => blackJackRoom.PlayerNicknames.GetValueOrDefault(p.Key, "Player " + p.Value))
+                .ToList();
+            blackJackRoom.GamePlayerUserIds = blackJackRoom.Players
+                .OrderBy(p => p.Value)
+                .Select(p => blackJackRoom.PlayerUserIds.GetValueOrDefault(p.Key, 0))
+                .ToList();
+            blackJackRoom.ResetSettled();
+            blackJackRoom.GamePlayerBalances = new List<decimal>();
+            BlackJackGame blackJackGame = blackJackRoom.BlackJackTable.NewRound(blackJackRoom.Players.Count);
+            blackJackRoom.BlackJackGame = blackJackGame;
+            blackJackRoom.ReadyPlayers.Clear();
+            await BroadcastRoomPlayers(roomId);
+            foreach (var (connectionId, playerIndex) in blackJackRoom.Players.OrderBy(p => p.Value))
+            {
+                var userId = blackJackRoom.PlayerUserIds.GetValueOrDefault(connectionId);
+                var bal = userId > 0 ? await balanceRepo.GetOrCreate(userId, GameType.BlackJack) : null;
+                blackJackRoom.GamePlayerBalances.Add(bal?.Balance ?? 0);
+                if (bal != null)
+                    await Clients.Client(connectionId).SendAsync("BalanceUpdate", bal.Balance);
+                await Clients.Client(connectionId).SendAsync("YourSeat", blackJackRoom.Players[connectionId]);
+            }
+            // Auto-forfeit players with insufficient balance
+            int activePlayers = 0;
+            for (int i = 0; i < blackJackRoom.GamePlayerBalances.Count; i++)
+            {
+                if (blackJackRoom.GamePlayerBalances[i] < BlackJackGame.MinBet)
+                    blackJackGame.ForfeitPlayer(i);
+                else
+                    activePlayers++;
+            }
+            if (activePlayers == 0)
+                throw new InvalidOperationException("No players have sufficient balance to play");
+            await Clients.Group(roomId).SendAsync("StartGame", CreateGameDto(blackJackRoom));
+            turnTimer.StartBettingTimer(roomId);
+        });
     }
 
     public async Task PlaceBet(string roomId, int amount)
     {
         var contextConnectionId = Context.ConnectionId;
-        var blackJackRoom = roomManager.GetRoom(roomId);
-        if (blackJackRoom == null)
-            throw new InvalidOperationException($"Room with id {roomId} not found");
-        if (blackJackRoom.BlackJackGame == null)
-            throw new InvalidOperationException($"Room {roomId}, game not start yet");
-        if (blackJackRoom.BlackJackGame.State != BlackJackGameState.Betting)
-            throw new InvalidOperationException("Not in betting phase");
-        if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
-            throw new InvalidOperationException("Player not in room");
-        var playerBalance = blackJackRoom.GamePlayerBalances.ElementAtOrDefault(playerIndex);
-        if (amount > playerBalance)
-            throw new InvalidOperationException("Bet exceeds your balance");
-
-        blackJackRoom.BlackJackGame.PlaceBet(playerIndex, amount);
-        await Clients.Group(roomId).SendAsync("BetPlaced", CreateGameDto(blackJackRoom));
-
-        if (blackJackRoom.BlackJackGame.AllBetsPlaced())
+        var blackJackRoom = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException($"Room with id {roomId} not found");
+        await WithLock(blackJackRoom, async () =>
         {
-            turnTimer.CancelBettingTimer(roomId);
-            blackJackRoom.BlackJackGame.Start();
-            await Clients.Group(roomId).SendAsync("GameDealt", CreateGameDto(blackJackRoom));
+            if (blackJackRoom.BlackJackGame == null)
+                throw new InvalidOperationException($"Room {roomId}, game not start yet");
+            if (blackJackRoom.BlackJackGame.State != BlackJackGameState.Betting)
+                throw new InvalidOperationException("Not in betting phase");
+            if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
+                throw new InvalidOperationException("Player not in room");
+            var playerBalance = blackJackRoom.GamePlayerBalances.ElementAtOrDefault(playerIndex);
+            if (amount > playerBalance)
+                throw new InvalidOperationException("Bet exceeds your balance");
 
-            if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
+            blackJackRoom.BlackJackGame.PlaceBet(playerIndex, amount);
+            await Clients.Group(roomId).SendAsync("BetPlaced", CreateGameDto(blackJackRoom));
+
+            if (blackJackRoom.BlackJackGame.AllBetsPlaced())
             {
-                await SettleIfFinished(roomId, blackJackRoom);
-                await BroadcastRoomPlayers(roomId);
+                turnTimer.CancelBettingTimer(roomId);
+                blackJackRoom.BlackJackGame.Start();
+                await Clients.Group(roomId).SendAsync("GameDealt", CreateGameDto(blackJackRoom));
+
+                if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
+                {
+                    await SettleIfFinished(roomId, blackJackRoom);
+                    await BroadcastRoomPlayers(roomId);
+                }
+                else
+                {
+                    ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
+                }
             }
-            else
-            {
-                ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
-            }
-        }
+        });
     }
 
     public async Task BlackJackPlayerHit(string roomId)
     {
         var contextConnectionId = Context.ConnectionId;
-        var blackJackRoom = roomManager.GetRoom(roomId);
-        if (blackJackRoom == null)
-            throw new InvalidOperationException($"Room with id {roomId} not found");
-        if (blackJackRoom.BlackJackGame == null)
-            throw new InvalidOperationException($"Room {roomId}, game not start yet");
-        if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
-            throw new InvalidOperationException("Player not in room");
-        if (playerIndex != blackJackRoom.BlackJackGame.CurrentPlayerIndex)
-            throw new InvalidOperationException($"Not this player's turn");
-        blackJackRoom.BlackJackGame.Hit();
-        await Clients.Group(roomId).SendAsync("PlayerHit", CreateGameDto(blackJackRoom));
-        if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
-            await SettleIfFinished(roomId, blackJackRoom);
-        ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
+        var blackJackRoom = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException($"Room with id {roomId} not found");
+        await WithLock(blackJackRoom, async () =>
+        {
+            if (blackJackRoom.BlackJackGame == null)
+                throw new InvalidOperationException($"Room {roomId}, game not start yet");
+            if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
+                throw new InvalidOperationException("Player not in room");
+            if (playerIndex != blackJackRoom.BlackJackGame.CurrentPlayerIndex)
+                throw new InvalidOperationException($"Not this player's turn");
+            blackJackRoom.BlackJackGame.Hit();
+            await Clients.Group(roomId).SendAsync("PlayerHit", CreateGameDto(blackJackRoom));
+            if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
+                await SettleIfFinished(roomId, blackJackRoom);
+            ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
+        });
     }
 
     public async Task BlackJackPlayerStand(string roomId)
     {
         var contextConnectionId = Context.ConnectionId;
-        var blackJackRoom = roomManager.GetRoom(roomId);
-        if (blackJackRoom == null)
-            throw new InvalidOperationException($"Room with id {roomId} not found");
-        if (blackJackRoom.BlackJackGame == null)
-            throw new InvalidOperationException($"Room {roomId}, game not start yet");
-        if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
-            throw new InvalidOperationException("Player not in room");
-        if (playerIndex != blackJackRoom.BlackJackGame.CurrentPlayerIndex)
-            throw new InvalidOperationException($"Not this player's turn");
-        blackJackRoom.BlackJackGame.Stand();
-        await Clients.Group(roomId).SendAsync("PlayerStand", CreateGameDto(blackJackRoom));
-        if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
-            await SettleIfFinished(roomId, blackJackRoom);
-        ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
+        var blackJackRoom = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException($"Room with id {roomId} not found");
+        await WithLock(blackJackRoom, async () =>
+        {
+            if (blackJackRoom.BlackJackGame == null)
+                throw new InvalidOperationException($"Room {roomId}, game not start yet");
+            if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
+                throw new InvalidOperationException("Player not in room");
+            if (playerIndex != blackJackRoom.BlackJackGame.CurrentPlayerIndex)
+                throw new InvalidOperationException($"Not this player's turn");
+            blackJackRoom.BlackJackGame.Stand();
+            await Clients.Group(roomId).SendAsync("PlayerStand", CreateGameDto(blackJackRoom));
+            if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
+                await SettleIfFinished(roomId, blackJackRoom);
+            ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
+        });
     }
 
     public async Task BlackJackPlayerDoubleDown(string roomId)
     {
         var contextConnectionId = Context.ConnectionId;
-        var blackJackRoom = roomManager.GetRoom(roomId);
-        if (blackJackRoom == null)
-            throw new InvalidOperationException($"Room with id {roomId} not found");
-        if (blackJackRoom.BlackJackGame == null)
-            throw new InvalidOperationException($"Room {roomId}, game not start yet");
-        if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
-            throw new InvalidOperationException("Player not in room");
-        if (playerIndex != blackJackRoom.BlackJackGame.CurrentPlayerIndex)
-            throw new InvalidOperationException("Not this player's turn");
-        if (!blackJackRoom.BlackJackGame.CanDoubleDown())
-            throw new InvalidOperationException("Cannot double down after hitting");
-        var currentBet = blackJackRoom.BlackJackGame.Bets[playerIndex];
-        var playerBalance = blackJackRoom.GamePlayerBalances.ElementAtOrDefault(playerIndex);
-        if (playerBalance < currentBet * 2)
-            throw new InvalidOperationException("Insufficient balance to double down");
-        blackJackRoom.BlackJackGame.DoubleDown();
-        await Clients.Group(roomId).SendAsync("PlayerDoubleDown", CreateGameDto(blackJackRoom));
-        if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
-            await SettleIfFinished(roomId, blackJackRoom);
-        ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
+        var blackJackRoom = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException($"Room with id {roomId} not found");
+        await WithLock(blackJackRoom, async () =>
+        {
+            if (blackJackRoom.BlackJackGame == null)
+                throw new InvalidOperationException($"Room {roomId}, game not start yet");
+            if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
+                throw new InvalidOperationException("Player not in room");
+            if (playerIndex != blackJackRoom.BlackJackGame.CurrentPlayerIndex)
+                throw new InvalidOperationException("Not this player's turn");
+            if (!blackJackRoom.BlackJackGame.CanDoubleDown())
+                throw new InvalidOperationException("Cannot double down after hitting");
+            var currentBet = blackJackRoom.BlackJackGame.Bets[playerIndex];
+            var playerBalance = blackJackRoom.GamePlayerBalances.ElementAtOrDefault(playerIndex);
+            if (playerBalance < currentBet * 2)
+                throw new InvalidOperationException("Insufficient balance to double down");
+            blackJackRoom.BlackJackGame.DoubleDown();
+            await Clients.Group(roomId).SendAsync("PlayerDoubleDown", CreateGameDto(blackJackRoom));
+            if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
+                await SettleIfFinished(roomId, blackJackRoom);
+            ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
+        });
     }
 
     private static void TransferHostIfNeeded(BlackJackRoom room, string leavingConnectionId)
@@ -376,50 +409,57 @@ public class BlackJackHub(
 
     private async Task HandlePlayerLeave(string connectionId)
     {
-        (string? roomId, int seatIndex) = roomManager.FindAndRemoveByConnectionId(connectionId);
-        if (roomId == null) return;
+        var room = roomManager.FindRoomByConnectionId(connectionId);
+        if (room == null) return;
+        var roomId = room.RoomId;
 
-        BlackJackRoom? blackJackRoom = roomManager.GetRoom(roomId);
-        var prevIndex = blackJackRoom?.BlackJackGame?.CurrentPlayerIndex;
-        var prevState = blackJackRoom?.BlackJackGame?.State;
-        blackJackRoom?.BlackJackGame?.ForfeitPlayer(seatIndex);
-        if (blackJackRoom != null) TransferHostIfNeeded(blackJackRoom, connectionId);
-        blackJackRoom?.ReadyPlayers.Remove(connectionId);
-        blackJackRoom?.PlayerNicknames.Remove(connectionId);
-        blackJackRoom?.PlayerUserIds.Remove(connectionId);
-
-        if (blackJackRoom?.Players.Count == 0)
+        await WithLock(room, async () =>
         {
-            turnTimer.CancelTurnTimer(roomId);
-            turnTimer.CancelBettingTimer(roomId);
-            roomManager.RemoveRoom(roomId);
-        }
+            if (!room.Players.TryGetValue(connectionId, out var seatIndex)) return;
+            room.Players.Remove(connectionId);
 
-        await Groups.RemoveFromGroupAsync(connectionId, roomId);
+            var prevIndex = room.BlackJackGame?.CurrentPlayerIndex;
+            var prevState = room.BlackJackGame?.State;
+            room.BlackJackGame?.ForfeitPlayer(seatIndex);
+            TransferHostIfNeeded(room, connectionId);
+            room.ReadyPlayers.Remove(connectionId);
+            room.PlayerNicknames.Remove(connectionId);
+            room.PlayerUserIds.Remove(connectionId);
 
-        if (blackJackRoom?.BlackJackGame != null)
-        {
-            if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Betting &&
-                blackJackRoom.BlackJackGame.AllBetsPlaced())
+            if (room.Players.Count == 0)
             {
+                turnTimer.CancelTurnTimer(roomId);
                 turnTimer.CancelBettingTimer(roomId);
-                blackJackRoom.BlackJackGame.Start();
-                await Clients.Group(roomId).SendAsync("GameDealt", CreateGameDto(blackJackRoom));
-                if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
-                    await SettleIfFinished(roomId, blackJackRoom);
-                ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
+                roomManager.RemoveRoom(roomId);
             }
-            else if (blackJackRoom.BlackJackGame.CurrentPlayerIndex != prevIndex || blackJackRoom.BlackJackGame.State != prevState)
-            {
-                await Clients.Group(roomId).SendAsync("PlayerStand", CreateGameDto(blackJackRoom));
-                if (blackJackRoom.BlackJackGame.State == BlackJackGameState.Finished)
-                    await SettleIfFinished(roomId, blackJackRoom);
-                ManageTurnTimer(roomId, blackJackRoom.BlackJackGame);
-            }
-        }
 
-        await Clients.Group(roomId).SendAsync("PlayerLeft", blackJackRoom?.Players.Count ?? 0);
-        await BroadcastRoomPlayers(roomId);
+            await Groups.RemoveFromGroupAsync(connectionId, roomId);
+
+            if (room.BlackJackGame != null)
+            {
+                // Check if all bets placed after forfeit during betting
+                if (room.BlackJackGame.State == BlackJackGameState.Betting &&
+                    room.BlackJackGame.AllBetsPlaced())
+                {
+                    turnTimer.CancelBettingTimer(roomId);
+                    room.BlackJackGame.Start();
+                    await Clients.Group(roomId).SendAsync("GameDealt", CreateGameDto(room));
+                    if (room.BlackJackGame.State == BlackJackGameState.Finished)
+                        await SettleIfFinished(roomId, room);
+                    ManageTurnTimer(roomId, room.BlackJackGame);
+                }
+                else if (room.BlackJackGame.CurrentPlayerIndex != prevIndex || room.BlackJackGame.State != prevState)
+                {
+                    await Clients.Group(roomId).SendAsync("PlayerStand", CreateGameDto(room));
+                    if (room.BlackJackGame.State == BlackJackGameState.Finished)
+                        await SettleIfFinished(roomId, room);
+                    ManageTurnTimer(roomId, room.BlackJackGame);
+                }
+            }
+
+            await Clients.Group(roomId).SendAsync("PlayerLeft", room.Players.Count);
+            await BroadcastRoomPlayers(roomId);
+        });
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
@@ -431,27 +471,31 @@ public class BlackJackHub(
     public async Task Ready(string roomId)
     {
         var contextConnectionId = Context.ConnectionId;
-        var blackJackRoom = roomManager.GetRoom(roomId);
-        if (blackJackRoom == null)
-            throw new InvalidOperationException($"Room with id {roomId} not found");
-        if (!blackJackRoom.Players.Keys.Contains(contextConnectionId))
-            throw new InvalidOperationException("Player not in room");
-        if (contextConnectionId == blackJackRoom.HostConnectionId)
-            throw new InvalidOperationException("Host should use StartGame instead");
-        blackJackRoom.ReadyPlayers.Add(contextConnectionId);
-        await BroadcastRoomPlayers(roomId);
+        var blackJackRoom = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException($"Room with id {roomId} not found");
+        await WithLock(blackJackRoom, async () =>
+        {
+            if (!blackJackRoom.Players.Keys.Contains(contextConnectionId))
+                throw new InvalidOperationException("Player not in room");
+            if (contextConnectionId == blackJackRoom.HostConnectionId)
+                throw new InvalidOperationException("Host should use StartGame instead");
+            blackJackRoom.ReadyPlayers.Add(contextConnectionId);
+            await BroadcastRoomPlayers(roomId);
+        });
     }
 
     public async Task Unready(string roomId)
     {
         var contextConnectionId = Context.ConnectionId;
-        var blackJackRoom = roomManager.GetRoom(roomId);
-        if (blackJackRoom == null)
-            throw new InvalidOperationException($"Room with id {roomId} not found");
-        if (!blackJackRoom.ReadyPlayers.Contains(contextConnectionId))
-            throw new InvalidOperationException("Player not ready");
-        blackJackRoom.ReadyPlayers.Remove(contextConnectionId);
-        await BroadcastRoomPlayers(roomId);
+        var blackJackRoom = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException($"Room with id {roomId} not found");
+        await WithLock(blackJackRoom, async () =>
+        {
+            if (!blackJackRoom.ReadyPlayers.Contains(contextConnectionId))
+                throw new InvalidOperationException("Player not ready");
+            blackJackRoom.ReadyPlayers.Remove(contextConnectionId);
+            await BroadcastRoomPlayers(roomId);
+        });
     }
 
     public async Task LeaveRoom()
@@ -461,27 +505,29 @@ public class BlackJackHub(
 
     public async Task KickPlayer(string roomId, int seatIndex)
     {
-        var blackJackRoom = roomManager.GetRoom(roomId);
-        if (blackJackRoom == null)
-            throw new InvalidOperationException($"Room with id {roomId} not found");
-        if (blackJackRoom.HostConnectionId != Context.ConnectionId)
-            throw new InvalidOperationException("Only the host can kick players");
-        if (blackJackRoom.BlackJackGame != null && blackJackRoom.BlackJackGame.State != BlackJackGameState.Finished)
-            throw new InvalidOperationException("Cannot kick players during a game");
+        var blackJackRoom = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException($"Room with id {roomId} not found");
+        await WithLock(blackJackRoom, async () =>
+        {
+            if (blackJackRoom.HostConnectionId != Context.ConnectionId)
+                throw new InvalidOperationException("Only the host can kick players");
+            if (blackJackRoom.BlackJackGame != null && blackJackRoom.BlackJackGame.State != BlackJackGameState.Finished)
+                throw new InvalidOperationException("Cannot kick players during a game");
 
-        var target = blackJackRoom.Players.FirstOrDefault(p => p.Value == seatIndex);
-        if (target.Key == null)
-            throw new InvalidOperationException("Player not found at that seat");
-        if (target.Key == Context.ConnectionId)
-            throw new InvalidOperationException("Cannot kick yourself");
+            var target = blackJackRoom.Players.FirstOrDefault(p => p.Value == seatIndex);
+            if (target.Key == null)
+                throw new InvalidOperationException("Player not found at that seat");
+            if (target.Key == Context.ConnectionId)
+                throw new InvalidOperationException("Cannot kick yourself");
 
-        blackJackRoom.Players.Remove(target.Key);
-        blackJackRoom.ReadyPlayers.Remove(target.Key);
-        blackJackRoom.PlayerNicknames.Remove(target.Key);
-        blackJackRoom.PlayerUserIds.Remove(target.Key);
-        await Groups.RemoveFromGroupAsync(target.Key, roomId);
-        await Clients.Client(target.Key).SendAsync("Kicked");
-        await Clients.Group(roomId).SendAsync("PlayerLeft", blackJackRoom.Players.Count);
-        await BroadcastRoomPlayers(roomId);
+            blackJackRoom.Players.Remove(target.Key);
+            blackJackRoom.ReadyPlayers.Remove(target.Key);
+            blackJackRoom.PlayerNicknames.Remove(target.Key);
+            blackJackRoom.PlayerUserIds.Remove(target.Key);
+            await Groups.RemoveFromGroupAsync(target.Key, roomId);
+            await Clients.Client(target.Key).SendAsync("Kicked");
+            await Clients.Group(roomId).SendAsync("PlayerLeft", blackJackRoom.Players.Count);
+            await BroadcastRoomPlayers(roomId);
+        });
     }
 }

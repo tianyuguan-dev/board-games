@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Leaderboard from "./Leaderboard";
 
 export default function Lobby({ connection, nickname, onJoinRoom, onBack }) {
   const [roomId, setRoomId] = useState("");
@@ -57,20 +58,7 @@ export default function Lobby({ connection, nickname, onJoinRoom, onBack }) {
       {leaderboard.length > 0 && (
         <div className="section">
           <h3>Leaderboard</h3>
-          <table className="leaderboard-table">
-            <thead>
-              <tr><th>#</th><th>Player</th><th>Balance</th></tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((entry, i) => (
-                <tr key={i} className={entry.nickname === nickname ? "highlight" : ""}>
-                  <td>{i + 1}</td>
-                  <td>{entry.nickname}</td>
-                  <td>{entry.balance}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Leaderboard entries={leaderboard} nickname={nickname} valueLabel="Balance" />
         </div>
       )}
 

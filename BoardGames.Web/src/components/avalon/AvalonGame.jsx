@@ -35,6 +35,8 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   const [balance, setBalance] = useState(null);
   const [playersWhoVoted, setPlayersWhoVoted] = useState([]);
   const [missionPlayersPlayed, setMissionPlayersPlayed] = useState([]);
+  const [nightConfirmedPlayers, setNightConfirmedPlayers] = useState([]);
+  const [infoRevealed, setInfoRevealed] = useState(false);
 
   useEffect(() => {
     connection.on("YourSeat", (index) => setMyIndex(index));
@@ -50,10 +52,12 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
       setHasPlayedCard(!!(state.phase === "Mission" && state.missionPlayersPlayed?.includes(mi)));
       setPlayersWhoVoted(state.playersWhoVoted || []);
       setMissionPlayersPlayed(state.missionPlayersPlayed || []);
+      setNightConfirmedPlayers([]);
+      setInfoRevealed(false);
     });
     connection.on("VoteProgress", (voted) => setPlayersWhoVoted(voted));
     connection.on("MissionProgress", (played) => setMissionPlayersPlayed(played));
-    connection.on("NightRevealProgress", () => {});
+    connection.on("NightRevealProgress", (confirmed) => setNightConfirmedPlayers(confirmed));
     connection.on("BalanceUpdate", (bal) => setBalance(bal));
     connection.invoke("GetBalance").then(setBalance).catch(() => {});
     connection.on("GameAborted", (reason) => {
@@ -197,7 +201,11 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
     onLeave();
   }
   async function handleConfirmNight() {
-    try { setNightConfirmed(true); await connection.invoke("ConfirmNightReveal", roomId); }
+    try {
+      setNightConfirmed(true);
+      await connection.invoke("ConfirmNightReveal", roomId);
+      setNightConfirmedPlayers((prev) => prev.includes(myIndex) ? prev : [...prev, myIndex]);
+    }
     catch { setNightConfirmed(false); }
   }
   async function handleProposeTeam() {
@@ -477,6 +485,13 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
               <p className="text-muted">Waiting for others...</p>
             )}
           </div>
+          <div className="progress-status" style={{ marginTop: 16 }}>
+            {gs.playerNames.map((name, i) => (
+              <span key={i} className={`status-chip ${nightConfirmedPlayers.includes(i) ? "acted" : "pending"}`}>
+                {name} {nightConfirmedPlayers.includes(i) ? "●" : "…"}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -487,29 +502,53 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
     <div className="av-container">
       <div className="av-header">
         <span className="room-info">Room {roomId}{balance !== null && ` | ${nickname || "You"}'s net wins: ${balance}`}</span>
-        <span className={`role-badge ${isEvil ? "evil" : "good"}`}>
-          {myRole.emoji} {myRole.name}
-        </span>
         <button className="btn-small" style={{ color: "#dc2626" }} onClick={handleLeave}>Leave</button>
       </div>
 
-      {myIndex === gs.assassinIndex && gs.phase !== "Assassination" && gs.phase !== "GameOver" && (
-        <div className="early-assassinate-bar">
-          <button className="btn-early-assassinate" onClick={handleEarlyAssassinate}>Assassinate Merlin</button>
-        </div>
-      )}
-
-      {gs.visiblePlayers && gs.visiblePlayers.length > 0 && (
-        <div className="night-info-bar">
-          <span className="night-info-hint">{gs.visibleHint}:</span>
-          {gs.visiblePlayers.map((i) => (
-            <span key={i} className="night-info-player">
-              {gs.playerNames[i]}
-              {gs.visiblePlayerRoles && gs.visiblePlayerRoles[i] && (
-                <span className="night-info-role"> ({ROLE_LABELS[gs.visiblePlayerRoles[i]]?.name || gs.visiblePlayerRoles[i]})</span>
+      {gs.phase !== "GameOver" && (
+        <div
+          className={`identity-card ${infoRevealed ? "revealed" : "hidden"}`}
+          onClick={() => setInfoRevealed((v) => !v)}
+        >
+          {!infoRevealed ? (
+            <div className="identity-prompt">
+              <span className="identity-lock">{"🔒"}</span>
+              <span>Tap to reveal your role &amp; info</span>
+            </div>
+          ) : (
+            <div className="identity-content">
+              <div className="identity-role-row">
+                <span className="identity-emoji">{myRole.emoji}</span>
+                <span className="identity-name">{myRole.name}</span>
+                <span className={`identity-team ${isEvil ? "evil" : "good"}`}>{gs.myTeam}</span>
+              </div>
+              <p className="identity-desc">{myRole.desc}</p>
+              {gs.visiblePlayers && gs.visiblePlayers.length > 0 && (
+                <div className="identity-info">
+                  <span className="identity-hint">{gs.visibleHint}:</span>
+                  {gs.visiblePlayers.map((i) => (
+                    <span key={i} className="identity-player">
+                      {gs.playerNames[i]}
+                      {gs.visiblePlayerRoles && gs.visiblePlayerRoles[i] && (
+                        <span className="identity-role-tag"> ({ROLE_LABELS[gs.visiblePlayerRoles[i]]?.name || gs.visiblePlayerRoles[i]})</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
               )}
-            </span>
-          ))}
+              {myIndex === gs.assassinIndex && gs.phase !== "Assassination" && (
+                <div style={{ marginTop: 10 }}>
+                  <button
+                    className="btn-early-assassinate"
+                    onClick={(e) => { e.stopPropagation(); handleEarlyAssassinate(); }}
+                  >
+                    Assassinate Merlin
+                  </button>
+                </div>
+              )}
+              <span className="identity-toggle-hint">Tap to hide</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -661,12 +700,12 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
               {isHost ? (
                 <button className="btn btn-success" onClick={handleStart}
                   disabled={roomPlayers.length !== maxPlayers || (roomPlayers.filter((p) => !p.isHost).some((p) => !p.isReady) && roomPlayers.length > 1)}>
-                  Play Again{roomPlayers.length !== maxPlayers ? ` (${roomPlayers.length}/${maxPlayers})` : ""}
+                  Start Next Round{roomPlayers.length !== maxPlayers ? ` (${roomPlayers.length}/${maxPlayers})` : ""}
                 </button>
               ) : ready ? (
-                <button className="btn btn-warning" onClick={handleUnready}>Cancel Ready</button>
+                <button className="btn btn-warning" onClick={handleUnready}>Ready ✓</button>
               ) : (
-                <button className="btn btn-success" onClick={handleReady}>Ready</button>
+                <button className="btn btn-success" onClick={handleReady}>Play Again</button>
               )}
               <button className="btn btn-outline" onClick={handleLeave}>Leave</button>
             </div>

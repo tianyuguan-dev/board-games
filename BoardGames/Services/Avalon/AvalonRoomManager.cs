@@ -44,7 +44,12 @@ public class AvalonRoomManager : IAvalonRoomManager
         if (room.Players.Count >= room.MaxPlayers)
             throw new InvalidOperationException("Room is full");
 
-        room.Players.Add(connectionId, room.Players.Count);
+        // Assign the lowest free seat, not Players.Count — a mid-game/lobby disconnect
+        // can leave a gap, and Players.Count would collide with an occupied seat.
+        var usedSeats = new HashSet<int>(room.Players.Values);
+        int seat = 0;
+        while (usedSeats.Contains(seat)) seat++;
+        room.Players.Add(connectionId, seat);
     }
 
     public (string? roomId, int seatIndex) FindRoomByConnectionId(string connectionId)

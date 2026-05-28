@@ -32,6 +32,10 @@ public class AvalonRoom
     public bool TrySetSettled() => Interlocked.CompareExchange(ref _isSettled, 1, 0) == 0;
     public void ResetSettled() => Interlocked.Exchange(ref _isSettled, 0);
 
+    // Serializes all mutations/reads of this room's state across concurrent SignalR threads.
+    // Plain Dictionary is not thread-safe; concurrent writes corrupt it (phantom null keys, etc.).
+    public SemaphoreSlim Lock { get; } = new(1, 1);
+
     // Disconnected players awaiting reconnection (userId => info)
     public Dictionary<int, DisconnectedPlayer> DisconnectedPlayers { get; set; } = new();
 
@@ -114,9 +118,9 @@ public class AvalonRoom
     {
         var newPlayers = new Dictionary<string, int>();
         int seatIndex = 0;
-        foreach (var player in Players)
+        foreach (var player in Players.OrderBy(p => p.Value))
         {
-            newPlayers.Add(player.Key, seatIndex);
+            newPlayers[player.Key] = seatIndex;
             seatIndex++;
         }
         Players = newPlayers;

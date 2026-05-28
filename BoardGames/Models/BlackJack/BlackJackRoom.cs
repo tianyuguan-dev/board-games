@@ -17,6 +17,10 @@ public class BlackJackRoom
     private int _isSettled;
     public bool TrySetSettled() => Interlocked.CompareExchange(ref _isSettled, 1, 0) == 0;
     public void ResetSettled() => Interlocked.Exchange(ref _isSettled, 0);
+
+    // Serializes all mutations/reads of this room's state across concurrent SignalR threads
+    // and the background turn/betting timers. Plain Dictionary is not thread-safe.
+    public SemaphoreSlim Lock { get; } = new(1, 1);
     public BlackJackRoom(string roomId, int maxPlayers)
     {
         RoomId = roomId;

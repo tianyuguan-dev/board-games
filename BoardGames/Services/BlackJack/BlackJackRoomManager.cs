@@ -57,6 +57,11 @@ public class BlackJackRoomManager: IBlackJackRoomManager
         players.Add(connectionId, players.Count);
     }
 
+    public BlackJackRoom? FindRoomByConnectionId(string connectionId)
+    {
+        return _rooms.Values.FirstOrDefault(r => r.Players.ContainsKey(connectionId));
+    }
+
     public (string? roomId, int seatIndex) FindAndRemoveByConnectionId(string connectionId)
     {
         string? roomId=null;

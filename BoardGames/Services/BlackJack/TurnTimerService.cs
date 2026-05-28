@@ -24,7 +24,7 @@ public class TurnTimerService(
         CancelTurnTimer(roomId);
         var cts = new CancellationTokenSource();
         _turnTimers[roomId] = cts;
-        _ = RunTurnTimerAsync(roomId, cts.Token);
+        _ = RunTurnTimerAsync(roomId, cts);
     }
 
     public void CancelTurnTimer(string roomId)
@@ -41,7 +41,7 @@ public class TurnTimerService(
         CancelBettingTimer(roomId);
         var cts = new CancellationTokenSource();
         _bettingTimers[roomId] = cts;
-        _ = RunBettingTimerAsync(roomId, cts.Token);
+        _ = RunBettingTimerAsync(roomId, cts);
     }
 
     public void CancelBettingTimer(string roomId)
@@ -53,81 +53,101 @@ public class TurnTimerService(
         }
     }
 
-    private async Task RunTurnTimerAsync(string roomId, CancellationToken ct)
+    private async Task RunTurnTimerAsync(string roomId, CancellationTokenSource cts)
     {
         try
         {
-            await Task.Delay(TurnTimeSeconds * 1000, ct);
+            await Task.Delay(TurnTimeSeconds * 1000, cts.Token);
         }
         catch (TaskCanceledException)
         {
             return;
         }
 
-        _turnTimers.TryRemove(roomId, out _);
-
         var room = roomManager.GetRoom(roomId);
-        if (room?.BlackJackGame == null || room.BlackJackGame.State != BlackJackGameState.PlayerTurn)
-            return;
+        if (room == null) return;
 
-        room.BlackJackGame.Stand();
-
-        var dto = CreateGameDto(room);
-        await hubContext.Clients.Group(roomId).SendAsync("PlayerStand", dto);
-
-        if (room.BlackJackGame.State == BlackJackGameState.PlayerTurn)
+        await room.Lock.WaitAsync();
+        try
         {
-            StartTurnTimer(roomId);
+            // A player action may have cancelled/replaced this timer while we waited for the lock.
+            if (!_turnTimers.TryGetValue(roomId, out var current) || current != cts)
+                return;
+            _turnTimers.TryRemove(roomId, out _);
+
+            if (room.BlackJackGame == null || room.BlackJackGame.State != BlackJackGameState.PlayerTurn)
+                return;
+
+            room.BlackJackGame.Stand();
+
+            var dto = CreateGameDto(room);
+            await hubContext.Clients.Group(roomId).SendAsync("PlayerStand", dto);
+
+            if (room.BlackJackGame.State == BlackJackGameState.PlayerTurn)
+            {
+                StartTurnTimer(roomId);
+            }
+            else
+            {
+                await SettleIfFinished(room);
+                await BroadcastRoomPlayers(room);
+            }
         }
-        else
-        {
-            await SettleIfFinished(room);
-            await BroadcastRoomPlayers(room);
-        }
+        finally { room.Lock.Release(); }
     }
 
-    private async Task RunBettingTimerAsync(string roomId, CancellationToken ct)
+    private async Task RunBettingTimerAsync(string roomId, CancellationTokenSource cts)
     {
         try
         {
-            await Task.Delay(BettingTimeSeconds * 1000, ct);
+            await Task.Delay(BettingTimeSeconds * 1000, cts.Token);
         }
         catch (TaskCanceledException)
         {
             return;
         }
 
-        _bettingTimers.TryRemove(roomId, out _);
-
         var room = roomManager.GetRoom(roomId);
-        if (room?.BlackJackGame == null || room.BlackJackGame.State != BlackJackGameState.Betting)
-            return;
+        if (room == null) return;
 
-        // Auto-bet for players who haven't bet; forfeit those with insufficient balance
-        var game = room.BlackJackGame;
-        for (int i = 0; i < game.Bets.Count; i++)
+        await room.Lock.WaitAsync();
+        try
         {
-            if (game.Bets[i] > 0) continue;
-            var playerBalance = room.GamePlayerBalances.ElementAtOrDefault(i);
-            if (playerBalance >= BlackJackGame.MinBet)
-                game.PlaceBet(i, BlackJackGame.MinBet);
-            else
-                game.ForfeitPlayer(i);
-        }
-        game.Start();
+            // A player action may have cancelled/replaced this timer while we waited for the lock.
+            if (!_bettingTimers.TryGetValue(roomId, out var current) || current != cts)
+                return;
+            _bettingTimers.TryRemove(roomId, out _);
 
-        var dto = CreateGameDto(room);
-        await hubContext.Clients.Group(roomId).SendAsync("GameDealt", dto);
+            if (room.BlackJackGame == null || room.BlackJackGame.State != BlackJackGameState.Betting)
+                return;
 
-        if (room.BlackJackGame.State == BlackJackGameState.Finished)
-        {
-            await SettleIfFinished(room);
-            await BroadcastRoomPlayers(room);
+            // Auto-bet for players who haven't bet; forfeit those with insufficient balance
+            var game = room.BlackJackGame;
+            for (int i = 0; i < game.Bets.Count; i++)
+            {
+                if (game.Bets[i] > 0) continue;
+                var playerBalance = room.GamePlayerBalances.ElementAtOrDefault(i);
+                if (playerBalance >= BlackJackGame.MinBet)
+                    game.PlaceBet(i, BlackJackGame.MinBet);
+                else
+                    game.ForfeitPlayer(i);
+            }
+            game.Start();
+
+            var dto = CreateGameDto(room);
+            await hubContext.Clients.Group(roomId).SendAsync("GameDealt", dto);
+
+            if (room.BlackJackGame.State == BlackJackGameState.Finished)
+            {
+                await SettleIfFinished(room);
+                await BroadcastRoomPlayers(room);
+            }
+            else if (room.BlackJackGame.State == BlackJackGameState.PlayerTurn)
+            {
+                StartTurnTimer(roomId);
+            }
         }
-        else if (room.BlackJackGame.State == BlackJackGameState.PlayerTurn)
-        {
-            StartTurnTimer(roomId);
-        }
+        finally { room.Lock.Release(); }
     }
 
     private async Task SettleIfFinished(BlackJackRoom room)

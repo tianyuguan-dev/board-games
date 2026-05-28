@@ -282,8 +282,10 @@ public class BlackJackHubTests
     [Fact]
     public async Task OnDisconnectedAsync_NotifiesGroupWhenPlayerInRoom()
     {
-        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns(("12345", 0));
-        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(new BlackJackRoom("12345", 4));
+        var room = new BlackJackRoom("12345", 4);
+        room.Players[ConnectionId] = 0;
+        _mockRoomManager.Setup(r => r.FindRoomByConnectionId(ConnectionId)).Returns(room);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.OnDisconnectedAsync(null);
 
@@ -306,7 +308,8 @@ public class BlackJackHubTests
     public async Task OnDisconnectedAsync_RemovesRoomWhenEmpty()
     {
         var room = new BlackJackRoom("12345", 4);
-        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns(("12345", 0));
+        room.Players[ConnectionId] = 0;
+        _mockRoomManager.Setup(r => r.FindRoomByConnectionId(ConnectionId)).Returns(room);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.OnDisconnectedAsync(null);
@@ -452,8 +455,10 @@ public class BlackJackHubTests
     [Fact]
     public async Task LeaveRoom_RemovesFromGroupAndNotifies()
     {
-        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns(("12345", 0));
-        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(new BlackJackRoom("12345", 4));
+        var room = new BlackJackRoom("12345", 4);
+        room.Players[ConnectionId] = 0;
+        _mockRoomManager.Setup(r => r.FindRoomByConnectionId(ConnectionId)).Returns(room);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.LeaveRoom();
 
@@ -466,7 +471,8 @@ public class BlackJackHubTests
     public async Task LeaveRoom_RemovesRoomWhenEmpty()
     {
         var room = new BlackJackRoom("12345", 4);
-        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns(("12345", 0));
+        room.Players[ConnectionId] = 0;
+        _mockRoomManager.Setup(r => r.FindRoomByConnectionId(ConnectionId)).Returns(room);
         _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
 
         await _hub.LeaveRoom();

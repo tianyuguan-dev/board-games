@@ -152,10 +152,47 @@ hr {
   align-items: center;
 }
 
+.leaderboard-wrap {
+  position: relative;
+  margin-top: 8px;
+}
+
+.leaderboard-scroll {
+  max-height: 210px; /* ~header + 5 rows; scroll to see the rest of the top 100 */
+  overflow-y: auto;
+}
+
+/* Bottom fade + hint signalling there's more to scroll; removed once scrolled to the end */
+.leaderboard-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 36px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #fff 80%);
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.leaderboard-more {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3b82f6;
+  padding-bottom: 3px;
+}
+
 .leaderboard-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 8px;
+}
+
+.leaderboard-table thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
 }
 
 .leaderboard-table th,

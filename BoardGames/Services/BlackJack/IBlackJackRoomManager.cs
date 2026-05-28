@@ -8,5 +8,6 @@ public interface IBlackJackRoomManager
     BlackJackRoom? GetRoom(string roomId);
     void JoinRoom(string roomId, string connectionId);
     (string? roomId, int seatIndex) FindAndRemoveByConnectionId(string connectionId);
+    BlackJackRoom? FindRoomByConnectionId(string connectionId);
     void RemoveRoom(string roomId);
 }
