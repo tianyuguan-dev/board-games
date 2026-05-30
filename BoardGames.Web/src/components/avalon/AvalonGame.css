@@ -194,6 +194,26 @@
   color: #fff;
 }
 
+/* "Protected" round — needs 2 fails to fail (mission 4 in 7+ player games) */
+.mission-dot.protected {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f59e0b;
+  position: relative;
+}
+
+.mission-dot.protected::after {
+  content: "2×";
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 8px;
+  line-height: 1.2;
+}
+
 /* Reject track */
 .reject-track {
   text-align: center;
@@ -736,11 +756,6 @@
 .status-chip.acted {
   background: #dbeafe;
   color: #1d4ed8;
-}
-
-.status-chip.ready {
-  background: #dcfce7;
-  color: #166534;
 }
 
 .status-chip.pending {

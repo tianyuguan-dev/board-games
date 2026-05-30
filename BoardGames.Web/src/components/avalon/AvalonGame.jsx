@@ -3,6 +3,18 @@ import "./AvalonGame.css";
 
 const TOGGLE_EVIL = ["Mordred", "Oberon"];
 
+// Mission team sizes per player count (mirrors AvalonConfig.MissionSizes on the backend).
+const MISSION_SIZES = {
+  5: [2, 3, 2, 3, 3],
+  6: [2, 3, 4, 3, 4],
+  7: [2, 3, 3, 4, 4],
+  8: [3, 4, 4, 5, 5],
+  9: [3, 4, 4, 5, 5],
+  10: [3, 4, 4, 5, 5],
+};
+// 7+ players: mission 4 (index 3) needs two fails to fail — the "protected" round.
+const isProtectedMission = (playerCount, i) => i === 3 && playerCount >= 7;
+
 const ROLE_LABELS = {
   Merlin: { name: "Merlin", emoji: "\uD83E\uDDD9", desc: "Knows evil (except Mordred)" },
   Percival: { name: "Percival", emoji: "\uD83D\uDC82", desc: "Sees Merlin & Morgana" },
@@ -284,16 +296,21 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   }
 
   function renderMissionTrack() {
+    const sizes = MISSION_SIZES[gameState.playerCount] || [];
     return (
       <div className="mission-track">
-        {gameState.missionResults.map((r, i) => (
-          <div
-            key={i}
-            className={`mission-dot ${r === "Success" ? "success" : r === "Fail" ? "fail" : ""} ${i === gameState.currentMissionIndex ? "current" : ""}`}
-          >
-            {i + 1}
-          </div>
-        ))}
+        {gameState.missionResults.map((r, i) => {
+          const protectedRound = isProtectedMission(gameState.playerCount, i);
+          return (
+            <div
+              key={i}
+              className={`mission-dot ${r === "Success" ? "success" : r === "Fail" ? "fail" : ""} ${i === gameState.currentMissionIndex ? "current" : ""} ${protectedRound ? "protected" : ""}`}
+              title={protectedRound ? "Two fails needed to fail this mission" : `Mission ${i + 1}: ${sizes[i] || ""} players`}
+            >
+              {sizes[i] ?? (i + 1)}
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -639,9 +656,14 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
                   <p>You're on the mission! Play your card:</p>
                   <div className="btn-row">
                     <button className="btn btn-success" onClick={() => handleMissionCard(true)}>Success</button>
-                    {isEvil && (
-                      <button className="btn btn-danger" onClick={() => handleMissionCard(false)}>Fail</button>
-                    )}
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => handleMissionCard(false)}
+                      disabled={!isEvil}
+                      title={isEvil ? "" : "Good players can only play Success"}
+                    >
+                      Fail
+                    </button>
                   </div>
                 </>
               )
@@ -691,8 +713,8 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
             </div>
             <div className="progress-status" style={{ marginTop: 16 }}>
               {roomPlayers.map((p, i) => (
-                <span key={i} className={`status-chip ${p.isHost || p.isReady ? "ready" : "pending"}`}>
-                  {p.nickname} {p.isHost ? "👑" : p.isReady ? "✓" : "…"}
+                <span key={i} className={`status-chip ${p.isHost || p.isReady ? "acted" : "pending"}`}>
+                  {p.nickname} {p.isHost ? "👑" : p.isReady ? "●" : "…"}
                 </span>
               ))}
             </div>
