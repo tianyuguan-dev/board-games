@@ -108,6 +108,14 @@ function App() {
       }, 5000);
     });
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      if (conn.state === "Connected") return;
+      console.log(`Resumed from background (state: ${conn.state}) - forcing reconnect`);
+      setConnRetry((c) => c + 1);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     conn
       .start()
       .then(() => {
@@ -126,6 +134,7 @@ function App() {
 
     return () => {
       intentionalStop = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       conn.stop();
       connRef.current = null;
       setConnection(null);

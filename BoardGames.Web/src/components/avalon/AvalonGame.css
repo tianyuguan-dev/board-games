@@ -883,3 +883,222 @@
   min-width: 100px;
   text-align: center;
 }
+
+/* === Game Over Banner === */
+.game-over {
+  position: relative;
+}
+
+.gameover-banner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+  animation: gameOverBanner 2.9s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+  min-height: 200px;
+}
+
+.gameover-banner-text {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.gameover-banner-subtitle {
+  font-size: clamp(1.2rem, 3.5vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-align: center;
+  opacity: 0.85;
+  margin-bottom: 0.15em;
+}
+
+.gameover-banner.win .gameover-banner-subtitle {
+  color: #fbbf24;
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.gameover-banner.lose .gameover-banner-subtitle {
+  color: #ef4444;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.gameover-banner.win .gameover-banner-text {
+  color: #fbbf24;
+  text-shadow:
+    0 0 20px rgba(251, 191, 36, 0.8),
+    0 0 40px rgba(251, 191, 36, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.gameover-banner.lose .gameover-banner-text {
+  color: #ef4444;
+  text-shadow:
+    0 0 16px rgba(239, 68, 68, 0.7),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.gameover-banner.win.epic .gameover-banner-text {
+  color: #fef3c7;
+  font-size: clamp(2.8rem, 9vw, 5.6rem);
+  letter-spacing: 0.12em;
+  text-shadow:
+    0 0 24px #fbbf24,
+    0 0 48px #f59e0b,
+    0 0 72px #dc2626,
+    0 4px 14px rgba(0, 0, 0, 0.6);
+  animation: epicGlow 0.85s ease-in-out infinite;
+}
+
+.gameover-banner.lose.epic .gameover-banner-text {
+  color: #fecaca;
+  font-size: clamp(2.8rem, 9vw, 5.6rem);
+  letter-spacing: 0.12em;
+  text-shadow:
+    0 0 24px #ef4444,
+    0 0 48px #991b1b,
+    0 0 72px #450a0a,
+    0 4px 14px rgba(0, 0, 0, 0.7);
+  animation: crushingShake 0.4s ease-in-out infinite;
+}
+
+@keyframes gameOverBanner {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  13% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  20% {
+    transform: scale(1);
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes epicGlow {
+  0%, 100% {
+    text-shadow:
+      0 0 24px #fbbf24,
+      0 0 48px #f59e0b,
+      0 0 72px #dc2626,
+      0 4px 14px rgba(0, 0, 0, 0.6);
+    transform: scale(1);
+  }
+  50% {
+    text-shadow:
+      0 0 40px #fde047,
+      0 0 80px #fbbf24,
+      0 0 120px #f59e0b,
+      0 0 160px #dc2626,
+      0 4px 14px rgba(0, 0, 0, 0.6);
+    transform: scale(1.07);
+  }
+}
+
+@keyframes crushingShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+
+.gameover-details {
+  opacity: 0.4;
+  animation: gameoverDetailsFadeIn 0.6s ease-out 2.4s forwards;
+}
+
+.gameover-actions {
+  position: relative;
+  z-index: 20;
+  opacity: 1;
+}
+
+/* Game-over title in details panel (mirrors banner styling, tuned for light background) */
+.gameover-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: 8px 0;
+  font-weight: 900;
+}
+
+.gameover-title-subtitle {
+  font-size: clamp(0.78rem, 2vw, 0.98rem);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-bottom: 2px;
+}
+
+.gameover-title-main {
+  font-size: clamp(1.5rem, 4.5vw, 2.4rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.gameover-title.win .gameover-title-main,
+.gameover-title.win .gameover-title-subtitle {
+  color: #d97706;
+}
+.gameover-title.win .gameover-title-main {
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.45);
+}
+
+.gameover-title.lose .gameover-title-main,
+.gameover-title.lose .gameover-title-subtitle {
+  color: #dc2626;
+}
+.gameover-title.lose .gameover-title-main {
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.gameover-title.win.epic .gameover-title-main {
+  color: #f59e0b;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  text-shadow:
+    0 0 12px #fde047,
+    0 0 22px rgba(251, 191, 36, 0.65),
+    0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.gameover-title.win.epic .gameover-title-subtitle {
+  text-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
+}
+
+.gameover-title.lose.epic .gameover-title-main {
+  color: #991b1b;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  text-shadow:
+    0 0 10px #ef4444,
+    0 0 18px rgba(153, 27, 27, 0.55);
+}
+
+.gameover-title.lose.epic .gameover-title-subtitle {
+  text-shadow: 0 0 6px rgba(239, 68, 68, 0.45);
+}
+
+@keyframes gameoverDetailsFadeIn {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}

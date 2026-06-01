@@ -693,46 +693,61 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
           </p>
         )}
 
-        {gs.phase === "GameOver" && (
-          <div className="game-over">
-            <h2 className={gs.winner === "Good" ? "good-win" : "evil-win"}>
-              {gs.winReason?.includes("Double points")
-                ? "Evil Epic Victory!!"
-                : gs.winner === "Good" ? "Good Wins!" : "Evil Wins!"}
-            </h2>
-            <p className="win-reason">{gs.winReason}</p>
-            {gs.assassinTarget != null && (
-              <p className="assassin-target">Assassin targeted: <strong>{gs.playerNames[gs.assassinTarget]}</strong></p>
-            )}
-            <div className="roles-reveal">
-              {gs.allRoles.map((role, i) => (
-                <div key={i} className={`role-reveal ${AvalonTeamForRole(role) === "Evil" ? "evil" : "good"}`}>
-                  <strong>{gs.playerNames[i]}</strong>: {ROLE_LABELS[role]?.emoji} {ROLE_LABELS[role]?.name || role}
+        {gs.phase === "GameOver" && (() => {
+          const myRole = gs.allRoles?.[myIndex];
+          const myTeam = myRole ? AvalonTeamForRole(myRole) : null;
+          const iWon = myTeam != null && myTeam === gs.winner;
+          const isDoublePoints = !!gs.winReason?.includes("Double points");
+          const mainText = isDoublePoints
+            ? (iWon ? "EPIC VICTORY!" : "CRUSHING DEFEAT!")
+            : (iWon ? "YOU WIN" : "YOU LOSE");
+          const subtitleText = isDoublePoints ? (iWon ? "YOU WIN" : "YOU LOSE") : null;
+          return (
+            <div className="game-over">
+              <div className={`gameover-banner ${iWon ? "win" : "lose"} ${isDoublePoints ? "epic" : ""}`}>
+                {subtitleText && <span className="gameover-banner-subtitle">{subtitleText}</span>}
+                <span className="gameover-banner-text">{mainText}</span>
+              </div>
+              <div className="gameover-details">
+                <h2 className={`gameover-title ${iWon ? "win" : "lose"} ${isDoublePoints ? "epic" : ""}`}>
+                  {subtitleText && <span className="gameover-title-subtitle">{subtitleText}</span>}
+                  <span className="gameover-title-main">{mainText}</span>
+                </h2>
+                <p className="win-reason">{gs.winReason}</p>
+                {gs.assassinTarget != null && (
+                  <p className="assassin-target">Assassin targeted: <strong>{gs.playerNames[gs.assassinTarget]}</strong></p>
+                )}
+                <div className="roles-reveal">
+                  {gs.allRoles.map((role, i) => (
+                    <div key={i} className={`role-reveal ${AvalonTeamForRole(role) === "Evil" ? "evil" : "good"}`}>
+                      <strong>{gs.playerNames[i]}</strong>: {ROLE_LABELS[role]?.emoji} {ROLE_LABELS[role]?.name || role}
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <div className="progress-status" style={{ marginTop: 16 }}>
+                  {roomPlayers.map((p, i) => (
+                    <span key={i} className={`status-chip ${p.isHost || p.isReady ? "acted" : "pending"}`}>
+                      {p.nickname} {p.isHost ? "👑" : p.isReady ? "●" : "…"}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="btn-row gameover-actions" style={{ marginTop: 12 }}>
+                {isHost ? (
+                  <button className="btn btn-success" onClick={handleStart}
+                    disabled={roomPlayers.length !== maxPlayers || (roomPlayers.filter((p) => !p.isHost).some((p) => !p.isReady) && roomPlayers.length > 1)}>
+                    Start Next Round{roomPlayers.length !== maxPlayers ? ` (${roomPlayers.length}/${maxPlayers})` : ""}
+                  </button>
+                ) : ready ? (
+                  <button className="btn btn-warning" onClick={handleUnready}>Ready ✓</button>
+                ) : (
+                  <button className="btn btn-success" onClick={handleReady}>Play Again</button>
+                )}
+                <button className="btn btn-outline" onClick={handleLeave}>Leave</button>
+              </div>
             </div>
-            <div className="progress-status" style={{ marginTop: 16 }}>
-              {roomPlayers.map((p, i) => (
-                <span key={i} className={`status-chip ${p.isHost || p.isReady ? "acted" : "pending"}`}>
-                  {p.nickname} {p.isHost ? "👑" : p.isReady ? "●" : "…"}
-                </span>
-              ))}
-            </div>
-            <div className="btn-row" style={{ marginTop: 12 }}>
-              {isHost ? (
-                <button className="btn btn-success" onClick={handleStart}
-                  disabled={roomPlayers.length !== maxPlayers || (roomPlayers.filter((p) => !p.isHost).some((p) => !p.isReady) && roomPlayers.length > 1)}>
-                  Start Next Round{roomPlayers.length !== maxPlayers ? ` (${roomPlayers.length}/${maxPlayers})` : ""}
-                </button>
-              ) : ready ? (
-                <button className="btn btn-warning" onClick={handleUnready}>Ready ✓</button>
-              ) : (
-                <button className="btn btn-success" onClick={handleReady}>Play Again</button>
-              )}
-              <button className="btn btn-outline" onClick={handleLeave}>Leave</button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {renderHistory()}
