@@ -21,6 +21,7 @@ function App() {
   const [maxPlayers, setMaxPlayers] = useState(0);
   const [playerCount, setPlayerCount] = useState(0);
   const [roomPlayers, setRoomPlayers] = useState([]);
+  const [mySeatIndex, setMySeatIndex] = useState(-1);
   const [isHost, setIsHost] = useState(false);
   const [roleConfig, setRoleConfig] = useState([]);
   const [maxRejects, setMaxRejects] = useState(5);
@@ -53,6 +54,7 @@ function App() {
     conn.on("RoomUpdate", (data) => {
       setRoomPlayers(data.players);
       setIsHost(data.isHost);
+      if (data.mySeatIndex != null) setMySeatIndex(data.mySeatIndex);
       if (data.roleConfig) setRoleConfig(data.roleConfig);
       if (data.maxRejects != null) setMaxRejects(data.maxRejects);
     });
@@ -64,6 +66,7 @@ function App() {
       setMaxPlayers(0);
       setPlayerCount(0);
       setRoomPlayers([]);
+      setMySeatIndex(-1);
       setIsHost(false);
       setRoleConfig([]);
       setMaxRejects(5);
@@ -75,6 +78,7 @@ function App() {
       setMaxPlayers(0);
       setPlayerCount(0);
       setRoomPlayers([]);
+      setMySeatIndex(-1);
       setIsHost(false);
       setRoleConfig([]);
       setMaxRejects(5);
@@ -172,6 +176,7 @@ function App() {
     setMaxPlayers(0);
     setPlayerCount(0);
     setRoomPlayers([]);
+    setMySeatIndex(-1);
     setIsHost(false);
     setRoleConfig([]);
     setMaxRejects(5);
@@ -237,7 +242,7 @@ function App() {
     if (!roomId) {
       return <AvalonLobby connection={connection} nickname={nickname} onJoinRoom={handleJoinRoom} onBack={handleBackToHome} />;
     }
-    return <AvalonGame connection={connection} nickname={nickname} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} isHost={isHost} roleConfig={roleConfig} maxRejects={maxRejects} needsRejoin={needsRejoinRef} gameInProgress={gameInProgress} onLeave={handleLeave} />;
+    return <AvalonGame connection={connection} nickname={nickname} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} mySeatIndex={mySeatIndex} isHost={isHost} roleConfig={roleConfig} maxRejects={maxRejects} needsRejoin={needsRejoinRef} gameInProgress={gameInProgress} onLeave={handleLeave} />;
   }
 
   return null;

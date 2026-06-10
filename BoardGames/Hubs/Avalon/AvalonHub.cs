@@ -66,6 +66,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             {
                 Players = players,
                 IsHost = connId == room.HostConnectionId,
+                MySeatIndex = room.Players[connId],
                 RoleConfig = room.RoleConfig.Select(r => r.ToString()).ToList(),
                 MaxRejects = room.MaxRejects
             });
@@ -247,6 +248,9 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         {
             if (!room.Players.ContainsKey(Context.ConnectionId))
                 throw new InvalidOperationException("Not in this room");
+            // Only allowed in lobby (no game) or game over screen
+            if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
+                throw new InvalidOperationException("Cannot ready while game is in progress");
             room.ReadyPlayers.Add(Context.ConnectionId);
             await BroadcastRoomPlayers(roomId);
         });
@@ -260,6 +264,8 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         {
             if (!room.ReadyPlayers.Contains(Context.ConnectionId))
                 throw new InvalidOperationException("Not ready");
+            if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
+                throw new InvalidOperationException("Cannot unready while game is in progress");
             room.ReadyPlayers.Remove(Context.ConnectionId);
             await BroadcastRoomPlayers(roomId);
         });
@@ -371,6 +377,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             room.PlayerNicknames.Remove(target);
             room.PlayerUserIds.Remove(target);
             room.ReadyPlayers.Remove(target);
+            room.NightConfirmedPlayers.Remove(target);
             room.ReassignSeats();
             room.RebuildRoleConfig();
             await Groups.RemoveFromGroupAsync(target, roomId);
@@ -404,6 +411,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             room.RebuildRoleConfig(playerCount);
             room.Game = new AvalonGame(playerCount, room.RoleConfig, new Random().Next(playerCount), room.MaxRejects);
             room.ReadyPlayers.Clear();
+            room.NightConfirmedPlayers.Clear();
 
             // Send seat assignments
             foreach (var (connId, seatIndex) in room.Players)
@@ -425,18 +433,18 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             if (room.Game == null || room.Game.Phase != AvalonPhase.NightReveal)
                 throw new InvalidOperationException("Not in night reveal phase");
 
-            room.ReadyPlayers.Add(Context.ConnectionId);
+            room.NightConfirmedPlayers.Add(Context.ConnectionId);
 
-            if (room.ReadyPlayers.Count >= room.Players.Count)
+            if (room.NightConfirmedPlayers.Count >= room.Players.Count)
             {
-                room.ReadyPlayers.Clear();
+                room.NightConfirmedPlayers.Clear();
                 room.Game.StartProposalPhase();
                 await SendGameStateToAll(room);
             }
             else
             {
                 // Notify others who has confirmed (seat indices), not just the count
-                var confirmed = room.ReadyPlayers
+                var confirmed = room.NightConfirmedPlayers
                     .Select(c => room.Players.GetValueOrDefault(c, -1))
                     .Where(s => s >= 0)
                     .ToList();
@@ -645,7 +653,8 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
                 room.Players.Remove(connectionId);
                 room.PlayerNicknames.Remove(connectionId);
                 room.PlayerUserIds.Remove(connectionId);
-                room.ReadyPlayers.Remove(connectionId);
+                room.ReadyPlayers.Clear();              // FIX: clear all to avoid residue
+                room.NightConfirmedPlayers.Clear();     // FIX: in-game state should not carry over
 
                 if (room.Players.Count == 0) { roomManager.RemoveRoom(roomId); return; }
                 if (room.HostConnectionId == connectionId)
@@ -678,6 +687,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         room.PlayerNicknames.Remove(connectionId);
         room.PlayerUserIds.Remove(connectionId);
         room.ReadyPlayers.Remove(connectionId);
+        room.NightConfirmedPlayers.Remove(connectionId);
 
         if (room.Players.Count == 0) { roomManager.RemoveRoom(room.RoomId); return; }
 

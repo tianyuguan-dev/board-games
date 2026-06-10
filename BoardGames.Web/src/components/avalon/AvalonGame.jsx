@@ -36,10 +36,30 @@ function groupRoles(roles) {
   return order.map((r) => ({ role: r, count: counts[r] }));
 }
 
-export default function AvalonGame({ connection, nickname, roomId, maxPlayers, playerCount, roomPlayers, isHost, roleConfig, maxRejects, needsRejoin, gameInProgress, onLeave }) {
+// Get the most recent proposal across all missions (flattened from history)
+function getLastProposal(state) {
+  if (!state?.history) return null;
+  for (let i = state.history.length - 1; i >= 0; i--) {
+    const props = state.history[i];
+    if (props && props.length > 0) return props[props.length - 1];
+  }
+  return null;
+}
+
+// Total number of proposals across all missions
+function countProposals(state) {
+  if (!state?.history) return 0;
+  return state.history.reduce((sum, props) => sum + (props?.length ?? 0), 0);
+}
+
+export default function AvalonGame({ connection, nickname, roomId, maxPlayers, playerCount, roomPlayers, mySeatIndex, isHost, roleConfig, maxRejects, needsRejoin, gameInProgress, onLeave }) {
   const [gameState, setGameState] = useState(null);
-  const [ready, setReady] = useState(false);
   const [myIndex, setMyIndex] = useState(-1);
+  // Use lobby-time mySeatIndex (from RoomUpdate) when game hasn't started yet,
+  // fall back to game-time myIndex once YourSeat / GameState arrives.
+  const effectiveIndex = myIndex >= 0 ? myIndex : (mySeatIndex ?? -1);
+  // ready is derived from server state to avoid desync after reconnect / game abort
+  const ready = roomPlayers.find((p) => p.seatIndex === effectiveIndex)?.isReady ?? false;
   const [selectedTeam, setSelectedTeam] = useState([]);
   const [nightConfirmed, setNightConfirmed] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
@@ -49,13 +69,47 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   const [missionPlayersPlayed, setMissionPlayersPlayed] = useState([]);
   const [nightConfirmedPlayers, setNightConfirmedPlayers] = useState([]);
   const [infoRevealed, setInfoRevealed] = useState(false);
+  // Result animations: shown briefly when vote/mission resolves
+  const [voteAnimation, setVoteAnimation] = useState(null);     // { approved, votes, leaderName, team }
+  const [missionAnimation, setMissionAnimation] = useState(null); // { success, successCount, failCount, missionIndex }
 
   useEffect(() => {
     connection.on("YourSeat", (index) => setMyIndex(index));
     connection.on("GameState", (state) => {
-      setGameState(state);
+      // Detect vote/mission resolution by comparing with previous state
+      setGameState((prev) => {
+        // Vote just resolved: a new proposal was appended to history
+        const prevCount = countProposals(prev);
+        const newCount = countProposals(state);
+        if (newCount > prevCount) {
+          const newLast = getLastProposal(state);
+          if (newLast && newLast.approved != null) {
+            const leaderName = state.playerNames?.[newLast.leaderIndex] ?? "Leader";
+            setVoteAnimation({
+              approved: newLast.approved,
+              votes: newLast.votes,
+              leaderName,
+              team: newLast.team,
+              playerNames: state.playerNames,
+            });
+            setTimeout(() => setVoteAnimation(null), 1500);
+          }
+        }
+        // Mission just resolved: same last proposal's missionResult flipped null → Success/Fail
+        const prevLast = getLastProposal(prev);
+        const newLast = getLastProposal(state);
+        if (prevLast && newLast && prevLast.missionResult == null && newLast.missionResult != null) {
+          setMissionAnimation({
+            success: newLast.missionResult === "Success",
+            successCount: newLast.successCount ?? 0,
+            failCount: newLast.failCount ?? 0,
+            missionIndex: state.currentMissionIndex,
+          });
+          setTimeout(() => setMissionAnimation(null), 1500);
+        }
+        return state;
+      });
       setMyIndex(state.myIndex);
-      setReady(false);
       setNightConfirmed(false);
       setSelectedTeam([]);
       // Restore vote/mission state on reconnect
@@ -104,11 +158,11 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   }, [connection]);
 
   async function handleReady() {
-    try { setReady(true); await connection.invoke("Ready", roomId); }
-    catch { setReady(false); }
+    try { await connection.invoke("Ready", roomId); }
+    catch (e) { alert(e.message); }
   }
   async function handleUnready() {
-    try { await connection.invoke("Unready", roomId); setReady(false); }
+    try { await connection.invoke("Unready", roomId); }
     catch {}
   }
   async function handleStart() {
@@ -252,6 +306,59 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
   function toggleTeamMember(index) {
     setSelectedTeam((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+    );
+  }
+
+  function renderAnimations() {
+    return (
+      <>
+        {voteAnimation && (
+          <div className={`vote-anim-overlay ${voteAnimation.approved ? "approve" : "reject"}`}>
+            <div className="vote-anim-card">
+              <div className="vote-anim-title">
+                {voteAnimation.approved ? "✓ Team Approved" : "✗ Team Rejected"}
+              </div>
+              <div className="vote-anim-leader">
+                Proposed by <strong>{voteAnimation.leaderName}</strong>
+              </div>
+              <div className="vote-anim-team">
+                {voteAnimation.team?.map((idx) => (
+                  <span key={idx} className="vote-anim-team-name">
+                    {voteAnimation.playerNames?.[idx] || `P${idx + 1}`}
+                  </span>
+                ))}
+              </div>
+              {voteAnimation.votes && (
+                <div className="vote-anim-votes">
+                  {Object.entries(voteAnimation.votes).map(([idx, approved]) => (
+                    <span key={idx} className={`vote-anim-vote ${approved ? "yes" : "no"}`}>
+                      {voteAnimation.playerNames?.[idx] || `P${Number(idx) + 1}`}
+                      <span className="vote-anim-mark">{approved ? "👍" : "👎"}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {missionAnimation && (
+          <div className={`mission-anim-overlay ${missionAnimation.success ? "success" : "fail"}`}>
+            <div className="mission-anim-card">
+              <div className="mission-anim-title">
+                {missionAnimation.success ? "🏆 Mission Succeeded" : "💥 Mission Failed"}
+              </div>
+              <div className="mission-anim-counts">
+                <span className="mission-anim-success">
+                  ✅ {missionAnimation.successCount} Success
+                </span>
+                <span className="mission-anim-fail">
+                  ❌ {missionAnimation.failCount} Fail
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -510,6 +617,7 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
             ))}
           </div>
         </div>
+        {renderAnimations()}
       </div>
     );
   }
@@ -521,6 +629,7 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
         <span className="room-info">Room {roomId}{balance !== null && ` | ${nickname || "You"}'s net wins: ${balance}`}</span>
         <button className="btn-small" style={{ color: "#dc2626" }} onClick={handleLeave}>Leave</button>
       </div>
+      {renderAnimations()}
 
       {gs.phase !== "GameOver" && (
         <div

@@ -16,7 +16,8 @@ public class AvalonRoom
     public Dictionary<string, string> PlayerNicknames { get; set; } = new();
     public Dictionary<string, int> PlayerUserIds { get; set; } = new(); // connectionId => userId
     public string? HostConnectionId { get; set; }
-    public HashSet<string> ReadyPlayers { get; init; } = new();
+    public HashSet<string> ReadyPlayers { get; init; } = new();        // Lobby ready (before game / game over)
+    public HashSet<string> NightConfirmedPlayers { get; init; } = new(); // ConfirmNightReveal during game
     public AvalonGame? Game { get; set; }
     public int MordredCount { get; set; }
     public int OberonCount { get; set; }
@@ -57,6 +58,7 @@ public class AvalonRoom
         PlayerNicknames.Remove(connectionId);
         PlayerUserIds.Remove(connectionId);
         ReadyPlayers.Remove(connectionId);
+        NightConfirmedPlayers.Remove(connectionId);
         if (HostConnectionId == connectionId)
             HostConnectionId = Players.Keys.FirstOrDefault();
         return info;
@@ -89,6 +91,7 @@ public class AvalonRoom
             PlayerNicknames.Remove(oldConn);
             PlayerUserIds.Remove(oldConn);
             ReadyPlayers.Remove(oldConn);
+            NightConfirmedPlayers.Remove(oldConn);
             Players[newConnectionId] = seatIndex;
             PlayerNicknames[newConnectionId] = nickname;
             PlayerUserIds[newConnectionId] = userId;
