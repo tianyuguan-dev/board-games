@@ -45,7 +45,8 @@ public class BlackJackHubTests
         var mockBalanceRepo = new Mock<IGameBalanceRepository>();
         mockBalanceRepo.Setup(r => r.GetOrCreate(It.IsAny<int>(), It.IsAny<GameType>()))
             .ReturnsAsync(new GameBalance { Balance = 1000 });
-        _hub = new BlackJackHub(_mockRoomManager.Object, mockUserRepo.Object, mockTurnTimer.Object, mockBalanceRepo.Object);
+        var guestSession = new BlackJackGuestSession();
+        _hub = new BlackJackHub(_mockRoomManager.Object, mockUserRepo.Object, mockTurnTimer.Object, mockBalanceRepo.Object, guestSession);
         _hub.Context = mockContext.Object;
         _hub.Groups = _mockGroups.Object;
         _hub.Clients = _mockClients.Object;

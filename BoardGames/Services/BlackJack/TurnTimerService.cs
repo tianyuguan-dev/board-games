@@ -11,11 +11,10 @@ namespace BoardGames.Services.BlackJack;
 public class TurnTimerService(
     IHubContext<BlackJackHub> hubContext,
     IBlackJackRoomManager roomManager,
-    IServiceScopeFactory scopeFactory)
+    IServiceScopeFactory scopeFactory,
+    BlackJackTimerSettings timerSettings)
     : ITurnTimerService
 {
-    public const int TurnTimeSeconds = 20;
-    public const int BettingTimeSeconds = 20;
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _turnTimers = new();
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _bettingTimers = new();
 
@@ -57,7 +56,7 @@ public class TurnTimerService(
     {
         try
         {
-            await Task.Delay(TurnTimeSeconds * 1000, cts.Token);
+            await Task.Delay(timerSettings.TurnTimeSeconds * 1000, cts.Token);
         }
         catch (TaskCanceledException)
         {
@@ -100,7 +99,7 @@ public class TurnTimerService(
     {
         try
         {
-            await Task.Delay(BettingTimeSeconds * 1000, cts.Token);
+            await Task.Delay(timerSettings.BettingTimeSeconds * 1000, cts.Token);
         }
         catch (TaskCanceledException)
         {

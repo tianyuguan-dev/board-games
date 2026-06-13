@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.SignalR;
 namespace BoardGames.Hubs.Avalon;
 
 [Authorize]
-public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepository, IGameBalanceRepository balanceRepository, IHubContext<AvalonHub> hubContext, IServiceScopeFactory scopeFactory) : Hub
+public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepository, IGameBalanceRepository balanceRepository, IAvalonGameHistoryRepository gameHistoryRepository, IDemoBotService demoBotService, AvalonHubSettings hubSettings, ILogger<AvalonHub> logger, IHubContext<AvalonHub> hubContext, IServiceScopeFactory scopeFactory) : Hub
 {
     // Serialize all operations on a single room. Acquire at public entry points only;
     // private helpers below assume the caller already holds the lock (no re-entry -> no deadlock).
@@ -30,16 +30,34 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
     public override async Task OnConnectedAsync()
     {
-        var user = await userRepository.FindById(GetUserId());
-        if (user != null) { user.LastActiveAt = DateTime.UtcNow; await userRepository.Update(user); }
+        if (!IsGuestUser())
+        {
+            var user = await userRepository.FindById(GetUserId());
+            if (user != null) { user.LastActiveAt = DateTime.UtcNow; await userRepository.Update(user); }
+        }
         await base.OnConnectedAsync();
     }
 
-    private int GetUserId() =>
-        int.Parse(Context.User!.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+    // Returns 0 for guests (they have no Users row). Caller code already skips userId == 0 when
+    // persisting balance / history, so this naturally excludes guests from those tables.
+    private int GetUserId()
+    {
+        var sub = Context.User!.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value;
+        if (sub.StartsWith("guest:")) return 0;
+        return int.Parse(sub);
+    }
+
+    private bool IsGuestUser() =>
+        Context.User?.HasClaim("isGuest", "true") ?? false;
 
     private async Task<string> GetNickname()
     {
+        if (IsGuestUser())
+        {
+            return Context.User!.FindFirst("nickname")?.Value
+                ?? Context.User!.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+                ?? "Guest";
+        }
         var user = await userRepository.FindById(GetUserId());
         if (user == null) return "Anonymous";
         return string.IsNullOrEmpty(user.Nickname) ? user.Username : user.Nickname;
@@ -92,6 +110,12 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             await SettleGame(room);
             await BroadcastRoomPlayers(room.RoomId);
         }
+
+        // In demo rooms, let scripted bots take over the next move (fire-and-forget timer).
+        if (room.IsDemo && game.Phase != AvalonPhase.GameOver)
+        {
+            await demoBotService.TriggerNextBotActions(room, hubContext);
+        }
     }
 
     // Assumes the room lock is held by the caller.
@@ -122,6 +146,16 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             if (shielded && game.AssassinTarget.HasValue && i == game.AssassinTarget.Value)
                 delta += 0.5m;
             await balanceRepository.UpdateBalance(userId, GameType.Avalon, delta);
+        }
+
+        // Persist game history. Failure must not block settlement (players already saw their balance update).
+        try
+        {
+            await gameHistoryRepository.PersistGame(room);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to persist Avalon game history for room {RoomId}", room.RoomId);
         }
 
         await SendBalancesToAll(room);
@@ -162,11 +196,16 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
     public string? GetActiveRoom()
     {
+        // Guests have no persistent identity; FindRoomByUserId(0) would match other guests' demo rooms
+        // (their bots use userId=0), so always return null.
+        if (IsGuestUser()) return null;
         return roomManager.FindRoomByUserId(GetUserId());
     }
 
     public async Task<decimal> GetBalance()
     {
+        // Guests have no balance row.
+        if (IsGuestUser()) return 0m;
         var balance = await balanceRepository.GetOrCreate(GetUserId(), GameType.Avalon);
         return balance.Balance;
     }
@@ -181,6 +220,8 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
     public async Task<object> CreateRoom(int maxPlayers)
     {
+        if (IsGuestUser())
+            throw new InvalidOperationException("Guests can only play the solo demo. Register an account to play multiplayer.");
         var room = roomManager.CreateRoom(maxPlayers);
         return await WithLock(room, async () =>
         {
@@ -195,10 +236,66 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         });
     }
 
+    public async Task<object> CreateDemoRoom()
+    {
+        // Scripted single-player demo: guest plays Percival against 4 bots, game ends after Mission 1
+        // via early assassination targeting the guest -> Good Wins.
+        var connId = Context.ConnectionId;
+        var userId = GetUserId();
+        var nickname = await GetNickname();
+        var room = roomManager.CreateRoom(5);
+        return await WithLock(room, async () =>
+        {
+            room.IsDemo = true;
+            room.HostConnectionId = connId;
+
+            // Guest sits at seat 2 (Percival, in between Merlin at 0 and Morgana at 1 to maximize NightReveal drama)
+            room.Players[connId] = 2;
+            room.PlayerNicknames[connId] = nickname;
+            room.PlayerUserIds[connId] = userId;
+
+            // 4 bot players fill seats 0, 1, 3, 4
+            var botNames = new Dictionary<int, string> { { 0, "Alice" }, { 1, "Bob" }, { 3, "Charlie" }, { 4, "Dave" } };
+            foreach (var (seat, name) in botNames)
+            {
+                var botConn = $"BOT:seat{seat}";
+                room.Players[botConn] = seat;
+                room.PlayerNicknames[botConn] = name;
+                room.PlayerUserIds[botConn] = 0; // bots have no user id
+            }
+
+            // Fixed role assignment (no shuffle)
+            room.RoleConfig = new List<AvalonRole>
+            {
+                AvalonRole.Merlin,        // seat 0 - Alice
+                AvalonRole.Morgana,       // seat 1 - Bob
+                AvalonRole.Percival,      // seat 2 - Guest
+                AvalonRole.LoyalServant,  // seat 3 - Charlie
+                AvalonRole.Assassin       // seat 4 - Dave
+            };
+
+            room.BuildSeatMap();
+            // startLeader = 1 (Morgana) so the guest's "upstream" seat starts proposing.
+            room.Game = new AvalonGame(5, room.RoleConfig, startLeader: 1, maxRejects: 4, shuffleRoles: false);
+
+            await Groups.AddToGroupAsync(connId, room.RoomId);
+            await Clients.Client(connId).SendAsync("YourSeat", 2);
+            await SendGameStateToAll(room);
+
+            return (object)new { room.RoomId, room.MaxPlayers, PlayerCount = 5 };
+        });
+    }
+
     public async Task<object> JoinRoom(string roomId)
     {
+        if (IsGuestUser())
+            throw new InvalidOperationException("Guests can only play the solo demo. Register an account to play multiplayer.");
+
         var room = roomManager.GetRoom(roomId)
             ?? throw new InvalidOperationException("Room not found");
+
+        if (room.IsDemo)
+            throw new InvalidOperationException("Demo rooms are single-player only");
 
         return await WithLock(room, async () =>
         {
@@ -564,10 +661,13 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
     // --- Reconnect ---
 
-    private const int ReconnectGraceSeconds = 7200;
+    private int ReconnectGraceSeconds => hubSettings.ReconnectGraceSeconds;
 
     public async Task<object> Rejoin(string roomId)
     {
+        if (IsGuestUser())
+            throw new InvalidOperationException("Guest sessions do not persist across reconnects. Start a new demo from the lobby.");
+
         var room = roomManager.GetRoom(roomId);
         if (room == null) throw new InvalidOperationException("Room not found");
 

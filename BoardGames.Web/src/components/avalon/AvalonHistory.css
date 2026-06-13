@@ -1,0 +1,108 @@
+.av-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.av-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.av-history-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  border-left: 4px solid #cbd5e1;
+}
+
+.av-history-card:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.av-history-card.won {
+  border-left-color: #22c55e;
+}
+
+.av-history-card.lost {
+  border-left-color: #ef4444;
+}
+
+.av-history-row1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.av-history-row2 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.av-date {
+  font-size: 13px;
+  color: #475569;
+}
+
+.winner-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.winner-badge.good {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.winner-badge.evil {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.role-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.role-tag.good {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.role-tag.evil {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.result-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-left: auto;
+}
+
+.result-tag.won {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.result-tag.lost {
+  background: #fecaca;
+  color: #991b1b;
+}

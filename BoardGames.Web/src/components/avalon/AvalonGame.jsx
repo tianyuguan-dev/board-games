@@ -52,7 +52,7 @@ function countProposals(state) {
   return state.history.reduce((sum, props) => sum + (props?.length ?? 0), 0);
 }
 
-export default function AvalonGame({ connection, nickname, roomId, maxPlayers, playerCount, roomPlayers, mySeatIndex, isHost, roleConfig, maxRejects, needsRejoin, gameInProgress, onLeave }) {
+export default function AvalonGame({ connection, nickname, isGuest, roomId, maxPlayers, playerCount, roomPlayers, mySeatIndex, isHost, roleConfig, maxRejects, needsRejoin, gameInProgress, onLeave }) {
   const [gameState, setGameState] = useState(null);
   const [myIndex, setMyIndex] = useState(-1);
   // Use lobby-time mySeatIndex (from RoomUpdate) when game hasn't started yet,
@@ -793,13 +793,16 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
           </div>
         )}
         {gs.phase === "Assassination" && myIndex !== gs.assassinIndex && (
-          <p className="waiting">
-            {gs.bonusAssassination
-              ? "Evil won 3 missions. Assassin is attempting to find Merlin for double points..."
-              : gs.earlyAssassination
-              ? "Assassin is attempting to assassinate Merlin..."
-              : "Assassin is choosing a target..."}
-          </p>
+          <div className="assassin-watching">
+            <span className="assassin-watching-icon">🗡️</span>
+            <span className="assassin-watching-text">
+              {gs.bonusAssassination
+                ? "Evil won 3 missions. Assassin is hunting Merlin for double points..."
+                : gs.earlyAssassination
+                ? "Assassin is searching for Merlin..."
+                : "Assassin is searching for Merlin..."}
+            </span>
+          </div>
         )}
 
         {gs.phase === "GameOver" && (() => {
@@ -827,11 +830,25 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
                   <p className="assassin-target">Assassin targeted: <strong>{gs.playerNames[gs.assassinTarget]}</strong></p>
                 )}
                 <div className="roles-reveal">
-                  {gs.allRoles.map((role, i) => (
-                    <div key={i} className={`role-reveal ${AvalonTeamForRole(role) === "Evil" ? "evil" : "good"}`}>
-                      <strong>{gs.playerNames[i]}</strong>: {ROLE_LABELS[role]?.emoji} {ROLE_LABELS[role]?.name || role}
-                    </div>
-                  ))}
+                  {gs.allRoles.map((role, i) => {
+                    const delta = gs.balanceDeltas?.[i];
+                    const deltaShown = delta != null;
+                    const won = deltaShown && delta >= 0;
+                    return (
+                      <div key={i} className={`role-reveal ${AvalonTeamForRole(role) === "Evil" ? "evil" : "good"}`}>
+                        <strong>{gs.playerNames[i]}</strong>: {ROLE_LABELS[role]?.emoji} {ROLE_LABELS[role]?.name || role}
+                        {deltaShown && (
+                          <span style={{
+                            marginLeft: 8,
+                            fontWeight: 700,
+                            color: won ? "#16a34a" : "#dc2626"
+                          }}>
+                            {won ? "+" : ""}{delta}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="progress-status" style={{ marginTop: 16 }}>
                   {roomPlayers.map((p, i) => (
@@ -842,15 +859,17 @@ export default function AvalonGame({ connection, nickname, roomId, maxPlayers, p
                 </div>
               </div>
               <div className="btn-row gameover-actions" style={{ marginTop: 12 }}>
-                {isHost ? (
-                  <button className="btn btn-success" onClick={handleStart}
-                    disabled={roomPlayers.length !== maxPlayers || (roomPlayers.filter((p) => !p.isHost).some((p) => !p.isReady) && roomPlayers.length > 1)}>
-                    Start Next Round{roomPlayers.length !== maxPlayers ? ` (${roomPlayers.length}/${maxPlayers})` : ""}
-                  </button>
-                ) : ready ? (
-                  <button className="btn btn-warning" onClick={handleUnready}>Ready ✓</button>
-                ) : (
-                  <button className="btn btn-success" onClick={handleReady}>Play Again</button>
+                {!isGuest && (
+                  isHost ? (
+                    <button className="btn btn-success" onClick={handleStart}
+                      disabled={roomPlayers.length !== maxPlayers || (roomPlayers.filter((p) => !p.isHost).some((p) => !p.isReady) && roomPlayers.length > 1)}>
+                      Start Next Round{roomPlayers.length !== maxPlayers ? ` (${roomPlayers.length}/${maxPlayers})` : ""}
+                    </button>
+                  ) : ready ? (
+                    <button className="btn btn-warning" onClick={handleUnready}>Ready ✓</button>
+                  ) : (
+                    <button className="btn btn-success" onClick={handleReady}>Play Again</button>
+                  )
                 )}
                 <button className="btn btn-outline" onClick={handleLeave}>Leave</button>
               </div>

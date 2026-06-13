@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { login, register } from "../services/api";
+import { login, register, loginAsGuest } from "../services/api";
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -14,6 +14,15 @@ export default function Login({ onLogin }) {
       onLogin(data.token, data.refreshToken, data.nickname);
     } catch {
       setError("Login failed");
+    }
+  }
+
+  async function handleGuestLogin() {
+    try {
+      const data = await loginAsGuest();
+      onLogin(data.token, data.refreshToken, data.nickname);
+    } catch (e) {
+      setError(e.message || "Guest login failed");
     }
   }
 
@@ -73,6 +82,17 @@ export default function Login({ onLogin }) {
           </>
         )}
       </div>
+      {!isRegister && (
+        <>
+          <hr style={{ margin: "16px 0", border: "none", borderTop: "1px solid #e2e8f0" }} />
+          <button onClick={handleGuestLogin} style={{ background: "#6366f1", width: "100%" }}>
+            Try as Guest (Solo Demo)
+          </button>
+          <p className="text-muted" style={{ fontSize: 12, textAlign: "center", marginTop: 8 }}>
+            One-click access: scripted Avalon solo demo + BlackJack vs dealer. No signup needed.
+          </p>
+        </>
+      )}
       {error && <p className={error.includes("Registered") ? "success-msg" : "error-msg"}>{error}</p>}
     </div>
   );

@@ -6,14 +6,17 @@ import Lobby from "./components/Lobby";
 import Game from "./components/Game";
 import AvalonLobby from "./components/avalon/AvalonLobby";
 import AvalonGame from "./components/avalon/AvalonGame";
+import AvalonHistory from "./components/avalon/AvalonHistory";
+import AvalonGameDetail from "./components/avalon/AvalonGameDetail";
 import Admin from "./components/Admin";
 import { createConnection } from "./services/signalr";
 import { createAvalonConnection } from "./services/avalonSignalr";
-import { logout } from "./services/api";
+import { logout, isGuestToken } from "./services/api";
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [nickname, setNickname] = useState(localStorage.getItem("nickname") || "");
+  const isGuest = isGuestToken();
   const [connection, setConnection] = useState(null);
   const [selectedGame, setSelectedGame] = useState(sessionStorage.getItem("selectedGame") || null);
   const [showProfile, setShowProfile] = useState(false);
@@ -24,8 +27,10 @@ function App() {
   const [mySeatIndex, setMySeatIndex] = useState(-1);
   const [isHost, setIsHost] = useState(false);
   const [roleConfig, setRoleConfig] = useState([]);
-  const [maxRejects, setMaxRejects] = useState(5);
+  const [maxRejects, setMaxRejects] = useState(4);
   const [gameInProgress, setGameInProgress] = useState(false);
+  const [avalonView, setAvalonView] = useState(null); // null | 'history' | 'detail'
+  const [avalonHistoryGameId, setAvalonHistoryGameId] = useState(null);
   const [connState, setConnState] = useState("disconnected");
   const [connRetry, setConnRetry] = useState(0);
   const connRef = useRef(null);
@@ -59,17 +64,22 @@ function App() {
       if (data.maxRejects != null) setMaxRejects(data.maxRejects);
     });
     conn.on("Kicked", (reason) => {
-      if (reason) alert(reason);
-      setRoomId(null);
-      roomIdRef.current = null;
-      sessionStorage.removeItem("roomId");
-      setMaxPlayers(0);
-      setPlayerCount(0);
-      setRoomPlayers([]);
-      setMySeatIndex(-1);
-      setIsHost(false);
-      setRoleConfig([]);
-      setMaxRejects(5);
+      // Delay the popup so player can see the final dealer hand (or other end-of-round state)
+      // before being yanked out of the room.
+      const delayMs = reason && /insufficient/i.test(reason) ? 4000 : 0;
+      setTimeout(() => {
+        if (reason) alert(reason);
+        setRoomId(null);
+        roomIdRef.current = null;
+        sessionStorage.removeItem("roomId");
+        setMaxPlayers(0);
+        setPlayerCount(0);
+        setRoomPlayers([]);
+        setMySeatIndex(-1);
+        setIsHost(false);
+        setRoleConfig([]);
+        setMaxRejects(4);
+      }, delayMs);
     });
     conn.on("RoomDisbanded", () => {
       setRoomId(null);
@@ -81,7 +91,7 @@ function App() {
       setMySeatIndex(-1);
       setIsHost(false);
       setRoleConfig([]);
-      setMaxRejects(5);
+      setMaxRejects(4);
       setGameInProgress(false);
     });
 
@@ -148,7 +158,11 @@ function App() {
 
   function handleLogin(t, refreshToken, nick) {
     localStorage.setItem("token", t);
-    localStorage.setItem("refreshToken", refreshToken);
+    if (refreshToken) {
+      localStorage.setItem("refreshToken", refreshToken);
+    } else {
+      localStorage.removeItem("refreshToken");
+    }
     localStorage.setItem("nickname", nick || "");
     setToken(t);
     setNickname(nick || "");
@@ -179,7 +193,7 @@ function App() {
     setMySeatIndex(-1);
     setIsHost(false);
     setRoleConfig([]);
-    setMaxRejects(5);
+    setMaxRejects(4);
     setGameInProgress(false);
   }
 
@@ -219,7 +233,7 @@ function App() {
   }
 
   if (!selectedGame) {
-    return <Home nickname={nickname} onSelectGame={selectGame} onProfile={() => setShowProfile(true)} onLogout={handleLogout} />;
+    return <Home nickname={nickname} isGuest={isGuest} onSelectGame={selectGame} onProfile={() => setShowProfile(true)} onLogout={handleLogout} />;
   }
 
   // Waiting for connection
@@ -239,10 +253,26 @@ function App() {
 
   // Avalon
   if (selectedGame === "avalon") {
-    if (!roomId) {
-      return <AvalonLobby connection={connection} nickname={nickname} onJoinRoom={handleJoinRoom} onBack={handleBackToHome} />;
+    if (avalonView === "history") {
+      return (
+        <AvalonHistory
+          onSelectGame={(id) => { setAvalonHistoryGameId(id); setAvalonView("detail"); }}
+          onBack={() => setAvalonView(null)}
+        />
+      );
     }
-    return <AvalonGame connection={connection} nickname={nickname} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} mySeatIndex={mySeatIndex} isHost={isHost} roleConfig={roleConfig} maxRejects={maxRejects} needsRejoin={needsRejoinRef} gameInProgress={gameInProgress} onLeave={handleLeave} />;
+    if (avalonView === "detail" && avalonHistoryGameId != null) {
+      return (
+        <AvalonGameDetail
+          gameId={avalonHistoryGameId}
+          onBack={() => setAvalonView("history")}
+        />
+      );
+    }
+    if (!roomId) {
+      return <AvalonLobby connection={connection} nickname={nickname} isGuest={isGuest} onJoinRoom={handleJoinRoom} onBack={handleBackToHome} onShowHistory={() => setAvalonView("history")} />;
+    }
+    return <AvalonGame connection={connection} nickname={nickname} isGuest={isGuest} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} mySeatIndex={mySeatIndex} isHost={isHost} roleConfig={roleConfig} maxRejects={maxRejects} needsRejoin={needsRejoinRef} gameInProgress={gameInProgress} onLeave={handleLeave} />;
   }
 
   return null;

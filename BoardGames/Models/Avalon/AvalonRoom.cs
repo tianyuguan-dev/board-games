@@ -22,8 +22,11 @@ public class AvalonRoom
     public int MordredCount { get; set; }
     public int OberonCount { get; set; }
     public int MinionCount { get; set; }
-    public int MaxRejects { get; set; } = 5;
+    public int MaxRejects { get; set; } = 4;
     public List<AvalonRole> RoleConfig { get; set; } = new();
+
+    // Demo mode: room is auto-filled with scripted bots, guest plays Percival, plot ends after mission 1 with early assassination.
+    public bool IsDemo { get; set; }
 
     // Maps seatIndex => connectionId for game-time lookups
     public Dictionary<int, string> SeatToConnection { get; set; } = new();

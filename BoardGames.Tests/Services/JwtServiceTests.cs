@@ -44,4 +44,33 @@ public class JwtServiceTests
         Assert.Contains(jwt.Claims, c => c.Value == "1");
         Assert.Contains(jwt.Claims, c => c.Value == "terry");
     }
+
+    [Fact]
+    public void GenerateGuestJwtToken_ContainsGuestSubjectAndClaim()
+    {
+        var token = _jwtService.GenerateGuestJwtToken("abc123def456", "Guest_abc123");
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        Assert.Equal("BoardGames", jwt.Issuer);
+        // NameIdentifier prefixed with "guest:" so hub guards can detect guests
+        Assert.Contains(jwt.Claims, c =>
+            c.Type == System.Security.Claims.ClaimTypes.NameIdentifier && c.Value == "guest:abc123def456");
+        // Explicit isGuest=true claim
+        Assert.Contains(jwt.Claims, c => c.Type == "isGuest" && c.Value == "true");
+        // Nickname preserved
+        Assert.Contains(jwt.Claims, c => c.Type == "nickname" && c.Value == "Guest_abc123");
+    }
+
+    [Fact]
+    public void GenerateGuestJwtToken_ExpiresInAboutFourHours()
+    {
+        var before = DateTime.UtcNow;
+        var token = _jwtService.GenerateGuestJwtToken("xyz", "Guest_xyz");
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        // Allow 30s tolerance for clock drift in test runner
+        var expected = before.AddHours(4);
+        var diff = (jwt.ValidTo - expected).Duration();
+        Assert.True(diff < TimeSpan.FromSeconds(30), $"Expected ~4h expiry, got {jwt.ValidTo - before}");
+    }
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import "./AvalonGame.css";
 import Leaderboard from "../Leaderboard";
 
-export default function AvalonLobby({ connection, nickname, onJoinRoom, onBack }) {
+export default function AvalonLobby({ connection, nickname, isGuest, onJoinRoom, onBack, onShowHistory }) {
   const [roomId, setRoomId] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(7);
   const [error, setError] = useState("");
@@ -22,6 +22,15 @@ export default function AvalonLobby({ connection, nickname, onJoinRoom, onBack }
       onJoinRoom(room.roomId, room.maxPlayers, 1);
     } catch (e) {
       setError(e.message || "Failed to create room");
+    }
+  }
+
+  async function handleSoloDemo() {
+    try {
+      const room = await connection.invoke("CreateDemoRoom");
+      onJoinRoom(room.roomId, room.maxPlayers, room.playerCount, true);
+    } catch (e) {
+      setError(e.message || "Failed to start demo");
     }
   }
 
@@ -61,30 +70,46 @@ export default function AvalonLobby({ connection, nickname, onJoinRoom, onBack }
         </div>
       ) : (
         <>
-          <div className="section">
-            <h3>Create Room</h3>
-            <div className="inline-group">
-              <label className="text-muted" style={{ whiteSpace: "nowrap" }}>Players:</label>
-              <select value={maxPlayers} onChange={(e) => setMaxPlayers(Number(e.target.value))} style={{ width: 60 }}>
-                {[5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <button onClick={handleCreate}>Create</button>
-            </div>
-          </div>
+          {!isGuest && (
+            <>
+              <div className="section">
+                <h3>Create Room</h3>
+                <div className="inline-group">
+                  <label className="text-muted" style={{ whiteSpace: "nowrap" }}>Players:</label>
+                  <select value={maxPlayers} onChange={(e) => setMaxPlayers(Number(e.target.value))} style={{ width: 60 }}>
+                    {[5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <button onClick={handleCreate}>Create</button>
+                </div>
+              </div>
 
-          <div className="section">
-            <h3>Join Room</h3>
-            <div className="inline-group">
-              <input
-                type="text"
-                placeholder="Room ID"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                style={{ width: 120 }}
-              />
-              <button onClick={handleJoin}>Join</button>
+              <div className="section">
+                <h3>Join Room</h3>
+                <div className="inline-group">
+                  <input
+                    type="text"
+                    placeholder="Room ID"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    style={{ width: 120 }}
+                  />
+                  <button onClick={handleJoin}>Join</button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {isGuest && (
+            <div className="section">
+              <h3>Solo Demo</h3>
+              <p className="text-muted" style={{ fontSize: 12, marginBottom: 8 }}>
+                As a guest, you can play a scripted 3-min demo as Percival against 4 bots. Register an account to unlock multiplayer.
+              </p>
+              <button onClick={handleSoloDemo} style={{ background: "#6366f1", width: "100%" }}>
+                Start Solo Demo
+              </button>
             </div>
-          </div>
+          )}
         </>
       )}
 
@@ -97,7 +122,10 @@ export default function AvalonLobby({ connection, nickname, onJoinRoom, onBack }
         </div>
       )}
       <hr />
-      <button onClick={onBack} style={{ background: "#94a3b8" }}>Back</button>
+      <div className="inline-group" style={{ justifyContent: "space-between" }}>
+        <button onClick={onBack} style={{ background: "#94a3b8" }}>Back</button>
+        {!isGuest && <button onClick={onShowHistory} style={{ background: "#6366f1" }}>Game History</button>}
+      </div>
     </div>
   );
 }

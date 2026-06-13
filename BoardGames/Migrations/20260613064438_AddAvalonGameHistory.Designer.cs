@@ -3,6 +3,7 @@ using System;
 using BoardGames.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BoardGames.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260613064438_AddAvalonGameHistory")]
+    partial class AddAvalonGameHistory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -70,7 +73,7 @@ namespace BoardGames.Migrations
                     b.HasIndex("EndedAt")
                         .IsDescending();
 
-                    b.ToTable("AvalonGameHistories", (string)null);
+                    b.ToTable("AvalonGameHistories");
                 });
 
             modelBuilder.Entity("BoardGames.Models.Avalon.AvalonGamePlayer", b =>
@@ -113,7 +116,7 @@ namespace BoardGames.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AvalonGamePlayers", (string)null);
+                    b.ToTable("AvalonGamePlayers");
                 });
 
             modelBuilder.Entity("BoardGames.Models.Avalon.AvalonGameProposal", b =>
@@ -158,7 +161,7 @@ namespace BoardGames.Migrations
 
                     b.HasIndex("GameId");
 
-                    b.ToTable("AvalonGameProposals", (string)null);
+                    b.ToTable("AvalonGameProposals");
                 });
 
             modelBuilder.Entity("BoardGames.Models.Avalon.AvalonGameVote", b =>
@@ -182,7 +185,7 @@ namespace BoardGames.Migrations
 
                     b.HasIndex("ProposalId");
 
-                    b.ToTable("AvalonGameVotes", (string)null);
+                    b.ToTable("AvalonGameVotes");
                 });
 
             modelBuilder.Entity("BoardGames.Models.GameBalance", b =>
@@ -207,7 +210,7 @@ namespace BoardGames.Migrations
                     b.HasIndex("UserId", "GameType")
                         .IsUnique();
 
-                    b.ToTable("GameBalances", (string)null);
+                    b.ToTable("GameBalances");
                 });
 
             modelBuilder.Entity("BoardGames.Models.RefreshToken", b =>
@@ -236,7 +239,7 @@ namespace BoardGames.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("BoardGames.Models.User", b =>
@@ -267,7 +270,7 @@ namespace BoardGames.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("BoardGames.Models.Avalon.AvalonGamePlayer", b =>

@@ -150,6 +150,14 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
     try { await connection.invoke("LeaveRoom"); } catch {}
     onLeave();
   }
+  async function handleClaimBonus() {
+    try {
+      const newBalance = await connection.invoke("ClaimBonus");
+      setBalance(newBalance);
+    } catch (e) {
+      alert(e.message || "Failed to claim bonus");
+    }
+  }
 
   function renderPlayerList(showKick) {
     if (roomPlayers.length === 0) return null;
@@ -356,28 +364,43 @@ export default function Game({ connection, roomId, maxPlayers, playerCount, room
         )}
 
         {/* Post-game */}
-        {finished && (
-          <div className="lobby-area">
-            {renderPlayerList(true)}
-            {balance !== null && <div className="balance-bar">Balance: {balance}</div>}
-            <div className="btn-row">
-              {isHost ? (
-                <button
-                  className="btn btn-success"
-                  onClick={handleStart}
-                  disabled={roomPlayers.filter(p => !p.isHost).some(p => !p.isReady) && roomPlayers.length > 1}
-                >
-                  Next Round
-                </button>
-              ) : ready ? (
-                <button className="btn btn-warning" onClick={handleUnready}>Cancel Ready</button>
-              ) : (
-                <button className="btn btn-success" onClick={handleReady}>Ready</button>
+        {finished && (() => {
+          const broke = balance !== null && balance < MIN_BET;
+          const canClaimBonus = balance !== null && balance < 50;
+          return (
+            <div className="lobby-area">
+              {renderPlayerList(true)}
+              {balance !== null && <div className="balance-bar">Balance: {balance}</div>}
+              {broke && (
+                <p style={{ color: '#fca5a5', fontWeight: 600, textAlign: 'center', margin: '12px 0' }}>
+                  You're out of chips! {canClaimBonus ? "Claim a bonus to keep playing, or leave the table." : "Leave the table to end this session."}
+                </p>
               )}
-              <button className="btn btn-outline" onClick={handleLeave}>Leave</button>
+              <div className="btn-row">
+                {broke ? (
+                  <>
+                    {canClaimBonus && (
+                      <button className="btn btn-success" onClick={handleClaimBonus}>Claim Bonus</button>
+                    )}
+                  </>
+                ) : isHost ? (
+                  <button
+                    className="btn btn-success"
+                    onClick={handleStart}
+                    disabled={roomPlayers.filter(p => !p.isHost).some(p => !p.isReady) && roomPlayers.length > 1}
+                  >
+                    Next Round
+                  </button>
+                ) : ready ? (
+                  <button className="btn btn-warning" onClick={handleUnready}>Cancel Ready</button>
+                ) : (
+                  <button className="btn btn-success" onClick={handleReady}>Ready</button>
+                )}
+                <button className="btn btn-outline" onClick={handleLeave}>Leave</button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

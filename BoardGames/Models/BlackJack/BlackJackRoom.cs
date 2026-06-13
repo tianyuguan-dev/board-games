@@ -13,6 +13,9 @@ public class BlackJackRoom
     public string? HostConnectionId { get; set; }
     public List<string> GamePlayerNames { get; set; } = new();
     public List<int> GamePlayerUserIds { get; set; } = new();
+    // Connection IDs snapshot at game start, indexed by seat. Used for guest balance routing (in-memory
+    // per-connection store). Stays stable across mid-game disconnects since we never mutate it after start.
+    public List<string> GamePlayerConnectionIds { get; set; } = new();
     public List<decimal> GamePlayerBalances { get; set; } = new();
     private int _isSettled;
     public bool TrySetSettled() => Interlocked.CompareExchange(ref _isSettled, 1, 0) == 0;

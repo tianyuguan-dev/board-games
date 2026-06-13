@@ -46,6 +46,17 @@ public class AuthController(
         return Ok(new { token, refreshToken = refreshToken.Token, nickname = user.Nickname });
     }
 
+    [HttpPost("guest")]
+    public IActionResult GuestLogin()
+    {
+        // Stateless: no Users row, no GameBalance row, no RefreshToken — guest identity lives in the JWT only.
+        // Token is short-lived (4h); guest session is disposable.
+        var guestId = Guid.NewGuid().ToString("N");
+        var nickname = "Guest_" + guestId.Substring(0, 6);
+        var token = jwtService.GenerateGuestJwtToken(guestId, nickname);
+        return Ok(new { token, refreshToken = (string?)null, nickname });
+    }
+
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(RefreshRequestDto dto)
     {
@@ -53,7 +64,11 @@ public class AuthController(
         if (principal == null)
             return Unauthorized("Invalid access token");
 
-        var userId = int.Parse(principal.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        // Guest tokens have no refresh path; they must re-issue via /auth/guest if expired.
+        if (principal.IsGuest())
+            return Unauthorized("Guest sessions cannot be refreshed");
+
+        var userId = principal.GetUserIdOrZero();
 
         var storedToken = await dbContext.RefreshTokens
             .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken
@@ -93,7 +108,8 @@ public class AuthController(
     [HttpPut("nickname")]
     public async Task<IActionResult> UpdateNickname(UpdateNicknameDto dto)
     {
-        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        if (User.IsGuest()) return Forbid("Not available for guest sessions");
+        var userId = User.GetUserIdOrZero();
         var user = await userRepository.FindById(userId);
         if (user == null) return NotFound();
         user.Nickname = dto.Nickname;
@@ -105,7 +121,8 @@ public class AuthController(
     [HttpPut("password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
     {
-        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        if (User.IsGuest()) return Forbid("Not available for guest sessions");
+        var userId = User.GetUserIdOrZero();
         var success = await authService.ChangePassword(userId, dto.OldPassword, dto.NewPassword);
         if (!success) return BadRequest("Old password is incorrect");
         return Ok(new { message = "Password changed successfully" });
@@ -115,7 +132,8 @@ public class AuthController(
     [HttpGet("balances")]
     public async Task<IActionResult> GetBalances()
     {
-        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        if (User.IsGuest()) return Forbid("Not available for guest sessions");
+        var userId = User.GetUserIdOrZero();
         var balances = new Dictionary<string, decimal>();
         foreach (var gameType in Enum.GetValues<GameType>())
         {

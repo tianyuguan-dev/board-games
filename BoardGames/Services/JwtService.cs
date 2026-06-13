@@ -30,6 +30,32 @@ public class JwtService(IConfiguration configuration) : IJwtService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    public string GenerateGuestJwtToken(string guestId, string nickname)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new[]
+        {
+            // NameIdentifier prefixed with "guest:" so hubs can detect guests and reject real-room actions.
+            new Claim(ClaimTypes.NameIdentifier, "guest:" + guestId),
+            new Claim(ClaimTypes.Name, nickname),
+            new Claim("isGuest", "true"),
+            new Claim("nickname", nickname)
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: configuration["Jwt:Issuer"],
+            audience: configuration["Jwt:Issuer"],
+            claims: claims,
+            // Long single token, no refresh: guest sessions are disposable.
+            expires: DateTime.UtcNow.AddHours(4),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
     public ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!));

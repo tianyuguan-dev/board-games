@@ -19,6 +19,7 @@ public class AvalonGame
     public int? AssassinTarget { get; private set; }
     public bool BonusAssassination { get; private set; } // true when evil already won 3 missions but gets a chance to find Merlin for double points
     public bool EarlyAssassination { get; private set; } // true when assassin chose to assassinate mid-game
+    public DateTime StartedAt { get; } = DateTime.UtcNow;
 
     // History: all proposals grouped by mission
     public List<List<AvalonProposal>> MissionHistory { get; } = new();
@@ -29,7 +30,7 @@ public class AvalonGame
     // Mission phase: tracks who has played their card
     private readonly Dictionary<int, bool> _missionActions = new(); // playerIndex => success
 
-    public AvalonGame(int playerCount, List<AvalonRole> roleConfig, int startLeader = 0, int maxRejects = 5)
+    public AvalonGame(int playerCount, List<AvalonRole> roleConfig, int startLeader = 0, int maxRejects = 4, bool shuffleRoles = true)
     {
         if (!AvalonConfig.IsValidPlayerCount(playerCount))
             throw new ArgumentOutOfRangeException(nameof(playerCount), "Must be 5-10");
@@ -46,15 +47,18 @@ public class AvalonGame
             MissionHistory.Add(new List<AvalonProposal>());
         }
 
-        // Shuffle and assign roles
-        var shuffled = new List<AvalonRole>(roleConfig);
-        var rng = new Random();
-        for (int i = shuffled.Count - 1; i > 0; i--)
+        var roles = new List<AvalonRole>(roleConfig);
+        if (shuffleRoles)
         {
-            int j = rng.Next(i + 1);
-            (shuffled[i], shuffled[j]) = (shuffled[j], shuffled[i]);
+            // Fisher-Yates shuffle
+            var rng = new Random();
+            for (int i = roles.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (roles[i], roles[j]) = (roles[j], roles[i]);
+            }
         }
-        Roles.AddRange(shuffled);
+        Roles.AddRange(roles);
     }
 
     // Night reveal: what each player can see

@@ -3,6 +3,7 @@ using BoardGames.Data;
 using BoardGames.Dtos.BlackJack;
 using BoardGames.Models;
 using BoardGames.Models.BlackJack;
+using BoardGames.Services;
 using BoardGames.Services.BlackJack;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -13,8 +14,26 @@ public class BlackJackHub(
     IBlackJackRoomManager roomManager,
     IUserRepository userRepository,
     ITurnTimerService turnTimer,
-    IGameBalanceRepository balanceRepo) : Hub
+    IGameBalanceRepository balanceRepo,
+    IBlackJackGuestSession guestSession) : Hub
 {
+    // --- Guest-aware balance helpers ---
+    // Guests have userId=0 and no Users/GameBalance row; their balance lives in IBlackJackGuestSession (in-memory, per connection).
+    // Real users persist via balanceRepo. Every call site below must use these wrappers.
+
+    private async Task<decimal> GetUserBalance(int userId, string connectionId)
+    {
+        if (userId <= 0) return guestSession.GetOrInit(connectionId);
+        var bal = await balanceRepo.GetOrCreate(userId, GameType.BlackJack);
+        return bal.Balance;
+    }
+
+    private async Task ApplyBalanceDelta(int userId, string connectionId, decimal delta)
+    {
+        if (userId <= 0) { guestSession.ApplyDelta(connectionId, delta); return; }
+        await balanceRepo.UpdateBalance(userId, GameType.BlackJack, delta);
+    }
+
     // Serialize all operations on a single room (shared with the background turn/betting timers).
     // Acquire at public entry points only; private helpers below assume the lock is already held.
     private static async Task WithLock(BlackJackRoom room, Func<Task> body)
@@ -33,11 +52,15 @@ public class BlackJackHub(
 
     public override async Task OnConnectedAsync()
     {
-        var userId = int.Parse(Context.User!.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var user = await userRepository.FindById(userId);
-        if (user != null) { user.LastActiveAt = DateTime.UtcNow; await userRepository.Update(user); }
+        if (!Context.User.IsGuest())
+        {
+            var userId = Context.User.GetUserIdOrZero();
+            var user = await userRepository.FindById(userId);
+            if (user != null) { user.LastActiveAt = DateTime.UtcNow; await userRepository.Update(user); }
+        }
         await base.OnConnectedAsync();
     }
+
 
     private void ManageTurnTimer(string roomId, BlackJackGame game)
     {
@@ -67,7 +90,7 @@ public class BlackJackHub(
         foreach (var p in room.Players.OrderBy(p => p.Value))
         {
             var uid = room.PlayerUserIds.GetValueOrDefault(p.Key);
-            var bal = uid > 0 ? (await balanceRepo.GetOrCreate(uid, GameType.BlackJack)).Balance : 0;
+            var bal = await GetUserBalance(uid, p.Key);
             playerList.Add(new
             {
                 Nickname = room.PlayerNicknames.GetValueOrDefault(p.Key, "Player " + p.Value),
@@ -85,7 +108,7 @@ public class BlackJackHub(
 
     private int GetUserId()
     {
-        return int.Parse(Context.User!.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        return Context.User.GetUserIdOrZero();
     }
 
     private async Task<string> GetNickname()
@@ -98,8 +121,7 @@ public class BlackJackHub(
 
     public async Task<decimal> GetBalance()
     {
-        var balance = await balanceRepo.GetOrCreate(GetUserId(), GameType.BlackJack);
-        return balance.Balance;
+        return await GetUserBalance(GetUserId(), Context.ConnectionId);
     }
 
     public async Task<List<object>> GetLeaderboard()
@@ -111,12 +133,12 @@ public class BlackJackHub(
     public async Task<decimal> ClaimBonus()
     {
         var userId = GetUserId();
-        var balance = await balanceRepo.GetOrCreate(userId, GameType.BlackJack);
-        if (balance.Balance >= 50)
+        var current = await GetUserBalance(userId, Context.ConnectionId);
+        if (current >= 50)
             throw new InvalidOperationException("Balance too high to claim bonus");
         var bonus = Random.Shared.Next(10, 21);
-        await balanceRepo.UpdateBalance(userId, GameType.BlackJack, bonus);
-        return balance.Balance + bonus;
+        await ApplyBalanceDelta(userId, Context.ConnectionId, bonus);
+        return current + bonus;
     }
 
     // Assumes the room lock is held by the caller.
@@ -130,7 +152,8 @@ public class BlackJackHub(
         {
             if (game.Bets[i] <= 0) continue;
             var userId = room.GamePlayerUserIds.ElementAtOrDefault(i);
-            if (userId == 0) continue;
+            var connId = room.GamePlayerConnectionIds.ElementAtOrDefault(i);
+            if (connId == null) continue; // shouldn't happen but defensive
 
             var bet = game.Bets[i];
             int delta = game.Results[i] switch
@@ -141,59 +164,35 @@ public class BlackJackHub(
             };
 
             if (delta != 0)
-                await balanceRepo.UpdateBalance(userId, GameType.BlackJack, delta);
+                await ApplyBalanceDelta(userId, connId, delta);
         }
 
         // Update GamePlayerBalances so DTO reflects settled balances
         for (int i = 0; i < room.GamePlayerUserIds.Count; i++)
         {
             var uid = room.GamePlayerUserIds[i];
-            if (uid == 0) continue;
-            var bal = await balanceRepo.GetOrCreate(uid, GameType.BlackJack);
+            var connId = room.GamePlayerConnectionIds.ElementAtOrDefault(i);
+            if (connId == null) continue;
+            var bal = await GetUserBalance(uid, connId);
             if (i < room.GamePlayerBalances.Count)
-                room.GamePlayerBalances[i] = bal.Balance;
+                room.GamePlayerBalances[i] = bal;
         }
 
-        // Send updated balances and kick broke players
-        var toKick = new List<string>();
+        // Broadcast settled balances — broke players are NOT auto-kicked here so they can see the
+        // final dealer hand + result. They auto-forfeit in the next round's StartGame (insufficient
+        // balance check), and can hit Leave themselves anytime.
         foreach (var (connectionId, _) in room.Players)
         {
             var uid = room.PlayerUserIds.GetValueOrDefault(connectionId);
-            if (uid > 0)
-            {
-                var balance = await balanceRepo.GetOrCreate(uid, GameType.BlackJack);
-                await Clients.Client(connectionId).SendAsync("BalanceUpdate", balance.Balance);
-                if (balance.Balance < BlackJackGame.MinBet)
-                    toKick.Add(connectionId);
-            }
-        }
-        foreach (var connId in toKick)
-        {
-            room.Players.Remove(connId);
-            room.ReadyPlayers.Remove(connId);
-            room.PlayerNicknames.Remove(connId);
-            room.PlayerUserIds.Remove(connId);
-            TransferHostIfNeeded(room, connId);
-            await Groups.RemoveFromGroupAsync(connId, roomId);
-            await Clients.Client(connId).SendAsync("Kicked", "Insufficient balance");
-        }
-        if (toKick.Count > 0)
-        {
-            if (room.Players.Count == 0)
-                roomManager.RemoveRoom(roomId);
-            else
-            {
-                await Clients.Group(roomId).SendAsync("PlayerLeft", room.Players.Count);
-                await BroadcastRoomPlayers(roomId);
-            }
+            var balance = await GetUserBalance(uid, connectionId);
+            await Clients.Client(connectionId).SendAsync("BalanceUpdate", balance);
         }
     }
 
     private async Task EnsureSufficientBalance()
     {
-        var userId = GetUserId();
-        var balance = await balanceRepo.GetOrCreate(userId, GameType.BlackJack);
-        if (balance.Balance < BlackJackGame.MinBet)
+        var balance = await GetUserBalance(GetUserId(), Context.ConnectionId);
+        if (balance < BlackJackGame.MinBet)
             throw new InvalidOperationException("Insufficient balance");
     }
 
@@ -260,6 +259,10 @@ public class BlackJackHub(
                 .OrderBy(p => p.Value)
                 .Select(p => blackJackRoom.PlayerUserIds.GetValueOrDefault(p.Key, 0))
                 .ToList();
+            blackJackRoom.GamePlayerConnectionIds = blackJackRoom.Players
+                .OrderBy(p => p.Value)
+                .Select(p => p.Key)
+                .ToList();
             blackJackRoom.ResetSettled();
             blackJackRoom.GamePlayerBalances = new List<decimal>();
             BlackJackGame blackJackGame = blackJackRoom.BlackJackTable.NewRound(blackJackRoom.Players.Count);
@@ -269,10 +272,9 @@ public class BlackJackHub(
             foreach (var (connectionId, playerIndex) in blackJackRoom.Players.OrderBy(p => p.Value))
             {
                 var userId = blackJackRoom.PlayerUserIds.GetValueOrDefault(connectionId);
-                var bal = userId > 0 ? await balanceRepo.GetOrCreate(userId, GameType.BlackJack) : null;
-                blackJackRoom.GamePlayerBalances.Add(bal?.Balance ?? 0);
-                if (bal != null)
-                    await Clients.Client(connectionId).SendAsync("BalanceUpdate", bal.Balance);
+                var bal = await GetUserBalance(userId, connectionId);
+                blackJackRoom.GamePlayerBalances.Add(bal);
+                await Clients.Client(connectionId).SendAsync("BalanceUpdate", bal);
                 await Clients.Client(connectionId).SendAsync("YourSeat", blackJackRoom.Players[connectionId]);
             }
             // Auto-forfeit players with insufficient balance
@@ -465,6 +467,9 @@ public class BlackJackHub(
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         await HandlePlayerLeave(Context.ConnectionId);
+        // Clean up ephemeral guest balance so memory doesn't grow with abandoned sessions.
+        if (Context.User.IsGuest())
+            guestSession.Remove(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 

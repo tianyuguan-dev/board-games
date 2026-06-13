@@ -78,6 +78,7 @@ public class AvalonGameStateDto
     public string? Winner { get; set; }
     public string? WinReason { get; set; }
     public List<string>? AllRoles { get; set; } // revealed at game end
+    public List<decimal>? BalanceDeltas { get; set; } // ±1, ±2 (double points), or ±0.5 (shielded), indexed by seat
 
     // History
     public List<List<AvalonProposalDto>> History { get; set; } = new();
@@ -159,6 +160,29 @@ public class AvalonGameStateDto
             dto.AllRoles = game.Roles.Select(r => r.ToString()).ToList();
             dto.AssassinTarget = game.AssassinTarget;
             dto.BonusAssassination = game.BonusAssassination;
+
+            // Mirror SettleGame scoring so the settlement screen shows ±n next to each role.
+            bool bonusKill = game.BonusAssassination
+                             && game.AssassinTarget.HasValue
+                             && game.Roles[game.AssassinTarget.Value] == AvalonRole.Merlin;
+            decimal points = bonusKill ? 2 : 1;
+            bool shielded = game.Winner == GameWinner.Good
+                            && game.AssassinTarget.HasValue
+                            && game.Roles[game.AssassinTarget.Value] != AvalonRole.Merlin
+                            && game.Roles[game.AssassinTarget.Value] != AvalonRole.Percival;
+
+            var deltas = new List<decimal>(game.PlayerCount);
+            for (int i = 0; i < game.PlayerCount; i++)
+            {
+                var team = AvalonConfig.GetTeam(game.Roles[i]);
+                bool isWinner = (team == AvalonTeam.Good && game.Winner == GameWinner.Good)
+                                || (team == AvalonTeam.Evil && game.Winner == GameWinner.Evil);
+                decimal delta = isWinner ? points : -points;
+                if (shielded && game.AssassinTarget.HasValue && i == game.AssassinTarget.Value)
+                    delta += 0.5m;
+                deltas.Add(delta);
+            }
+            dto.BalanceDeltas = deltas;
         }
 
         // History

@@ -18,10 +18,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IGameBalanceRepository, GameBalanceRepository>();
+builder.Services.AddScoped<IAvalonGameHistoryRepository, AvalonGameHistoryRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();                                            
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddSingleton<IBlackJackRoomManager, BlackJackRoomManager>();
+builder.Services.AddSingleton<IBlackJackGuestSession, BlackJackGuestSession>();
 builder.Services.AddSingleton<IAvalonRoomManager, AvalonRoomManager>();
+builder.Services.AddSingleton<IDemoBotService, DemoBotService>();
+builder.Services.AddSingleton<AvalonHubSettings>();
+builder.Services.AddSingleton<BlackJackTimerSettings>();
 builder.Services.AddSingleton<ITurnTimerService, TurnTimerService>();
 builder.Services.AddSignalR();
 builder.Services.AddCors(options =>

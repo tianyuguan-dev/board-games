@@ -53,6 +53,17 @@ export async function refreshAccessToken() {
   }
 }
 
+export function isGuestToken() {
+  const token = localStorage.getItem("token");
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.isGuest === "true" || payload.isGuest === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function getValidToken() {
   const token = localStorage.getItem("token");
   if (!token) return null;
@@ -111,6 +122,15 @@ export async function login(username, password) {
   return await response.json();
 }
 
+export async function loginAsGuest() {
+  const response = await fetch(`${BASE_URL}/auth/guest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!response.ok) throw new Error("Guest login failed");
+  return await response.json();
+}
+
 export async function register(username, password) {
   const response = await fetch(`${BASE_URL}/auth/register`, {
     method: "POST",
@@ -159,6 +179,20 @@ export async function getBalances(token) {
   const response = await authFetch(`${BASE_URL}/auth/balances`);
 
   if (!response || !response.ok) throw new Error("Failed to get balances");
+  return await response.json();
+}
+
+export async function getMyAvalonGames(limit = 20, offset = 0) {
+  const response = await authFetch(`${BASE_URL}/avalon/games/recent?limit=${limit}&offset=${offset}`);
+  if (!response || !response.ok) throw new Error("Failed to load game history");
+  return await response.json();
+}
+
+export async function getAvalonGameDetail(id) {
+  const response = await authFetch(`${BASE_URL}/avalon/games/${id}`);
+  if (!response) throw new Error("Not authenticated");
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("Failed to load game detail");
   return await response.json();
 }
 
