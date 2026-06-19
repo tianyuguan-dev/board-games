@@ -1,4 +1,5 @@
 using BoardGames.Data;
+using BoardGames.Dtos.Avalon;
 using BoardGames.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,10 @@ namespace BoardGames.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AdminController(AppDbContext db, IConfiguration config) : ControllerBase
+public class AdminController(
+    AppDbContext db,
+    IConfiguration config,
+    IAvalonGameHistoryRepository avalonHistoryRepo) : ControllerBase
 {
     private bool IsAuthorized()
     {
@@ -83,6 +87,28 @@ public class AdminController(AppDbContext db, IConfiguration config) : Controlle
         user.Nickname = dto.Nickname;
         await db.SaveChangesAsync();
         return Ok(new { message = $"Nickname updated to {user.Nickname}" });
+    }
+
+    [HttpGet("users/{id}/avalon-history")]
+    public async Task<IActionResult> GetUserAvalonHistory(int id, [FromQuery] int limit = 20, [FromQuery] int offset = 0)
+    {
+        if (!IsAuthorized()) return Unauthorized();
+        if (limit < 1 || limit > 100) limit = 20;
+        if (offset < 0) offset = 0;
+
+        var games = await avalonHistoryRepo.GetMyRecentGames(id, limit, offset);
+        var dtos = games.Select(g => AvalonGameSummaryDto.From(g, id)).ToList();
+        return Ok(dtos);
+    }
+
+    [HttpGet("avalon-games/{gameId}")]
+    public async Task<IActionResult> GetAvalonGameDetail(int gameId, [FromQuery] int perspectiveUserId = 0)
+    {
+        if (!IsAuthorized()) return Unauthorized();
+
+        var game = await avalonHistoryRepo.GetGameDetailById(gameId);
+        if (game == null) return NotFound();
+        return Ok(AvalonGameDetailDto.From(game, perspectiveUserId));
     }
 
     [HttpPut("users/{id}/balance")]

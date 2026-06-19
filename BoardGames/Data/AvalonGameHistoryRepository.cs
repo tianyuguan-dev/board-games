@@ -115,6 +115,11 @@ public class AvalonGameHistoryRepository(AppDbContext db) : IAvalonGameHistoryRe
             .AnyAsync(p => p.GameId == gameId && p.UserId == userId);
         if (!participated) return null;
 
+        return await GetGameDetailById(gameId);
+    }
+
+    public async Task<AvalonGameHistory?> GetGameDetailById(int gameId)
+    {
         return await db.AvalonGameHistories
             .Where(g => g.Id == gameId)
             .Include(g => g.Players)

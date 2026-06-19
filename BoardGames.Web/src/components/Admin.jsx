@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
+import AvalonGameDetail from "./avalon/AvalonGameDetail";
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL
   ? `${import.meta.env.VITE_BACKEND_URL}/api/admin`
   : (import.meta.env.PROD ? '/api/admin' : `http://${window.location.hostname}:5087/api/admin`);
+
+function formatDateTime(iso) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 
 export default function Admin() {
   const [password, setPassword] = useState(sessionStorage.getItem("adminToken") || "");
@@ -15,6 +23,8 @@ export default function Admin() {
   const [editNickname, setEditNickname] = useState("");
   const [editBalances, setEditBalances] = useState({});
   const [newPassword, setNewPassword] = useState("");
+  const [avalonHistory, setAvalonHistory] = useState(null); // null = not viewing; [] = loaded empty
+  const [selectedGameId, setSelectedGameId] = useState(null);
 
   const headers = { "Content-Type": "application/json", "X-Admin-Token": password };
 
@@ -42,8 +52,18 @@ export default function Admin() {
     setAuthed(true);
   }
 
+  async function fetchAdminGameDetail(gameId) {
+    const perspective = selectedUser?.id ?? 0;
+    const res = await fetch(`${BASE_URL}/avalon-games/${gameId}?perspectiveUserId=${perspective}`, { headers });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("Failed to load game detail");
+    return await res.json();
+  }
+
   async function openUserDetail(userId) {
     setError(""); setSuccess("");
+    setAvalonHistory(null);
+    setSelectedGameId(null);
     try {
       const res = await fetch(`${BASE_URL}/users/${userId}`, { headers });
       if (!res.ok) { setError("Failed to load user"); return; }
@@ -84,6 +104,15 @@ export default function Admin() {
     } catch { setError("Failed to update balance"); }
   }
 
+  async function loadAvalonHistory() {
+    setError(""); setSuccess("");
+    try {
+      const res = await fetch(`${BASE_URL}/users/${selectedUser.id}/avalon-history?limit=50`, { headers });
+      if (!res.ok) { setError("Failed to load Avalon history"); return; }
+      setAvalonHistory(await res.json());
+    } catch { setError("Failed to load Avalon history"); }
+  }
+
   async function handleResetPassword() {
     if (!newPassword.trim()) { setError("Password cannot be empty"); return; }
     setError(""); setSuccess("");
@@ -110,6 +139,60 @@ export default function Admin() {
         </div>
         <button onClick={handleLogin}>Login</button>
         {error && <p className="error-msg">{error}</p>}
+      </div>
+    );
+  }
+
+  if (selectedGameId !== null && selectedUser) {
+    return (
+      <AvalonGameDetail
+        gameId={selectedGameId}
+        fetchDetail={fetchAdminGameDetail}
+        onBack={() => setSelectedGameId(null)}
+      />
+    );
+  }
+
+  if (avalonHistory !== null && selectedUser) {
+    const ROLE_TEAM = {
+      Merlin: "good", Percival: "good", LoyalServant: "good",
+      Assassin: "evil", Morgana: "evil", Mordred: "evil", Oberon: "evil", MinionOfMordred: "evil",
+    };
+    return (
+      <div className="page-center" style={{ maxWidth: 560 }}>
+        <h2>Avalon History — {selectedUser.nickname}</h2>
+        <p className="text-muted" style={{ marginTop: -8 }}>User ID: {selectedUser.id}</p>
+        {error && <p className="error-msg">{error}</p>}
+        {avalonHistory.length === 0 ? (
+          <p className="text-muted" style={{ textAlign: "center", marginTop: 24 }}>This user has no Avalon games yet.</p>
+        ) : (
+          <div style={{ overflowX: "auto", maxWidth: "100%", WebkitOverflowScrolling: "touch" }}>
+            <table className="leaderboard-table" style={{ minWidth: 480 }}>
+              <thead>
+                <tr>
+                  <th>Ended</th>
+                  <th>Role</th>
+                  <th>Result</th>
+                  <th>Balance</th>
+                  <th>Players</th>
+                </tr>
+              </thead>
+              <tbody>
+                {avalonHistory.map((g) => (
+                  <tr key={g.id} onClick={() => setSelectedGameId(g.id)} style={{ cursor: "pointer" }}>
+                    <td style={{ whiteSpace: "nowrap" }}>{formatDateTime(g.endedAt)}</td>
+                    <td style={{ color: ROLE_TEAM[g.myRole] === "evil" ? "#dc2626" : "#0369a1" }}>{g.myRole}</td>
+                    <td style={{ color: g.myIsWinner ? "#16a34a" : "#94a3b8" }}>{g.myIsWinner ? "Won" : "Lost"}</td>
+                    <td>{g.myBalanceDelta >= 0 ? "+" : ""}{g.myBalanceDelta}</td>
+                    <td>{g.playerCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <hr />
+        <button onClick={() => setAvalonHistory(null)} style={{ background: "#94a3b8" }}>Back to User Detail</button>
       </div>
     );
   }
@@ -159,8 +242,13 @@ export default function Admin() {
           </div>
         </div>
 
+        <div className="section">
+          <h3>Game History</h3>
+          <button onClick={loadAvalonHistory}>View Avalon History</button>
+        </div>
+
         <hr />
-        <button onClick={() => { setSelectedUser(null); setSuccess(""); setError(""); }} style={{ background: "#94a3b8" }}>Back</button>
+        <button onClick={() => { setSelectedUser(null); setAvalonHistory(null); setSelectedGameId(null); setSuccess(""); setError(""); }} style={{ background: "#94a3b8" }}>Back</button>
       </div>
     );
   }
@@ -180,36 +268,29 @@ export default function Admin() {
       {error && <p className="error-msg">{error}</p>}
       {success && <p className="success-msg" style={{ background: "#dcfce7", padding: "8px 12px", borderRadius: 6 }}>{success}</p>}
 
-      <table className="leaderboard-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Username</th>
-            <th>Nickname</th>
-            <th>Last Active</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id} onClick={() => openUserDetail(u.id)} style={{ cursor: "pointer" }}>
-              <td>{u.id}</td>
-              <td>{u.username}</td>
-              <td>{u.nickname}</td>
-              <td>{u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleDateString() : "-"}</td>
-              <td>
-                <button onClick={(e) => { e.stopPropagation(); openUserDetail(u.id); }}
-                  style={{ padding: "4px 10px", fontSize: 12 }}>
-                  Detail
-                </button>
-              </td>
+      <div style={{ overflowX: "auto", maxWidth: "100%", WebkitOverflowScrolling: "touch" }}>
+        <table className="leaderboard-table" style={{ minWidth: 420 }}>
+          <thead>
+            <tr>
+              <th>Last Active</th>
+              <th>Nickname</th>
+              <th>Username</th>
             </tr>
-          ))}
-          {users.length === 0 && (
-            <tr><td colSpan={5} style={{ textAlign: "center", color: "#94a3b8" }}>No users found</td></tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id} onClick={() => openUserDetail(u.id)} style={{ cursor: "pointer" }}>
+                <td style={{ whiteSpace: "nowrap" }}>{formatDateTime(u.lastActiveAt)}</td>
+                <td>{u.nickname}</td>
+                <td>{u.username}</td>
+              </tr>
+            ))}
+            {users.length === 0 && (
+              <tr><td colSpan={3} style={{ textAlign: "center", color: "#94a3b8" }}>No users found</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       <hr />
       <button onClick={() => { setAuthed(false); sessionStorage.removeItem("adminToken"); }}

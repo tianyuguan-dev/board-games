@@ -34,7 +34,7 @@ function formatDuration(seconds) {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-export default function AvalonGameDetail({ gameId, onBack }) {
+export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,7 +43,7 @@ export default function AvalonGameDetail({ gameId, onBack }) {
     let cancelled = false;
     (async () => {
       try {
-        const data = await getAvalonGameDetail(gameId);
+        const data = await (fetchDetail ? fetchDetail(gameId) : getAvalonGameDetail(gameId));
         if (cancelled) return;
         if (data == null) setError("Game not found or you did not participate in it.");
         else setGame(data);
