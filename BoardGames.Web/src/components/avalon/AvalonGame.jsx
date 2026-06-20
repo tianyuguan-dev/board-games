@@ -808,22 +808,27 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
             {hasVoted ? (
               <p className="waiting">Voted! Waiting for others...</p>
             ) : (
-              <div className="vote-btn-row">
-                <button
-                  className="vote-img-btn vote-approve"
-                  onClick={() => handleVote(true)}
-                  aria-label="Approve team"
-                >
-                  <img src="/approve.png" alt="Approve" />
-                </button>
-                <button
-                  className="vote-img-btn vote-reject"
-                  onClick={() => handleVote(false)}
-                  aria-label="Reject team"
-                >
-                  <img src="/reject.png" alt="Reject" />
-                </button>
-              </div>
+              <>
+                <p>Please cast your vote:</p>
+                <div className="vote-btn-row">
+                  <button
+                    className="vote-img-btn vote-approve"
+                    onClick={() => handleVote(true)}
+                    aria-label="Approve team"
+                  >
+                    <span className="vote-label">Approve</span>
+                    <span className="vote-img-frame"><img src="/approve.png" alt="" /></span>
+                  </button>
+                  <button
+                    className="vote-img-btn vote-reject"
+                    onClick={() => handleVote(false)}
+                    aria-label="Reject team"
+                  >
+                    <span className="vote-label">Reject</span>
+                    <span className="vote-img-frame"><img src="/reject.png" alt="" /></span>
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -849,7 +854,8 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                       onClick={() => handleMissionCard(true)}
                       aria-label="Play Success card"
                     >
-                      <img src="/success.png" alt="Success" />
+                      <span className="vote-label">Success</span>
+                      <span className="vote-img-frame"><img src="/success.png" alt="" /></span>
                     </button>
                     <button
                       className="vote-img-btn vote-reject"
@@ -858,7 +864,8 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                       title={isEvil ? "" : "Good players can only play Success"}
                       aria-label="Play Fail card"
                     >
-                      <img src="/fail.png" alt="Fail" />
+                      <span className="vote-label">Fail</span>
+                      <span className="vote-img-frame"><img src="/fail.png" alt="" /></span>
                     </button>
                   </div>
                 </>

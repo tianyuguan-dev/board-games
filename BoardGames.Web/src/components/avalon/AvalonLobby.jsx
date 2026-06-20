@@ -103,7 +103,7 @@ export default function AvalonLobby({ connection, nickname, isGuest, onJoinRoom,
             <div className="section">
               <h3>Solo Demo</h3>
               <p className="text-muted" style={{ fontSize: 12, marginBottom: 8 }}>
-                As a guest, you can play a scripted 3-min demo as Percival against 4 bots. Register an account to unlock multiplayer.
+                As a guest, you can play a scripted 30-second demo as Percival against 4 bots. Register an account to unlock multiplayer.
               </p>
               <button onClick={handleSoloDemo} style={{ background: "#6366f1", width: "100%" }}>
                 Start Solo Demo
