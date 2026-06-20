@@ -159,16 +159,123 @@
 }
 
 /* Mission track */
+.scoreboard {
+  position: relative;
+  background-image: url(/gameboard.png);
+  background-size: cover;
+  background-position: center;
+  border-radius: 14px;
+  padding: 12px 16px 80px;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  user-select: none;
+  min-height: 200px;
+  box-sizing: border-box;
+}
+
+.scoreboard-clickable {
+  cursor: pointer;
+}
+
+.scoreboard-identity {
+  background-image: none;
+  background-color: #1e293b;
+  padding: 12px 20px 24px;
+}
+
+.scoreboard-identity-content {
+  color: #f8fafc;
+  margin-top: 16px;
+}
+
+.identity-split {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.identity-portrait {
+  flex: 0 0 auto;
+  height: 140px;
+  width: auto;
+  max-height: 32vw;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  object-fit: cover;
+}
+
+.identity-portrait-fallback {
+  height: 140px;
+  width: 140px;
+  max-height: 32vw;
+  max-width: 32vw;
+  background: rgba(248, 250, 252, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.identity-portrait-fallback .identity-emoji {
+  font-size: 64px;
+}
+
+.identity-text {
+  flex: 1 1 200px;
+  text-align: left;
+  min-width: 0;
+}
+
+.scoreboard-identity .identity-role-row {
+  justify-content: flex-start;
+}
+
+.scoreboard-identity .identity-info {
+  justify-content: flex-start;
+}
+
+.scoreboard-identity .identity-name,
+.scoreboard-identity .identity-desc,
+.scoreboard-identity .identity-hint {
+  color: #f8fafc;
+}
+
+.scoreboard-identity .identity-team.good {
+  color: #86efac;
+}
+
+.scoreboard-identity .identity-team.evil {
+  color: #fca5a5;
+}
+
+.scoreboard-toggle-hint {
+  display: block;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fde68a;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  margin-bottom: 14px;
+  pointer-events: none;
+}
+
+.scoreboard-identity .scoreboard-toggle-hint {
+  color: #fde68a;
+  text-shadow: none;
+}
+
 .mission-track {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 14px;
+  margin-bottom: 0;
 }
 
 .mission-dot {
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -179,19 +286,31 @@
   color: #475569;
 }
 
+.scoreboard .mission-dot {
+  background: rgba(248, 250, 252, 0.18);
+  color: #f8fafc;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
 .mission-dot.current {
-  outline: 3px solid #3b82f6;
+  outline: 3px solid #facc15;
   outline-offset: 2px;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.6);
 }
 
-.mission-dot.success {
-  background: #22c55e;
-  color: #fff;
-}
-
+.mission-dot.success,
 .mission-dot.fail {
-  background: #ef4444;
-  color: #fff;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mission-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 /* "Protected" round — needs 2 fails to fail (mission 4 in 7+ player games) */
@@ -214,22 +333,65 @@
   line-height: 1.2;
 }
 
-/* Reject track */
+.evil-roles-display {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 10px;
+  row-gap: 3px;
+  padding: 6px 10px;
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 8px;
+}
+
+.evil-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(254, 242, 242, 0.9);
+  white-space: nowrap;
+}
+
+.evil-role-emoji {
+  font-size: 12px;
+}
+
+/* Reject track — sits inside scoreboard-bottom-left */
 .reject-track {
-  text-align: center;
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 10px;
+}
+
+.reject-label {
   font-size: 13px;
-  color: #64748b;
-  margin-bottom: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fde68a;
+}
+
+.reject-dots {
+  display: flex;
+  gap: 6px;
 }
 
 .reject-dot {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #e2e8f0;
-  margin: 0 3px;
-  vertical-align: middle;
+  background: rgba(226, 232, 240, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.4);
 }
 
 .reject-dot.active {
@@ -264,10 +426,7 @@
   border-color: #f59e0b;
 }
 
-.av-player.on-team {
-  background: #fef3c7;
-  border-color: #f59e0b;
-}
+/* on-team marker is now the inline team.png icon, no background change */
 
 .av-player.selected {
   background: #dbeafe;
@@ -330,6 +489,151 @@
   font-size: 48px;
   display: block;
   margin-bottom: 8px;
+}
+
+.role-image {
+  display: block;
+  margin: 0 auto 12px;
+  width: 200px;
+  max-width: 70vw;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  object-fit: cover;
+}
+
+.leader-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.team-icon {
+  width: 22px;
+  height: 22px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.proposed-team-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+
+.proposed-team-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #92400e;
+}
+
+.proposed-team-members {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+
+.proposed-team-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #fff;
+  border: 1.5px solid #f59e0b;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.proposed-team-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.vote-btn-row {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-top: 12px;
+}
+
+.vote-img-btn,
+.vote-img-btn:hover:not(:disabled),
+.vote-img-btn:focus:not(:disabled),
+.vote-img-btn:focus-visible:not(:disabled),
+.vote-img-btn:active:not(:disabled) {
+  background: transparent;
+  color: inherit;
+}
+
+.vote-img-btn {
+  border: 3px solid #e2e8f0;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 12px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vote-approve {
+  border-color: #86efac;
+}
+
+.vote-reject {
+  border-color: #fca5a5;
+}
+
+.vote-approve:hover:not(:disabled),
+.vote-approve:focus-visible {
+  border-color: #16a34a;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
+}
+
+.vote-reject:hover:not(:disabled),
+.vote-reject:focus-visible {
+  border-color: #dc2626;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+}
+
+.vote-img-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.vote-approve:active:not(:disabled) {
+  transform: scale(0.96);
+  border-color: #15803d;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.25);
+}
+
+.vote-reject:active:not(:disabled) {
+  transform: scale(0.96);
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.25);
+}
+
+.vote-img-btn img {
+  display: block;
+  height: 140px;
+  width: auto;
+  max-height: 38vw;
+  border-radius: 9px;
 }
 
 .role-card h3 {

@@ -71,6 +71,7 @@ public class AvalonGameStateDto
     public int? AssassinIndex { get; set; }
     public int? AssassinTarget { get; set; }
     public bool BonusAssassination { get; set; }
+    public string? BonusLossReason { get; set; }
     public bool EarlyAssassination { get; set; }
     public List<int>? AssassinationTargets { get; set; }
 
@@ -144,6 +145,7 @@ public class AvalonGameStateDto
         if (game.Phase == AvalonPhase.Assassination)
         {
             dto.BonusAssassination = game.BonusAssassination;
+            if (game.BonusAssassination) dto.BonusLossReason = game.BonusLossReason;
             if (game.Roles[playerIndex] == AvalonRole.Assassin)
             {
                 dto.AssassinationTargets = Enumerable.Range(0, game.PlayerCount)

@@ -30,6 +30,10 @@ public class AvalonGame
     // Mission phase: tracks who has played their card
     private readonly Dictionary<int, bool> _missionActions = new(); // playerIndex => success
 
+    // When BonusAssassination is true, describes how Evil already won (used by Assassinate to build WinReason)
+    private string _bonusLossReason = "3 missions failed";
+    public string BonusLossReason => _bonusLossReason;
+
     public AvalonGame(int playerCount, List<AvalonRole> roleConfig, int startLeader = 0, int maxRejects = 4, bool shuffleRoles = true)
     {
         if (!AvalonConfig.IsValidPlayerCount(playerCount))
@@ -169,6 +173,15 @@ public class AvalonGame
             ConsecutiveRejects++;
             if (ConsecutiveRejects >= MaxConsecutiveRejects)
             {
+                // Evil wins by reject limit, but assassin gets a bonus chance to find Merlin (double points)
+                if (Roles.Contains(AvalonRole.Assassin))
+                {
+                    _bonusLossReason = $"{MaxConsecutiveRejects} proposals rejected";
+                    BonusAssassination = true;
+                    Phase = AvalonPhase.Assassination;
+                    return;
+                }
+
                 Winner = GameWinner.Evil;
                 WinReason = $"{MaxConsecutiveRejects} proposals rejected!";
                 Phase = AvalonPhase.GameOver;
@@ -296,11 +309,11 @@ public class AvalonGame
         }
         else if (BonusAssassination)
         {
-            // Evil already won by missions; finding Merlin = double points
+            // Evil already won (by missions or reject limit); finding Merlin = double points
             Winner = GameWinner.Evil;
             WinReason = Roles[targetIndex] == AvalonRole.Merlin
-                ? "3 missions failed + Merlin assassinated! Double points!"
-                : "3 missions failed. Assassin missed Merlin.";
+                ? $"{_bonusLossReason} + Merlin assassinated! Double points!"
+                : $"{_bonusLossReason}. Assassin missed Merlin.";
         }
         else
         {

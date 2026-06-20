@@ -109,13 +109,17 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
           <div className="mission-track" style={{ justifyContent: "center", margin: "12px 0" }}>
             {missionResults.map((r, i) => {
               const protectedRound = isProtectedMission(game.playerCount, i);
+              const isSuccess = r === "Success";
+              const isFail = r === "Fail";
               return (
                 <div
                   key={i}
-                  className={`mission-dot ${r === "Success" ? "success" : r === "Fail" ? "fail" : ""} ${protectedRound ? "protected" : ""}`}
+                  className={`mission-dot ${isSuccess ? "success" : isFail ? "fail" : ""} ${protectedRound ? "protected" : ""}`}
                   title={protectedRound ? "Two fails needed to fail this mission" : `Mission ${i + 1}: ${missionSizes[i] || ""} players`}
                 >
-                  {missionSizes[i] ?? (i + 1)}
+                  {isSuccess && <img src="/success_icon.png" alt="Success" className="mission-icon" />}
+                  {isFail && <img src="/fail_icon.png" alt="Fail" className="mission-icon" />}
+                  {!isSuccess && !isFail && (missionSizes[i] ?? (i + 1))}
                 </div>
               );
             })}

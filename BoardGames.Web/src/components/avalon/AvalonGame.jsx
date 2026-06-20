@@ -26,6 +26,17 @@ const ROLE_LABELS = {
   MinionOfMordred: { name: "Minion", emoji: "\uD83E\uDD77", desc: "Basic evil" },
 };
 
+const ROLE_IMAGES = {
+  Merlin: "/Merlin.png",
+  Percival: "/Percival.jpeg",
+  LoyalServant: "/Loyal_Servant_of_Arthur_clean.png",
+  Assassin: "/Assassin.png",
+  Morgana: "/Morgana.jpeg",
+  Mordred: "/Mordred.png",
+  Oberon: "/Oberon.png",
+  MinionOfMordred: "/Minion_of_Mordred_clean.png",
+};
+
 function groupRoles(roles) {
   const counts = {};
   const order = [];
@@ -404,30 +415,113 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
 
   function renderMissionTrack() {
     const sizes = MISSION_SIZES[gameState.playerCount] || [];
-    return (
-      <div className="mission-track">
-        {gameState.missionResults.map((r, i) => {
-          const protectedRound = isProtectedMission(gameState.playerCount, i);
-          return (
-            <div
-              key={i}
-              className={`mission-dot ${r === "Success" ? "success" : r === "Fail" ? "fail" : ""} ${i === gameState.currentMissionIndex ? "current" : ""} ${protectedRound ? "protected" : ""}`}
-              title={protectedRound ? "Two fails needed to fail this mission" : `Mission ${i + 1}: ${sizes[i] || ""} players`}
-            >
-              {sizes[i] ?? (i + 1)}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
+    const gs = gameState;
+    const myRole = ROLE_LABELS[gs.myRole] || { name: gs.myRole, emoji: "", desc: "" };
+    const isEvil = gs.myTeam === "Evil";
+    const isGameOver = gs.phase === "GameOver";
+    const showIdentity = infoRevealed && !isGameOver;
+    const clickable = !isGameOver;
 
-  function renderRejectTrack() {
     return (
-      <div className="reject-track">
-        Vote track: {[...Array(gameState.maxConsecutiveRejects || 5)].map((_, i) => (
-          <span key={i} className={`reject-dot ${i < gameState.consecutiveRejects ? "active" : ""}`} />
-        ))}
+      <div
+        className={`scoreboard ${showIdentity ? "scoreboard-identity" : ""} ${clickable ? "scoreboard-clickable" : ""}`}
+        onClick={clickable ? () => setInfoRevealed((v) => !v) : undefined}
+      >
+        {clickable && (
+          <div className="scoreboard-toggle-hint">
+            {showIdentity ? "Tap to view scoreboard" : "Tap to reveal your role & info"}
+          </div>
+        )}
+        {showIdentity ? (
+          <div className="scoreboard-identity-content">
+            <div className="identity-split">
+              {ROLE_IMAGES[gs.myRole] ? (
+                <img
+                  className="identity-portrait"
+                  src={ROLE_IMAGES[gs.myRole]}
+                  alt={myRole.name}
+                />
+              ) : (
+                <div className="identity-portrait identity-portrait-fallback">
+                  <span className="identity-emoji">{myRole.emoji}</span>
+                </div>
+              )}
+              <div className="identity-text">
+                <div className="identity-role-row">
+                  <span className="identity-name">{myRole.name}</span>
+                  <span className={`identity-team ${isEvil ? "evil" : "good"}`}>{gs.myTeam}</span>
+                </div>
+                <p className="identity-desc">{myRole.desc}</p>
+                {gs.visiblePlayers && gs.visiblePlayers.length > 0 && (
+                  <div className="identity-info">
+                    <span className="identity-hint">{gs.visibleHint}:</span>
+                    {gs.visiblePlayers.map((i) => (
+                      <span key={i} className="identity-player">
+                        {gs.playerNames[i]}
+                        {gs.visiblePlayerRoles && gs.visiblePlayerRoles[i] && (
+                          <span className="identity-role-tag"> ({ROLE_LABELS[gs.visiblePlayerRoles[i]]?.name || gs.visiblePlayerRoles[i]})</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {myIndex === gs.assassinIndex && gs.phase !== "Assassination" && (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      className="btn-early-assassinate"
+                      onClick={(e) => { e.stopPropagation(); handleEarlyAssassinate(); }}
+                    >
+                      Assassinate Merlin
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mission-track">
+              {gs.missionResults.map((r, i) => {
+                const protectedRound = isProtectedMission(gs.playerCount, i);
+                const isSuccess = r === "Success";
+                const isFail = r === "Fail";
+                return (
+                  <div
+                    key={i}
+                    className={`mission-dot ${isSuccess ? "success" : isFail ? "fail" : ""} ${i === gs.currentMissionIndex ? "current" : ""} ${protectedRound ? "protected" : ""}`}
+                    title={protectedRound ? "Two fails needed to fail this mission" : `Mission ${i + 1}: ${sizes[i] || ""} players`}
+                  >
+                    {isSuccess && <img src="/success_icon.png" alt="Success" className="mission-icon" />}
+                    {isFail && <img src="/fail_icon.png" alt="Fail" className="mission-icon" />}
+                    {!isSuccess && !isFail && (sizes[i] ?? (i + 1))}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="reject-track">
+              <span className="reject-label">Vote Track</span>
+              <div className="reject-dots">
+                {[...Array(gs.maxConsecutiveRejects || 5)].map((_, i) => (
+                  <span key={i} className={`reject-dot ${i < gs.consecutiveRejects ? "active" : ""}`} />
+                ))}
+              </div>
+            </div>
+            {roleConfig && roleConfig.length > 0 && (() => {
+              const evilRoles = roleConfig.filter((r) => !["Merlin", "Percival", "LoyalServant"].includes(r));
+              if (evilRoles.length === 0) return null;
+              return (
+                <div className="evil-roles-display">
+                  {groupRoles(evilRoles).map(({ role, count }) => (
+                    <span key={role} className="evil-role-chip">
+                      <span className="evil-role-emoji">{ROLE_LABELS[role]?.emoji}</span>
+                      {ROLE_LABELS[role]?.name || role}{count > 1 ? ` ×${count}` : ""}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
+          </>
+        )}
       </div>
     );
   }
@@ -582,7 +676,15 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
         <div className="av-night">
           <h2>Night Phase</h2>
           <div className={`role-card ${isEvil ? "evil" : "good"}`}>
-            <span className="role-emoji">{myRole.emoji}</span>
+            {ROLE_IMAGES[gs.myRole] ? (
+              <img
+                className="role-image"
+                src={ROLE_IMAGES[gs.myRole]}
+                alt={myRole.name}
+              />
+            ) : (
+              <span className="role-emoji">{myRole.emoji}</span>
+            )}
             <h3>{myRole.name}</h3>
             <p className="role-team">{gs.myTeam}</p>
             <p className="role-desc">{myRole.desc}</p>
@@ -631,55 +733,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
       </div>
       {renderAnimations()}
 
-      {gs.phase !== "GameOver" && (
-        <div
-          className={`identity-card ${infoRevealed ? "revealed" : "hidden"}`}
-          onClick={() => setInfoRevealed((v) => !v)}
-        >
-          {!infoRevealed ? (
-            <div className="identity-prompt">
-              <span className="identity-lock">{"🔒"}</span>
-              <span>Tap to reveal your role &amp; info</span>
-            </div>
-          ) : (
-            <div className="identity-content">
-              <div className="identity-role-row">
-                <span className="identity-emoji">{myRole.emoji}</span>
-                <span className="identity-name">{myRole.name}</span>
-                <span className={`identity-team ${isEvil ? "evil" : "good"}`}>{gs.myTeam}</span>
-              </div>
-              <p className="identity-desc">{myRole.desc}</p>
-              {gs.visiblePlayers && gs.visiblePlayers.length > 0 && (
-                <div className="identity-info">
-                  <span className="identity-hint">{gs.visibleHint}:</span>
-                  {gs.visiblePlayers.map((i) => (
-                    <span key={i} className="identity-player">
-                      {gs.playerNames[i]}
-                      {gs.visiblePlayerRoles && gs.visiblePlayerRoles[i] && (
-                        <span className="identity-role-tag"> ({ROLE_LABELS[gs.visiblePlayerRoles[i]]?.name || gs.visiblePlayerRoles[i]})</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {myIndex === gs.assassinIndex && gs.phase !== "Assassination" && (
-                <div style={{ marginTop: 10 }}>
-                  <button
-                    className="btn-early-assassinate"
-                    onClick={(e) => { e.stopPropagation(); handleEarlyAssassinate(); }}
-                  >
-                    Assassinate Merlin
-                  </button>
-                </div>
-              )}
-              <span className="identity-toggle-hint">Tap to hide</span>
-            </div>
-          )}
-        </div>
-      )}
-
       {renderMissionTrack()}
-      {renderRejectTrack()}
 
       {/* Player circle */}
       <div className="av-players">
@@ -701,7 +755,11 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                 if (canAssassinate) handleAssassinate(i);
               }}
             >
-              <span className="player-name">{name} {isCurrLeader ? "\uD83D\uDC51" : ""}</span>
+              <span className="player-name">
+                {name}
+                {isCurrLeader && <img src="/leader.png" alt="Leader" className="leader-icon" />}
+                {(onTeam || selected) && <img src="/team.png" alt="On team" className="team-icon" />}
+              </span>
               {isMe && <span className="me-tag">(You)</span>}
               {isAlly && <span className="ally-tag">Ally</span>}
             </div>
@@ -729,7 +787,17 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
 
         {gs.phase === "TeamVote" && (
           <div className="action-panel">
-            <p>Team: {gs.proposedTeam.map((i) => gs.playerNames[i]).join(", ")}</p>
+            <div className="proposed-team-display">
+              <span className="proposed-team-label">Team</span>
+              <div className="proposed-team-members">
+                {gs.proposedTeam.map((i) => (
+                  <span key={i} className="proposed-team-member">
+                    <img src="/team.png" alt="" className="proposed-team-icon" />
+                    {gs.playerNames[i]}
+                  </span>
+                ))}
+              </div>
+            </div>
             <div className="progress-status">
               {gs.playerNames.map((name, i) => (
                 <span key={i} className={`status-chip ${playersWhoVoted.includes(i) ? "acted" : "pending"}`}>
@@ -740,9 +808,21 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
             {hasVoted ? (
               <p className="waiting">Voted! Waiting for others...</p>
             ) : (
-              <div className="btn-row">
-                <button className="btn btn-success" onClick={() => handleVote(true)}>Approve</button>
-                <button className="btn btn-danger" onClick={() => handleVote(false)}>Reject</button>
+              <div className="vote-btn-row">
+                <button
+                  className="vote-img-btn vote-approve"
+                  onClick={() => handleVote(true)}
+                  aria-label="Approve team"
+                >
+                  <img src="/approve.png" alt="Approve" />
+                </button>
+                <button
+                  className="vote-img-btn vote-reject"
+                  onClick={() => handleVote(false)}
+                  aria-label="Reject team"
+                >
+                  <img src="/reject.png" alt="Reject" />
+                </button>
               </div>
             )}
           </div>
@@ -763,15 +843,22 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
               ) : (
                 <>
                   <p>You're on the mission! Play your card:</p>
-                  <div className="btn-row">
-                    <button className="btn btn-success" onClick={() => handleMissionCard(true)}>Success</button>
+                  <div className="vote-btn-row">
                     <button
-                      className="btn btn-danger"
+                      className="vote-img-btn vote-approve"
+                      onClick={() => handleMissionCard(true)}
+                      aria-label="Play Success card"
+                    >
+                      <img src="/success.png" alt="Success" />
+                    </button>
+                    <button
+                      className="vote-img-btn vote-reject"
                       onClick={() => handleMissionCard(false)}
                       disabled={!isEvil}
                       title={isEvil ? "" : "Good players can only play Success"}
+                      aria-label="Play Fail card"
                     >
-                      Fail
+                      <img src="/fail.png" alt="Fail" />
                     </button>
                   </div>
                 </>
@@ -785,7 +872,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
         {gs.phase === "Assassination" && myIndex === gs.assassinIndex && (
           <div className="action-panel action-highlight-danger">
             {gs.bonusAssassination
-              ? <p className="action-title">Evil won 3 missions! Find Merlin for double points! Click on your target.</p>
+              ? <p className="action-title">Evil already won ({gs.bonusLossReason})! Find Merlin for double points! Click on your target.</p>
               : gs.earlyAssassination
               ? <p className="action-title">Choose your target! Click on who you think is Merlin!</p>
               : <p className="action-title">Good won 3 missions. Click on who you think is Merlin!</p>
@@ -797,9 +884,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
             <span className="assassin-watching-icon">🗡️</span>
             <span className="assassin-watching-text">
               {gs.bonusAssassination
-                ? "Evil won 3 missions. Assassin is hunting Merlin for double points..."
-                : gs.earlyAssassination
-                ? "Assassin is searching for Merlin..."
+                ? `Evil already won (${gs.bonusLossReason}). Assassin is hunting Merlin for double points...`
                 : "Assassin is searching for Merlin..."}
             </span>
           </div>
@@ -871,7 +956,6 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                     <button className="btn btn-success" onClick={handleReady}>Play Again</button>
                   )
                 )}
-                <button className="btn btn-outline" onClick={handleLeave}>Leave</button>
               </div>
             </div>
           );
