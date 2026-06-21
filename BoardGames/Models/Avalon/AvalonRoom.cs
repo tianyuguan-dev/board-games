@@ -11,7 +11,7 @@ public class DisconnectedPlayer
 public class AvalonRoom
 {
     public string RoomId { get; init; }
-    public int MaxPlayers { get; init; }
+    public int MaxPlayers { get; set; }
     public Dictionary<string, int> Players { get; set; } = new(); // connectionId => seatIndex
     public Dictionary<string, string> PlayerNicknames { get; set; } = new();
     public Dictionary<string, int> PlayerUserIds { get; set; } = new(); // connectionId => userId
@@ -19,9 +19,14 @@ public class AvalonRoom
     public HashSet<string> ReadyPlayers { get; init; } = new();        // Lobby ready (before game / game over)
     public HashSet<string> NightConfirmedPlayers { get; init; } = new(); // ConfirmNightReveal during game
     public AvalonGame? Game { get; set; }
+    public bool HasMerlin { get; set; } = true;
+    public bool HasPercival { get; set; } = true;
+    public bool HasAssassin { get; set; } = true;
+    public bool HasMorgana { get; set; } = true;
     public int MordredCount { get; set; }
     public int OberonCount { get; set; }
     public int MinionCount { get; set; }
+    public int LoyalServantCount { get; set; }
     public int MaxRejects { get; set; } = 4;
     public List<AvalonRole> RoleConfig { get; set; } = new();
 
@@ -136,30 +141,32 @@ public class AvalonRoom
     {
         if (!AvalonConfig.IsValidPlayerCount(MaxPlayers)) return;
         var defaults = AvalonConfig.GetDefaultRoles(MaxPlayers);
+        HasMerlin = defaults.Contains(AvalonRole.Merlin);
+        HasPercival = defaults.Contains(AvalonRole.Percival);
+        HasAssassin = defaults.Contains(AvalonRole.Assassin);
+        HasMorgana = defaults.Contains(AvalonRole.Morgana);
         MordredCount = defaults.Count(r => r == AvalonRole.Mordred);
         OberonCount = defaults.Count(r => r == AvalonRole.Oberon);
         MinionCount = defaults.Count(r => r == AvalonRole.MinionOfMordred);
+        LoyalServantCount = defaults.Count(r => r == AvalonRole.LoyalServant);
         RebuildRoleConfig();
     }
 
     public void RebuildRoleConfig(int? overrideCount = null)
     {
-        int total = overrideCount ?? MaxPlayers;
-        if (!AvalonConfig.IsValidPlayerCount(total)) return;
+        // Build the exact role list from explicit counts. No auto-fill — total may differ from MaxPlayers,
+        // host must manually balance via +/- controls. StartGame enforces total == MaxPlayers.
+        var goodRoles = new List<AvalonRole>();
+        if (HasMerlin) goodRoles.Add(AvalonRole.Merlin);
+        if (HasPercival) goodRoles.Add(AvalonRole.Percival);
+        for (int i = 0; i < LoyalServantCount; i++) goodRoles.Add(AvalonRole.LoyalServant);
 
-        var evilRoles = new List<AvalonRole> { AvalonRole.Assassin, AvalonRole.Morgana };
+        var evilRoles = new List<AvalonRole>();
+        if (HasAssassin) evilRoles.Add(AvalonRole.Assassin);
+        if (HasMorgana) evilRoles.Add(AvalonRole.Morgana);
         for (int i = 0; i < MordredCount; i++) evilRoles.Add(AvalonRole.Mordred);
         for (int i = 0; i < OberonCount; i++) evilRoles.Add(AvalonRole.Oberon);
         for (int i = 0; i < MinionCount; i++) evilRoles.Add(AvalonRole.MinionOfMordred);
-
-        // Trim evil if it exceeds what's possible
-        while (evilRoles.Count >= total) evilRoles.RemoveAt(evilRoles.Count - 1);
-
-        int goodCount = total - evilRoles.Count;
-        var goodRoles = new List<AvalonRole> { AvalonRole.Merlin, AvalonRole.Percival };
-        while (goodRoles.Count > goodCount && goodRoles.Count > 1)
-            goodRoles.RemoveAt(goodRoles.Count - 1);
-        while (goodRoles.Count < goodCount) goodRoles.Add(AvalonRole.LoyalServant);
 
         RoleConfig = new List<AvalonRole>();
         RoleConfig.AddRange(goodRoles);

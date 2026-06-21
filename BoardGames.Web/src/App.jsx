@@ -62,6 +62,7 @@ function App() {
       if (data.mySeatIndex != null) setMySeatIndex(data.mySeatIndex);
       if (data.roleConfig) setRoleConfig(data.roleConfig);
       if (data.maxRejects != null) setMaxRejects(data.maxRejects);
+      if (data.maxPlayers != null) setMaxPlayers(data.maxPlayers);
     });
     conn.on("Kicked", (reason) => {
       // Delay the popup so player can see the final dealer hand (or other end-of-round state)

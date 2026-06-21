@@ -119,4 +119,92 @@ public class AvalonGameEdgeCaseTests
             }
         }
     }
+
+    /// <summary>Forces N consecutive vote rejections to trigger the reject-limit branch.</summary>
+    private static void ForceRejects(AvalonGame game, int times)
+    {
+        game.StartProposalPhase();
+        for (int i = 0; i < times; i++)
+        {
+            int leader = game.CurrentLeaderIndex;
+            int teamSize = game.GetRequiredTeamSize();
+            var team = new[] { 0, 1 }.Take(teamSize).ToList();
+            game.ProposeTeam(leader, team);
+            for (int s = 0; s < 5; s++) game.CastVote(s, false);
+        }
+    }
+
+    [Fact]
+    public void MaxRejects_TriggersAssassination_WhenAssassinPresent()
+    {
+        var roles = new List<AvalonRole>
+        {
+            AvalonRole.Merlin, AvalonRole.Percival, AvalonRole.LoyalServant,
+            AvalonRole.Morgana, AvalonRole.Assassin
+        };
+        var game = new AvalonGame(5, roles, startLeader: 0, maxRejects: 2, shuffleRoles: false);
+        ForceRejects(game, 2);
+
+        Assert.Equal(AvalonPhase.Assassination, game.Phase);
+        Assert.True(game.BonusAssassination);
+        Assert.Contains("proposals rejected", game.BonusLossReason);
+    }
+
+    [Fact]
+    public void MaxRejects_EndsGameDirectly_WhenNoAssassin()
+    {
+        // Mordred replaces Assassin in this custom config — no Assassin → no Assassination phase.
+        var roles = new List<AvalonRole>
+        {
+            AvalonRole.Merlin, AvalonRole.Percival, AvalonRole.LoyalServant,
+            AvalonRole.Morgana, AvalonRole.Mordred
+        };
+        var game = new AvalonGame(5, roles, startLeader: 0, maxRejects: 2, shuffleRoles: false);
+        ForceRejects(game, 2);
+
+        Assert.Equal(AvalonPhase.GameOver, game.Phase);
+        Assert.Equal(GameWinner.Evil, game.Winner);
+        Assert.Contains("proposals rejected", game.WinReason);
+    }
+
+    [Fact]
+    public void RejectBonus_AssassinFindsMerlin_WinReasonMentionsRejectsAndDoublePoints()
+    {
+        var roles = new List<AvalonRole>
+        {
+            AvalonRole.Merlin, AvalonRole.Percival, AvalonRole.LoyalServant,
+            AvalonRole.Morgana, AvalonRole.Assassin
+        };
+        var game = new AvalonGame(5, roles, startLeader: 0, maxRejects: 2, shuffleRoles: false);
+        ForceRejects(game, 2);  // → Assassination, BonusAssassination=true
+
+        // Seats (shuffleRoles=false): 0=Merlin, 1=Percival, 2=Loyal, 3=Morgana, 4=Assassin
+        game.Assassinate(assassinIndex: 4, targetIndex: 0); // hits Merlin
+
+        Assert.Equal(AvalonPhase.GameOver, game.Phase);
+        Assert.Equal(GameWinner.Evil, game.Winner);
+        Assert.Contains("proposals rejected", game.WinReason);
+        Assert.Contains("Double points", game.WinReason);
+    }
+
+    [Fact]
+    public void RejectBonus_AssassinMissesMerlin_WinReasonStillMentionsRejects()
+    {
+        var roles = new List<AvalonRole>
+        {
+            AvalonRole.Merlin, AvalonRole.Percival, AvalonRole.LoyalServant,
+            AvalonRole.Morgana, AvalonRole.Assassin
+        };
+        var game = new AvalonGame(5, roles, startLeader: 0, maxRejects: 2, shuffleRoles: false);
+        ForceRejects(game, 2);
+
+        // Target Percival (seat 1) instead of Merlin (seat 0).
+        game.Assassinate(assassinIndex: 4, targetIndex: 1);
+
+        Assert.Equal(AvalonPhase.GameOver, game.Phase);
+        // Evil still wins (the bonus pre-determined it) but no double-points bonus.
+        Assert.Equal(GameWinner.Evil, game.Winner);
+        Assert.Contains("proposals rejected", game.WinReason);
+        Assert.DoesNotContain("Double points", game.WinReason);
+    }
 }

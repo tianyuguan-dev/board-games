@@ -1,7 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import "./AvalonGame.css";
 
-const TOGGLE_EVIL = ["Mordred", "Oberon"];
+const TOGGLE_ROLES = [
+  // Row 1
+  { role: "Merlin", side: "good" },
+  { role: "Percival", side: "good" },
+  // Row 2
+  { role: "Morgana", side: "evil" },
+  { role: "Assassin", side: "evil" },
+  // Row 3
+  { role: "Mordred", side: "evil" },
+  { role: "Oberon", side: "evil" },
+];
 
 // Mission team sizes per player count (mirrors AvalonConfig.MissionSizes on the backend).
 const MISSION_SIZES = {
@@ -28,10 +38,10 @@ const ROLE_LABELS = {
 
 const ROLE_IMAGES = {
   Merlin: "/Merlin.png",
-  Percival: "/Percival.jpeg",
+  Percival: "/Percival.png",
   LoyalServant: "/Loyal_Servant_of_Arthur_clean.png",
   Assassin: "/Assassin.png",
-  Morgana: "/Morgana.jpeg",
+  Morgana: "/Morgana.png",
   Mordred: "/Mordred.png",
   Oberon: "/Oberon.png",
   MinionOfMordred: "/Minion_of_Mordred_clean.png",
@@ -78,6 +88,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
   const [balance, setBalance] = useState(null);
   const [playersWhoVoted, setPlayersWhoVoted] = useState([]);
   const [missionPlayersPlayed, setMissionPlayersPlayed] = useState([]);
+  const [roleError, setRoleError] = useState("");
   const [nightConfirmedPlayers, setNightConfirmedPlayers] = useState([]);
   const [infoRevealed, setInfoRevealed] = useState(false);
   // Result animations: shown briefly when vote/mission resolves
@@ -187,7 +198,9 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
     try {
       await connection.invoke("AdjustRole", roomId, role, delta);
     } catch (e) {
-      // silently ignore (e.g. can't reduce below 0 or exceed good minimum)
+      const msg = (e && e.message) ? e.message.replace(/^.*HubException: /, "") : "Cannot adjust role";
+      setRoleError(msg);
+      setTimeout(() => setRoleError(""), 3000);
     }
   }
   async function handleKick(seatIndex) {
@@ -421,17 +434,18 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
     const isGameOver = gs.phase === "GameOver";
     const showIdentity = infoRevealed && !isGameOver;
     const clickable = !isGameOver;
+    const gameboardClass = gs.playerCount <= 6 ? "gameboard-56"
+                        : gs.playerCount <= 8 ? "gameboard-78"
+                        : "gameboard-910";
 
     return (
       <div
-        className={`scoreboard ${showIdentity ? "scoreboard-identity" : ""} ${clickable ? "scoreboard-clickable" : ""}`}
+        className={`scoreboard ${gameboardClass} ${showIdentity ? "scoreboard-identity" : ""} ${clickable ? "scoreboard-clickable" : ""}`}
         onClick={clickable ? () => setInfoRevealed((v) => !v) : undefined}
       >
-        {clickable && (
-          <div className="scoreboard-toggle-hint">
-            {showIdentity ? "Tap to view scoreboard" : "Tap to reveal your role & info"}
-          </div>
-        )}
+        <div className="scoreboard-toggle-hint" style={{ visibility: clickable ? "visible" : "hidden" }}>
+          {clickable ? (showIdentity ? "Tap to view scoreboard" : "Tap to reveal your role & info") : " "}
+        </div>
         {showIdentity ? (
           <div className="scoreboard-identity-content">
             <div className="identity-split">
@@ -586,18 +600,41 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
     return (
       <div className="page-center" style={{ maxWidth: 500 }}>
         <h2>Room {roomId}</h2>
-        <p className="text-muted">Players: {playerCount} / {maxPlayers} (need 5-10){balance !== null && ` | ${nickname || "You"}'s net wins: ${balance}`}</p>
+        {balance !== null && <p className="text-gold mb-16">{nickname || "You"}'s net wins: {balance}</p>}
+        <p className="text-muted">Players: {playerCount} / {maxPlayers} (need 5-10)</p>
+        {isHost && (
+          <div className="role-adjust-row" style={{ marginBottom: 12, justifyContent: "center" }}>
+            <button
+              className="role-adjust-btn"
+              disabled={maxPlayers <= 5 || maxPlayers <= roomPlayers.length}
+              onClick={() => connection.invoke("SetMaxPlayers", roomId, maxPlayers - 1).catch(() => {})}
+            >-</button>
+            <span className="role-adjust-label">Max Players: {maxPlayers}</span>
+            <button
+              className="role-adjust-btn"
+              disabled={maxPlayers >= 10}
+              onClick={() => connection.invoke("SetMaxPlayers", roomId, maxPlayers + 1).catch(() => {})}
+            >+</button>
+          </div>
+        )}
         {renderPlayerList()}
 
         {roleConfig.length > 0 && (() => {
           const goodRoles = roleConfig.filter((r) => ["Merlin","Percival","LoyalServant"].includes(r));
           const evilRoles = roleConfig.filter((r) => !["Merlin","Percival","LoyalServant"].includes(r));
           const counts = {};
-          for (const r of evilRoles) counts[r] = (counts[r] || 0) + 1;
-          const canAddEvil = goodRoles.length - evilRoles.length > 2 && goodRoles.length > 2;
+          for (const r of roleConfig) counts[r] = (counts[r] || 0) + 1;
+          const canAddMore = goodRoles.length - evilRoles.length > 2 && goodRoles.length > 2;
           return (
             <div className="section">
-              <h3>Role Config ({roleConfig.length} players)</h3>
+              <h3>
+                Role Config (
+                <span style={{ color: roleConfig.length === maxPlayers ? "#16a34a" : "#dc2626" }}>
+                  {roleConfig.length}/{maxPlayers}
+                </span>
+                )
+              </h3>
+              {roleError && <p className="error-msg" style={{ fontSize: 13, marginBottom: 8 }}>{roleError}</p>}
               <div className="role-config">
                 <div className="role-config-side">
                   <span className="side-label good-label">Good ({goodRoles.length})</span>
@@ -614,12 +651,11 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
               </div>
               {isHost && (
                 <div className="role-adjust-section">
-                  <div className="role-toggles">
-                    {TOGGLE_EVIL.map((role) => (
+                  <div className="role-toggles role-toggles-grid">
+                    {TOGGLE_ROLES.map(({ role, side }) => (
                       <button
                         key={role}
-                        className={`role-toggle ${counts[role] ? "active" : ""}`}
-                        disabled={!counts[role] && !canAddEvil}
+                        className={`role-toggle ${side} ${counts[role] ? "active" : ""}`}
                         onClick={() => handleAdjustRole(role, counts[role] ? -1 : 1)}
                       >
                         {ROLE_LABELS[role]?.emoji} {ROLE_LABELS[role]?.name}
@@ -627,9 +663,14 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                     ))}
                   </div>
                   <div className="role-adjust-row">
+                    <button className="role-adjust-btn" disabled={(counts["LoyalServant"] || 0) <= 0} onClick={() => handleAdjustRole("LoyalServant", -1)}>-</button>
+                    <span className="role-adjust-label">{ROLE_LABELS.LoyalServant.emoji} {ROLE_LABELS.LoyalServant.name} {counts["LoyalServant"] || 0}</span>
+                    <button className="role-adjust-btn" onClick={() => handleAdjustRole("LoyalServant", 1)}>+</button>
+                  </div>
+                  <div className="role-adjust-row">
                     <button className="role-adjust-btn" disabled={(counts["MinionOfMordred"] || 0) <= 0} onClick={() => handleAdjustRole("MinionOfMordred", -1)}>-</button>
                     <span className="role-adjust-label">{ROLE_LABELS.MinionOfMordred.emoji} {ROLE_LABELS.MinionOfMordred.name} {counts["MinionOfMordred"] || 0}</span>
-                    <button className="role-adjust-btn" disabled={!canAddEvil} onClick={() => handleAdjustRole("MinionOfMordred", 1)}>+</button>
+                    <button className="role-adjust-btn" onClick={() => handleAdjustRole("MinionOfMordred", 1)}>+</button>
                   </div>
                 </div>
               )}
@@ -686,7 +727,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
               <span className="role-emoji">{myRole.emoji}</span>
             )}
             <h3>{myRole.name}</h3>
-            <p className="role-team">{gs.myTeam}</p>
+            <p className={`role-team ${isEvil ? "evil" : "good"}`}>{gs.myTeam}</p>
             <p className="role-desc">{myRole.desc}</p>
           </div>
           {gs.visiblePlayers && gs.visiblePlayers.length > 0 && (
@@ -816,7 +857,6 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                     onClick={() => handleVote(true)}
                     aria-label="Approve team"
                   >
-                    <span className="vote-label">Approve</span>
                     <span className="vote-img-frame"><img src="/approve.png" alt="" /></span>
                   </button>
                   <button
@@ -824,7 +864,6 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                     onClick={() => handleVote(false)}
                     aria-label="Reject team"
                   >
-                    <span className="vote-label">Reject</span>
                     <span className="vote-img-frame"><img src="/reject.png" alt="" /></span>
                   </button>
                 </div>
@@ -854,7 +893,6 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                       onClick={() => handleMissionCard(true)}
                       aria-label="Play Success card"
                     >
-                      <span className="vote-label">Success</span>
                       <span className="vote-img-frame"><img src="/success.png" alt="" /></span>
                     </button>
                     <button
@@ -864,7 +902,6 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                       title={isEvil ? "" : "Good players can only play Success"}
                       aria-label="Play Fail card"
                     >
-                      <span className="vote-label">Fail</span>
                       <span className="vote-img-frame"><img src="/fail.png" alt="" /></span>
                     </button>
                   </div>

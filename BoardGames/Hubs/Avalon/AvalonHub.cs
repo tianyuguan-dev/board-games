@@ -86,7 +86,8 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
                 IsHost = connId == room.HostConnectionId,
                 MySeatIndex = room.Players[connId],
                 RoleConfig = room.RoleConfig.Select(r => r.ToString()).ToList(),
-                MaxRejects = room.MaxRejects
+                MaxRejects = room.MaxRejects,
+                MaxPlayers = room.MaxPlayers
             });
         }
     }
@@ -371,38 +372,56 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
     public async Task AdjustRole(string roomId, string roleName, int delta)
     {
         var room = roomManager.GetRoom(roomId)
-            ?? throw new InvalidOperationException("Room not found");
+            ?? throw new HubException("Room not found");
         await WithLock(room, async () =>
         {
             if (room.HostConnectionId != Context.ConnectionId)
-                throw new InvalidOperationException("Only host can adjust roles");
+                throw new HubException("Only host can adjust roles");
 
-            int oldMordred = room.MordredCount, oldOberon = room.OberonCount, oldMinion = room.MinionCount;
+            // Snapshot old state for rollback
+            bool oldMerlin = room.HasMerlin, oldPercival = room.HasPercival;
+            bool oldAssassin = room.HasAssassin, oldMorgana = room.HasMorgana;
+            int oldMordred = room.MordredCount, oldOberon = room.OberonCount;
+            int oldMinion = room.MinionCount, oldLoyal = room.LoyalServantCount;
 
             switch (roleName)
             {
-                case "Mordred":
-                    room.MordredCount = Math.Clamp(room.MordredCount + delta, 0, 1);
-                    break;
-                case "Oberon":
-                    room.OberonCount = Math.Clamp(room.OberonCount + delta, 0, 1);
-                    break;
-                case "MinionOfMordred":
-                    room.MinionCount = Math.Max(0, room.MinionCount + delta);
-                    break;
-                default:
-                    throw new InvalidOperationException("Cannot adjust this role");
+                case "Merlin": room.HasMerlin = delta > 0; break;
+                case "Percival": room.HasPercival = delta > 0; break;
+                case "Assassin": room.HasAssassin = delta > 0; break;
+                case "Morgana": room.HasMorgana = delta > 0; break;
+                case "Mordred": room.MordredCount = Math.Clamp(room.MordredCount + delta, 0, 1); break;
+                case "Oberon": room.OberonCount = Math.Clamp(room.OberonCount + delta, 0, 1); break;
+                case "MinionOfMordred": room.MinionCount = Math.Max(0, room.MinionCount + delta); break;
+                case "LoyalServant": room.LoyalServantCount = Math.Max(0, room.LoyalServantCount + delta); break;
+                default: throw new HubException("Cannot adjust this role");
             }
 
-            // Validate: good >= evil, and good >= 2 (Merlin + Percival)
-            int newEvil = 2 + room.MordredCount + room.OberonCount + room.MinionCount;
-            int newGood = room.MaxPlayers - newEvil;
-            if (newGood < 2 || newGood - newEvil < 1)
+            // Validate the 3 user-specified rules + capacity
+            int evilCount = (room.HasAssassin ? 1 : 0) + (room.HasMorgana ? 1 : 0)
+                + room.MordredCount + room.OberonCount + room.MinionCount;
+            int goodCount = (room.HasMerlin ? 1 : 0) + (room.HasPercival ? 1 : 0) + room.LoyalServantCount;
+            int total = goodCount + evilCount;
+
+            string? error = null;
+            if (total > room.MaxPlayers)
+                error = $"Too many roles ({total}/{room.MaxPlayers}). Remove some first.";
+            else if (evilCount < 1)
+                error = "At least one Evil role is required";
+            else if (goodCount <= evilCount)
+                error = $"Good ({goodCount}) must outnumber Evil ({evilCount})";
+            else if (room.HasAssassin && !room.HasMerlin)
+                error = "Assassin requires Merlin";
+            else if (room.HasPercival && (!room.HasMerlin || !room.HasMorgana))
+                error = "Percival requires Merlin and Morgana";
+
+            if (error != null)
             {
-                room.MordredCount = oldMordred;
-                room.OberonCount = oldOberon;
-                room.MinionCount = oldMinion;
-                throw new InvalidOperationException("Not enough good slots (need at least 2)");
+                room.HasMerlin = oldMerlin; room.HasPercival = oldPercival;
+                room.HasAssassin = oldAssassin; room.HasMorgana = oldMorgana;
+                room.MordredCount = oldMordred; room.OberonCount = oldOberon;
+                room.MinionCount = oldMinion; room.LoyalServantCount = oldLoyal;
+                throw new HubException(error);
             }
 
             room.RebuildRoleConfig();
@@ -419,6 +438,28 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             if (room.HostConnectionId != Context.ConnectionId)
                 throw new InvalidOperationException("Only host can change settings");
             room.MaxRejects = Math.Clamp(value, 1, 10);
+            await BroadcastRoomPlayers(roomId);
+        });
+    }
+
+    public async Task SetMaxPlayers(string roomId, int value)
+    {
+        var room = roomManager.GetRoom(roomId)
+            ?? throw new InvalidOperationException("Room not found");
+        await WithLock(room, async () =>
+        {
+            if (room.HostConnectionId != Context.ConnectionId)
+                throw new InvalidOperationException("Only host can change settings");
+            if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
+                throw new InvalidOperationException("Cannot change player count during game");
+            if (!AvalonConfig.IsValidPlayerCount(value))
+                throw new InvalidOperationException("Player count must be 5-10");
+            if (value < room.Players.Count)
+                throw new InvalidOperationException($"Cannot shrink below current player count ({room.Players.Count})");
+
+            room.MaxPlayers = value;
+            room.ApplyDefaultRoles();
+            room.ReadyPlayers.Clear();
             await BroadcastRoomPlayers(roomId);
         });
     }
@@ -497,7 +538,10 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
             int playerCount = room.Players.Count;
             if (playerCount != room.MaxPlayers)
-                throw new InvalidOperationException($"Need {room.MaxPlayers} players, currently {playerCount}");
+                throw new HubException($"Need {room.MaxPlayers} players, currently {playerCount}");
+
+            if (room.RoleConfig.Count != room.MaxPlayers)
+                throw new HubException($"Role config has {room.RoleConfig.Count} roles, needs {room.MaxPlayers}");
 
             // Check all non-host players are ready
             if (room.Players.Where(p => p.Key != room.HostConnectionId).Any(p => !room.ReadyPlayers.Contains(p.Key)))

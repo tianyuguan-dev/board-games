@@ -168,7 +168,6 @@
 /* Mission track */
 .scoreboard {
   position: relative;
-  background-image: url(/gameboard.png);
   background-size: cover;
   background-position: center;
   border-radius: 14px;
@@ -179,6 +178,10 @@
   min-height: 200px;
   box-sizing: border-box;
 }
+
+.scoreboard.gameboard-56 { background-image: url(/gameboard56.png); }
+.scoreboard.gameboard-78 { background-image: url(/gameboard78.png); }
+.scoreboard.gameboard-910 { background-image: url(/gameboard910.png); }
 
 .scoreboard-clickable {
   cursor: pointer;
@@ -610,40 +613,27 @@
 
 .vote-img-frame {
   display: inline-block;
-  border: 3px solid;
   border-radius: 12px;
   overflow: hidden;
   line-height: 0;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.vote-approve .vote-img-frame {
-  border-color: #3b82f6;
-}
-
-.vote-reject .vote-img-frame {
-  border-color: #ef4444;
+  transition: box-shadow 0.15s ease;
 }
 
 .vote-approve:hover:not(:disabled) .vote-img-frame,
 .vote-approve:focus-visible .vote-img-frame {
-  border-color: #2563eb;
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
 }
 
 .vote-reject:hover:not(:disabled) .vote-img-frame,
 .vote-reject:focus-visible .vote-img-frame {
-  border-color: #dc2626;
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
 }
 
 .vote-approve:active:not(:disabled) .vote-img-frame {
-  border-color: #1d4ed8;
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25);
 }
 
 .vote-reject:active:not(:disabled) .vote-img-frame {
-  border-color: #b91c1c;
   box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.25);
 }
 
@@ -693,8 +683,19 @@
 }
 
 .role-team {
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   margin: 0 0 4px;
+}
+
+.role-team.good {
+  color: #16a34a;
+}
+
+.role-team.evil {
+  color: #dc2626;
 }
 
 .role-desc {
@@ -1212,6 +1213,14 @@
   justify-content: center;
 }
 
+.role-toggles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
 .role-toggle {
   padding: 6px 12px;
   border-radius: 8px;
@@ -1220,7 +1229,18 @@
   color: #475569;
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.15s;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+/* Inactive (white) — keep white through hover/focus/active to prevent global button rule */
+.role-toggle:hover:not(:disabled),
+.role-toggle:focus:not(:disabled),
+.role-toggle:focus-visible:not(:disabled),
+.role-toggle:active:not(:disabled) {
+  background: #fff;
+  color: #475569;
 }
 
 .role-toggle:disabled {
@@ -1232,6 +1252,15 @@
   background: #3b82f6;
   color: #fff;
   border-color: #3b82f6;
+}
+
+/* Active (blue) — keep same blue through hover/focus/active */
+.role-toggle.active:hover:not(:disabled),
+.role-toggle.active:focus:not(:disabled),
+.role-toggle.active:focus-visible:not(:disabled),
+.role-toggle.active:active:not(:disabled) {
+  background: #3b82f6;
+  color: #fff;
 }
 
 /* Role adjust controls */

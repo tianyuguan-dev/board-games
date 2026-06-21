@@ -61,7 +61,7 @@ export default function AvalonLobby({ connection, nickname, isGuest, onJoinRoom,
   return (
     <div className="page-center" style={{ maxWidth: 460 }}>
       <h2>Avalon Lobby</h2>
-      {balance !== null && <p className="text-muted" style={{ marginBottom: 12 }}>{nickname || "You"}'s net wins: {balance}</p>}
+      {balance !== null && <p className="text-gold mb-16">{nickname || "You"}'s net wins: {balance}</p>}
 
       {activeRoom ? (
         <div className="section">

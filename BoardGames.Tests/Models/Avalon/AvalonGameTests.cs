@@ -204,7 +204,13 @@ public class AvalonGameTests
     [Fact]
     public void Vote_FiveRejectsEvilWins()
     {
-        var game = new AvalonGame(5, DefaultRoles(5), startLeader: 0);
+        // Use a config without Assassin so reject-limit ends the game directly (no Assassination phase).
+        var rolesNoAssassin = new List<AvalonRole>
+        {
+            AvalonRole.Merlin, AvalonRole.Percival, AvalonRole.LoyalServant,
+            AvalonRole.Morgana, AvalonRole.Mordred
+        };
+        var game = new AvalonGame(5, rolesNoAssassin, startLeader: 0);
 
         for (int r = 0; r < 5; r++)
         {

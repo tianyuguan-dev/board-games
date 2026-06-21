@@ -195,6 +195,10 @@ public class AvalonGameIntegrationTests : IClassFixture<CustomWebApplicationFact
         for (int i = 1; i < 5; i++)
             await players[i].Connection.InvokeAsync("Ready", roomId);
 
+        // Swap Assassin for Mordred so reject-limit ends game directly (no Assassination phase).
+        await players[0].Connection.InvokeAsync("AdjustRole", roomId, "Assassin", -1);
+        await players[0].Connection.InvokeAsync("AdjustRole", roomId, "Mordred", 1);
+
         await players[0].Connection.InvokeAsync("StartGame", roomId);
         await WaitForAllStates(players);
 
@@ -202,7 +206,7 @@ public class AvalonGameIntegrationTests : IClassFixture<CustomWebApplicationFact
             await players[i].Connection.InvokeAsync("ConfirmNightReveal", roomId);
         await WaitForAllStates(players);
 
-        // Reject proposals 5 times in a row — evil wins
+        // Reject proposals 5 times in a row — evil wins (no Assassin → no Assassination phase)
         for (int reject = 0; reject < 5 && players[0].Phase == "TeamProposal"; reject++)
         {
             var leader = players.First(p => p.SeatIndex == players[0].CurrentLeaderIndex);
@@ -260,8 +264,11 @@ public class AvalonGameIntegrationTests : IClassFixture<CustomWebApplicationFact
         var roomId = JsonSerializer.Deserialize<Dictionary<string, object>>(
             roomJson.ToString()!, JsonOpts)!["roomId"].ToString()!;
 
+        // Strict count: free a LoyalServant slot before adding evil.
+        await conn.InvokeAsync("AdjustRole", roomId, "LoyalServant", -1);
         await conn.InvokeAsync("AdjustRole", roomId, "Oberon", 1);
         await conn.InvokeAsync("AdjustRole", roomId, "Oberon", -1);
+        await conn.InvokeAsync("AdjustRole", roomId, "LoyalServant", 1);
     }
 
     [Fact]
@@ -474,7 +481,7 @@ public class AvalonGameIntegrationTests : IClassFixture<CustomWebApplicationFact
     {
         var (players, roomId) = await SetupGameInProgress("av_disband");
 
-        // Play to GameOver via consecutive rejects
+        // Drive consecutive rejects until reject-limit triggers a phase transition.
         for (int reject = 0; reject < 5 && players[0].Phase == "TeamProposal"; reject++)
         {
             var leader = players.First(p => p.SeatIndex == players[0].CurrentLeaderIndex);
@@ -484,6 +491,16 @@ public class AvalonGameIntegrationTests : IClassFixture<CustomWebApplicationFact
 
             for (int i = 0; i < 5; i++)
                 await players[i].Connection.InvokeAsync("CastVote", roomId, false);
+            await WaitForAllStates(players);
+        }
+
+        // Default 5p config includes Assassin → reject-limit routes through Assassination phase
+        // for a bonus shot at Merlin. Have the assassin pick to push through to GameOver.
+        if (players[0].Phase == "Assassination")
+        {
+            var assassinSeat = players[0].AssassinIndex!.Value;
+            var target = (assassinSeat + 1) % 5;
+            await players[assassinSeat].Connection.InvokeAsync("Assassinate", roomId, target);
             await WaitForAllStates(players);
         }
 
