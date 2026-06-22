@@ -88,6 +88,17 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
     ? (iWon ? "EPIC VICTORY!" : "CRUSHING DEFEAT!")
     : (iWon ? "YOU WIN" : "YOU LOSE");
   const subtitleText = isDoublePoints ? (iWon ? "YOU WIN" : "YOU LOSE") : null;
+  const gameoverBg =
+    game.winner === "Good" ? "/good-win.png" :
+    isDoublePoints ? "/evil-epic-win.png" :
+    "/evil-normal-win.png";
+  const detailsBgStyle = {
+    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.25)), url('${gameoverBg}')`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    backgroundColor: '#1a1633',
+  };
 
   return (
     <div className="av-container">
@@ -99,7 +110,7 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
       </div>
 
       <div className="game-over">
-        <div className="gameover-details" style={{ opacity: 1, animation: "none" }}>
+        <div className="gameover-details" style={detailsBgStyle}>
           <h2 className={`gameover-title ${iWon ? "win" : "lose"} ${isDoublePoints ? "epic" : ""}`}>
             {subtitleText && <span className="gameover-title-subtitle">{subtitleText}</span>}
             <span className="gameover-title-main">{mainText}</span>
@@ -133,12 +144,20 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
           <div className="roles-reveal">
             {allRoles.map((role, i) => {
               const p = playersBySeat[i];
-              const sign = p.balanceDelta >= 0 ? "+" : "";
+              const won = p.balanceDelta >= 0;
               return (
                 <div key={i} className={`role-reveal ${teamForRole(role) === "Evil" ? "evil" : "good"}`}>
                   <strong>{playerNames[i]}</strong>: {ROLE_LABELS[role]?.emoji} {ROLE_LABELS[role]?.name || role}
-                  <span style={{ marginLeft: 6, opacity: 0.75, fontSize: 12 }}>
-                    {sign}{p.balanceDelta}
+                  <span style={{
+                    marginLeft: 8,
+                    fontWeight: 800,
+                    fontFamily: 'Georgia, "Times New Roman", serif',
+                    color: won ? "#ffd27a" : "#8a1818",
+                    textShadow: won
+                      ? '0 0 6px rgba(255, 210, 120, 0.6), 0 1px 2px rgba(0, 0, 0, 0.7)'
+                      : '0 1px 0 rgba(255, 245, 215, 0.6)'
+                  }}>
+                    {won ? "+" : ""}{p.balanceDelta}
                   </span>
                 </div>
               );
@@ -148,63 +167,61 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
       </div>
 
       <div className="history-panel">
-        <h3>History</h3>
-        {game.missions.map((mission) => {
-          const deciding = mission.proposals.find(
-            (p) => p.missionResult === "Success" || p.missionResult === "Fail"
-          );
-          const missionResult = deciding?.missionResult || "Pending";
-          return (
-            <div key={mission.missionIndex} className="history-mission">
-              <h4>
-                Mission {mission.missionIndex + 1}
-                {missionResult !== "Pending" && ` (${missionResult})`}
-              </h4>
-              {mission.proposals.length === 0 && <p className="text-muted">No proposals</p>}
-              {mission.proposals.map((p) => (
-                <div
-                  key={p.proposalIndex}
-                  className={`history-proposal ${p.approved === true ? "approved" : p.approved === false ? "rejected" : ""}`}
-                >
-                  <div className="proposal-header">
-                    <span className="proposal-label">#{p.proposalIndex + 1}</span>
-                    <span className="proposal-sub">Proposed by</span>
-                    <span className="proposal-leader">{playerNames[p.leaderSeatIndex]}</span>
-                    {p.approved != null && (p.approved
-                      ? <span className="badge-approve">Approved</span>
-                      : <span className="badge-reject">Rejected</span>)}
-                  </div>
-                  <div className="proposal-team-row">
-                    <span className="proposal-sub">Team</span>
-                    <div className="proposal-team">
-                      {p.teamSeats.map((t) => (
-                        <span key={t} className="team-member">{playerNames[t]}</span>
-                      ))}
-                    </div>
-                  </div>
-                  {p.votes && p.votes.length > 0 && (
-                    <div className="proposal-votes">
-                      {p.votes.map((v) => (
-                        <span key={v.voterSeatIndex} className={`vote-chip ${v.approve ? "approve" : "reject"}`}>
-                          {playerNames[v.voterSeatIndex]} {v.approve ? "✓" : "✗"}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {p.missionResult && p.missionResult !== "Pending" && (
-                    <div className={`proposal-mission-result ${p.missionResult === "Success" ? "mission-success" : "mission-fail"}`}>
-                      <span className="mission-result-counts">
-                        <span className="count-success">{p.successCount} Success</span>
-                        <span className="count-divider">/</span>
-                        <span className="count-fail">{p.failCount} Fail</span>
-                      </span>
-                    </div>
+        <h3 className="history-title">History</h3>
+        {game.missions.map((mission) => (
+          <div key={mission.missionIndex} className="history-mission">
+            <h4 className="history-mission-title">Mission {mission.missionIndex + 1}</h4>
+            {mission.proposals.length === 0 && <p className="history-empty">No proposals</p>}
+            {mission.proposals.map((p) => (
+              <div
+                key={p.proposalIndex}
+                className={`history-proposal ${p.approved === true ? "approved" : p.approved === false ? "rejected" : ""}`}
+              >
+                <div className="proposal-header">
+                  <span className="proposal-label">#{p.proposalIndex + 1}</span>
+                  <img src="/leader.png" alt="" className="history-inline-icon" />
+                  <span className="proposal-leader">{playerNames[p.leaderSeatIndex]}</span>
+                  {p.approved != null && (
+                    <img
+                      src={p.approved ? "/approve.png" : "/reject.png"}
+                      alt={p.approved ? "Approved" : "Rejected"}
+                      className="history-result-icon"
+                    />
                   )}
                 </div>
-              ))}
-            </div>
-          );
-        })}
+                <div className="proposal-team-row">
+                  <div className="proposal-team">
+                    {p.teamSeats.map((t) => (
+                      <span key={t} className="history-chip history-team-chip">
+                        <img src="/team.png" alt="" className="history-chip-shield" />
+                        {playerNames[t]}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {p.votes && p.votes.length > 0 && (
+                  <div className="proposal-votes">
+                    {p.votes.map((v) => (
+                      <span key={v.voterSeatIndex} className={`history-chip vote-chip ${v.approve ? "approve" : "reject"}`}>
+                        {playerNames[v.voterSeatIndex]}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {p.missionResult && p.missionResult !== "Pending" && (
+                  <div className="proposal-mission-result">
+                    {[...Array(p.successCount)].map((_, i) => (
+                      <img key={`s${i}`} src="/success_icon.png" alt="Success" className="history-mission-dot" />
+                    ))}
+                    {[...Array(p.failCount)].map((_, i) => (
+                      <img key={`f${i}`} src="/fail_icon.png" alt="Fail" className="history-mission-dot" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );

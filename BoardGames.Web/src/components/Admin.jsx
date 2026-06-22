@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AvalonGameDetail from "./avalon/AvalonGameDetail";
+import DatePickerEN from "./DatePickerEN";
+import { localDayToUtcRange } from "../services/api";
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL
   ? `${import.meta.env.VITE_BACKEND_URL}/api/admin`
@@ -24,6 +26,7 @@ export default function Admin() {
   const [editBalances, setEditBalances] = useState({});
   const [newPassword, setNewPassword] = useState("");
   const [avalonHistory, setAvalonHistory] = useState(null); // null = not viewing; [] = loaded empty
+  const [avalonHistoryDate, setAvalonHistoryDate] = useState("");
   const [selectedGameId, setSelectedGameId] = useState(null);
 
   const headers = { "Content-Type": "application/json", "X-Admin-Token": password };
@@ -104,10 +107,14 @@ export default function Admin() {
     } catch { setError("Failed to update balance"); }
   }
 
-  async function loadAvalonHistory() {
+  async function loadAvalonHistory(date = avalonHistoryDate) {
     setError(""); setSuccess("");
     try {
-      const res = await fetch(`${BASE_URL}/users/${selectedUser.id}/avalon-history?limit=50`, { headers });
+      const params = new URLSearchParams({ limit: 50 });
+      const { from, to } = localDayToUtcRange(date);
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      const res = await fetch(`${BASE_URL}/users/${selectedUser.id}/avalon-history?${params}`, { headers });
       if (!res.ok) { setError("Failed to load Avalon history"); return; }
       setAvalonHistory(await res.json());
     } catch { setError("Failed to load Avalon history"); }
@@ -160,11 +167,25 @@ export default function Admin() {
     };
     return (
       <div className="page-center" style={{ maxWidth: 560 }}>
-        <h2>Avalon History — {selectedUser.nickname}</h2>
-        <p className="text-muted" style={{ marginTop: -8 }}>User ID: {selectedUser.id}</p>
+        <h2 style={{ margin: "0 0 8px" }}>Avalon History — {selectedUser.nickname}</h2>
+        <button
+          onClick={() => { setAvalonHistory(null); setAvalonHistoryDate(""); }}
+          style={{ background: "#94a3b8", marginBottom: 12 }}
+        >
+          ← Back to User Detail
+        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+          <DatePickerEN value={avalonHistoryDate} onChange={setAvalonHistoryDate} />
+          <button className="btn-small" onClick={() => loadAvalonHistory(avalonHistoryDate)}>Apply</button>
+          {avalonHistoryDate && (
+            <button className="btn-small" onClick={() => { setAvalonHistoryDate(""); loadAvalonHistory(""); }} style={{ background: "#94a3b8" }}>Clear</button>
+          )}
+        </div>
         {error && <p className="error-msg">{error}</p>}
         {avalonHistory.length === 0 ? (
-          <p className="text-muted" style={{ textAlign: "center", marginTop: 24 }}>This user has no Avalon games yet.</p>
+          <p className="text-muted" style={{ textAlign: "center", marginTop: 24 }}>
+            {avalonHistoryDate ? "No games on that date." : "This user has no Avalon games yet."}
+          </p>
         ) : (
           <div style={{ overflowX: "auto", maxWidth: "100%", WebkitOverflowScrolling: "touch" }}>
             <table className="leaderboard-table" style={{ minWidth: 480 }}>
@@ -191,8 +212,6 @@ export default function Admin() {
             </table>
           </div>
         )}
-        <hr />
-        <button onClick={() => setAvalonHistory(null)} style={{ background: "#94a3b8" }}>Back to User Detail</button>
       </div>
     );
   }
@@ -244,7 +263,7 @@ export default function Admin() {
 
         <div className="section">
           <h3>Game History</h3>
-          <button onClick={loadAvalonHistory}>View Avalon History</button>
+          <button onClick={() => loadAvalonHistory("")}>View Avalon History</button>
         </div>
 
         <hr />

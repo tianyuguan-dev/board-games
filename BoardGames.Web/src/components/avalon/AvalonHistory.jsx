@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getMyAvalonGames } from "../../services/api";
+import { getMyAvalonGames, localDayToUtcRange } from "../../services/api";
+import DatePickerEN from "../DatePickerEN";
 import "./AvalonHistory.css";
 
 const ROLE_TEAM = {
@@ -27,17 +28,19 @@ export default function AvalonHistory({ onSelectGame, onBack }) {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [date, setDate] = useState("");
 
   useEffect(() => {
-    loadPage(0, true);
+    loadPage(0, true, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadPage(off, replace) {
+  async function loadPage(off, replace, dateArg = date) {
     setLoading(true);
     setError("");
     try {
-      const batch = await getMyAvalonGames(PAGE_SIZE, off);
+      const { from, to } = localDayToUtcRange(dateArg);
+      const batch = await getMyAvalonGames(PAGE_SIZE, off, from, to);
       setGames(replace ? batch : [...games, ...batch]);
       setOffset(off + batch.length);
       setHasMore(batch.length === PAGE_SIZE);
@@ -48,11 +51,28 @@ export default function AvalonHistory({ onSelectGame, onBack }) {
     }
   }
 
+  function handleApplyFilter() {
+    loadPage(0, true, date);
+  }
+
+  function handleClearFilter() {
+    setDate("");
+    loadPage(0, true, "");
+  }
+
   return (
     <div className="page-center" style={{ maxWidth: 560 }}>
       <div className="av-history-header">
         <h2 style={{ margin: 0 }}>Game History</h2>
         <button className="btn-small" onClick={onBack}>← Back</button>
+      </div>
+
+      <div className="av-history-filter">
+        <DatePickerEN value={date} onChange={setDate} />
+        <button className="btn-small" onClick={handleApplyFilter} disabled={loading}>Apply</button>
+        {date && (
+          <button className="btn-small btn-secondary" onClick={handleClearFilter} disabled={loading}>Clear</button>
+        )}
       </div>
 
       {error && <p className="error-msg">{error}</p>}

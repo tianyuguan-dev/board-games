@@ -328,9 +328,11 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
   }
 
   function toggleTeamMember(index) {
-    setSelectedTeam((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
-    );
+    setSelectedTeam((prev) => {
+      if (prev.includes(index)) return prev.filter((i) => i !== index);
+      if (prev.length >= gs.requiredTeamSize) return prev;
+      return [...prev, index];
+    });
   }
 
   function renderAnimations() {
@@ -413,7 +415,9 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
           >
             <span className="seat-number">{i + 1}.</span>
             {isHost && <span className="drag-handle">&#9776;</span>}
-            {p.nickname} {p.isHost ? "\uD83D\uDC51" : p.isReady ? "\u2713" : "\u2014"}
+            {p.nickname}
+            {p.isHost && <img src="/leader.png" alt="Host" className="lobby-host-icon" />}
+            {!p.isHost && p.isReady && <span className="lobby-ready-mark">{"\u2713"}</span>}
             {isHost && !p.isHost && (
               <span className="player-actions">
                 <button className="kick-btn" onClick={() => handleKick(p.seatIndex)}>Kick</button>
@@ -544,45 +548,52 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
     if (!gameState.history || gameState.history.every((p) => p.length === 0)) return null;
     return (
       <div className="history-panel">
-        <h3>History</h3>
+        <h3 className="history-title">History</h3>
         {gameState.history.map((proposals, mi) => (
           <div key={mi} className="history-mission">
-            <h4>Mission {mi + 1} {gameState.missionResults[mi] !== "Pending" && `(${gameState.missionResults[mi]})`}</h4>
-            {proposals.length === 0 && <p className="text-muted">No proposals yet</p>}
+            <h4 className="history-mission-title">Mission {mi + 1}</h4>
+            {proposals.length === 0 && <p className="history-empty">No proposals yet</p>}
             {proposals.map((p, pi) => (
               <div key={pi} className={`history-proposal ${p.approved === true ? "approved" : p.approved === false ? "rejected" : ""}`}>
                 <div className="proposal-header">
                   <span className="proposal-label">#{pi + 1}</span>
-                  <span className="proposal-sub">Proposed by</span>
+                  <img src="/leader.png" alt="" className="history-inline-icon" />
                   <span className="proposal-leader">{gameState.playerNames[p.leaderIndex]}</span>
-                  {p.approved != null && (p.approved
-                    ? <span className="badge-approve">Approved</span>
-                    : <span className="badge-reject">Rejected</span>)}
+                  {p.approved != null && (
+                    <img
+                      src={p.approved ? "/approve.png" : "/reject.png"}
+                      alt={p.approved ? "Approved" : "Rejected"}
+                      className="history-result-icon"
+                    />
+                  )}
                 </div>
                 <div className="proposal-team-row">
-                  <span className="proposal-sub">Team</span>
                   <div className="proposal-team">
                     {p.team.map((t) => (
-                      <span key={t} className="team-member">{gameState.playerNames[t]}</span>
+                      <span key={t} className="history-chip history-team-chip">
+                        <img src="/team.png" alt="" className="history-chip-shield" />
+                        {gameState.playerNames[t]}
+                      </span>
                     ))}
                   </div>
                 </div>
                 {p.votes && (
                   <div className="proposal-votes">
                     {Object.entries(p.votes).map(([idx, vote]) => (
-                      <span key={idx} className={`vote-chip ${vote ? "approve" : "reject"}`}>
-                        {gameState.playerNames[idx]} {vote ? "\u2713" : "\u2717"}
+                      <span key={idx} className={`history-chip vote-chip ${vote ? "approve" : "reject"}`}>
+                        {gameState.playerNames[idx]}
                       </span>
                     ))}
                   </div>
                 )}
                 {p.missionResult && p.missionResult !== "Pending" && (
-                  <div className={`proposal-mission-result ${p.missionResult === "Success" ? "mission-success" : "mission-fail"}`}>
-                    <span className="mission-result-counts">
-                      <span className="count-success">{p.successCount} Success</span>
-                      <span className="count-divider">/</span>
-                      <span className="count-fail">{p.failCount} Fail</span>
-                    </span>
+                  <div className="proposal-mission-result">
+                    {[...Array(p.successCount)].map((_, i) => (
+                      <img key={`s${i}`} src="/success_icon.png" alt="Success" className="history-mission-dot" />
+                    ))}
+                    {[...Array(p.failCount)].map((_, i) => (
+                      <img key={`f${i}`} src="/fail_icon.png" alt="Fail" className="history-mission-dot" />
+                    ))}
                   </div>
                 )}
               </div>
@@ -747,15 +758,15 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
           )}
           <div style={{ marginTop: 20 }}>
             {!nightConfirmed ? (
-              <button className="btn btn-success" onClick={handleConfirmNight}>I've seen my role</button>
+              <button className="btn-themed" onClick={handleConfirmNight}>I've seen my role</button>
             ) : (
-              <p className="text-muted">Waiting for others...</p>
+              <p className="night-waiting">The council awaits...</p>
             )}
           </div>
           <div className="progress-status" style={{ marginTop: 16 }}>
             {gs.playerNames.map((name, i) => (
               <span key={i} className={`status-chip ${nightConfirmedPlayers.includes(i) ? "acted" : "pending"}`}>
-                {name} {nightConfirmedPlayers.includes(i) ? "●" : "…"}
+                {name}
               </span>
             ))}
           </div>
@@ -787,10 +798,13 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
           const isAssassinPhase = gs.phase === "Assassination" && myIndex === gs.assassinIndex;
           const canAssassinate = isAssassinPhase && gs.assassinationTargets?.includes(i);
           const isAlly = isAssassinPhase && !gs.assassinationTargets?.includes(i) && i !== myIndex;
+          const hasActed =
+            (gs.phase === "TeamVote" && playersWhoVoted.includes(i)) ||
+            (gs.phase === "Mission" && onTeam && missionPlayersPlayed.includes(i));
           return (
             <div
               key={i}
-              className={`av-player ${isMe ? "me" : ""} ${onTeam ? "on-team" : ""} ${isCurrLeader ? "leader" : ""} ${selected ? "selected" : ""} ${selectable || canAssassinate ? "clickable" : ""} ${isAlly ? "ally-disabled" : ""}`}
+              className={`av-player ${isMe ? "me" : ""} ${onTeam ? "on-team" : ""} ${isCurrLeader ? "leader" : ""} ${selected ? "selected" : ""} ${selectable || canAssassinate ? "clickable" : ""} ${isAlly ? "ally-disabled" : ""} ${hasActed ? "acted" : ""}`}
               onClick={() => {
                 if (selectable) toggleTeamMember(i);
                 if (canAssassinate) handleAssassinate(i);
@@ -811,10 +825,24 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
       {/* Phase-specific actions */}
       <div className="av-actions">
         {gs.phase === "TeamProposal" && isLeader && (
-          <div className="action-panel action-highlight">
-            <p className="action-title">Your turn! Select {gs.requiredTeamSize} players ({selectedTeam.length}/{gs.requiredTeamSize})</p>
+          <div className="action-panel action-highlight team-proposal-panel">
+            <p className="action-title">Select {gs.requiredTeamSize} Knights for the Mission</p>
+            <div className="team-slots">
+              {Array.from({ length: gs.requiredTeamSize }).map((_, i) => {
+                const filled = i < selectedTeam.length;
+                const playerName = filled ? gs.playerNames[selectedTeam[i]] : null;
+                return (
+                  <div key={i} className="team-slot-wrap">
+                    <div className={`team-slot ${filled ? "filled" : "empty"}`}>
+                      {filled && <img src="/team.png" alt="" />}
+                    </div>
+                    <span className="team-slot-name">{playerName || ""}</span>
+                  </div>
+                );
+              })}
+            </div>
             <button
-              className="btn btn-success"
+              className="btn-themed"
               onClick={handleProposeTeam}
               disabled={selectedTeam.length !== gs.requiredTeamSize}
             >
@@ -823,7 +851,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
           </div>
         )}
         {gs.phase === "TeamProposal" && !isLeader && (
-          <p className="waiting">Waiting for {gs.playerNames[gs.currentLeaderIndex]} to propose a team...</p>
+          <p className="waiting">Waiting for <span className="waiting-leader-name">{gs.playerNames[gs.currentLeaderIndex]}</span> to propose a team...</p>
         )}
 
         {gs.phase === "TeamVote" && (
@@ -839,18 +867,11 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                 ))}
               </div>
             </div>
-            <div className="progress-status">
-              {gs.playerNames.map((name, i) => (
-                <span key={i} className={`status-chip ${playersWhoVoted.includes(i) ? "acted" : "pending"}`}>
-                  {name} {playersWhoVoted.includes(i) ? "●" : "…"}
-                </span>
-              ))}
-            </div>
             {hasVoted ? (
               <p className="waiting">Voted! Waiting for others...</p>
             ) : (
-              <>
-                <p>Please cast your vote:</p>
+              <div className="vote-night-panel">
+                <p className="vote-prompt">Cast your vote in council</p>
                 <div className="vote-btn-row">
                   <button
                     className="vote-img-btn vote-approve"
@@ -867,26 +888,19 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                     <span className="vote-img-frame"><img src="/reject.png" alt="" /></span>
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         )}
 
         {gs.phase === "Mission" && (
           <div className="action-panel">
-            <div className="progress-status">
-              {gs.proposedTeam?.map((i) => (
-                <span key={i} className={`status-chip ${missionPlayersPlayed.includes(i) ? "acted" : "pending"}`}>
-                  {gs.playerNames[i]} {missionPlayersPlayed.includes(i) ? "●" : "…"}
-                </span>
-              ))}
-            </div>
             {gs.proposedTeam?.includes(myIndex) ? (
               hasPlayedCard ? (
                 <p className="waiting">Card played! Waiting for others...</p>
               ) : (
-                <>
-                  <p>You're on the mission! Play your card:</p>
+                <div className="mission-task-panel">
+                  <p className="mission-task-prompt">The mission's fate is in your hand</p>
                   <div className="vote-btn-row">
                     <button
                       className="vote-img-btn vote-approve"
@@ -905,10 +919,12 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                       <span className="vote-img-frame"><img src="/fail.png" alt="" /></span>
                     </button>
                   </div>
-                </>
+                </div>
               )
             ) : (
-              <p className="waiting">Mission in progress...</p>
+              <div className="mission-progress-panel">
+                <p className="mission-progress-text">The knights ride into the unknown...</p>
+              </div>
             )}
           </div>
         )}
@@ -943,13 +959,28 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
             ? (iWon ? "EPIC VICTORY!" : "CRUSHING DEFEAT!")
             : (iWon ? "YOU WIN" : "YOU LOSE");
           const subtitleText = isDoublePoints ? (iWon ? "YOU WIN" : "YOU LOSE") : null;
+          const gameoverBg =
+            gs.winner === "Good" ? "/good-win.png" :
+            isDoublePoints ? "/evil-epic-win.png" :
+            "/evil-normal-win.png";
+          const sharedBgStyle = {
+            backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.25)), url('${gameoverBg}')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundColor: '#1a1633',
+          };
+          const detailsBgStyle = sharedBgStyle;
           return (
             <div className="game-over">
-              <div className={`gameover-banner ${iWon ? "win" : "lose"} ${isDoublePoints ? "epic" : ""}`}>
+              <div
+                className={`gameover-banner ${iWon ? "win" : "lose"} ${isDoublePoints ? "epic" : ""}`}
+                style={sharedBgStyle}
+              >
                 {subtitleText && <span className="gameover-banner-subtitle">{subtitleText}</span>}
                 <span className="gameover-banner-text">{mainText}</span>
               </div>
-              <div className="gameover-details">
+              <div className="gameover-details" style={detailsBgStyle}>
                 <h2 className={`gameover-title ${iWon ? "win" : "lose"} ${isDoublePoints ? "epic" : ""}`}>
                   {subtitleText && <span className="gameover-title-subtitle">{subtitleText}</span>}
                   <span className="gameover-title-main">{mainText}</span>
@@ -969,8 +1000,12 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                         {deltaShown && (
                           <span style={{
                             marginLeft: 8,
-                            fontWeight: 700,
-                            color: won ? "#16a34a" : "#dc2626"
+                            fontWeight: 800,
+                            fontFamily: 'Georgia, "Times New Roman", serif',
+                            color: won ? "#ffd27a" : "#8a1818",
+                            textShadow: won
+                              ? '0 0 6px rgba(255, 210, 120, 0.6), 0 1px 2px rgba(0, 0, 0, 0.7)'
+                              : '0 1px 0 rgba(255, 245, 215, 0.6)'
                           }}>
                             {won ? "+" : ""}{delta}
                           </span>
@@ -982,7 +1017,8 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                 <div className="progress-status" style={{ marginTop: 16 }}>
                   {roomPlayers.map((p, i) => (
                     <span key={i} className={`status-chip ${p.isHost || p.isReady ? "acted" : "pending"}`}>
-                      {p.nickname} {p.isHost ? "👑" : p.isReady ? "●" : "…"}
+                      {p.nickname}
+                      {p.isHost && <img src="/leader.png" alt="Host" className="status-chip-host" />}
                     </span>
                   ))}
                 </div>
@@ -990,14 +1026,14 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
               <div className="btn-row gameover-actions" style={{ marginTop: 12 }}>
                 {!isGuest && (
                   isHost ? (
-                    <button className="btn btn-success" onClick={handleStart}
+                    <button className="btn-themed" onClick={handleStart}
                       disabled={roomPlayers.length !== maxPlayers || (roomPlayers.filter((p) => !p.isHost).some((p) => !p.isReady) && roomPlayers.length > 1)}>
                       Start Next Round{roomPlayers.length !== maxPlayers ? ` (${roomPlayers.length}/${maxPlayers})` : ""}
                     </button>
                   ) : ready ? (
-                    <button className="btn btn-warning" onClick={handleUnready}>Ready ✓</button>
+                    <button className="btn-themed" onClick={handleUnready}>Cancel Ready</button>
                   ) : (
-                    <button className="btn btn-success" onClick={handleReady}>Play Again</button>
+                    <button className="btn-themed" onClick={handleReady}>Play Again</button>
                   )
                 )}
               </div>

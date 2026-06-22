@@ -90,17 +90,23 @@ public class AvalonGameHistoryRepository(AppDbContext db) : IAvalonGameHistoryRe
         await db.SaveChangesAsync();
     }
 
-    public async Task<List<AvalonGameHistory>> GetMyRecentGames(int userId, int limit, int offset)
+    public async Task<List<AvalonGameHistory>> GetMyRecentGames(int userId, int limit, int offset, DateTime? fromUtc = null, DateTime? toUtc = null)
     {
-        // Find game IDs the user participated in, then load those games with their players (for opponent list + my role).
         var gameIds = await db.AvalonGamePlayers
             .Where(p => p.UserId == userId)
             .Select(p => p.GameId)
             .Distinct()
             .ToListAsync();
 
-        return await db.AvalonGameHistories
-            .Where(g => gameIds.Contains(g.Id))
+        var query = db.AvalonGameHistories
+            .Where(g => gameIds.Contains(g.Id));
+
+        if (fromUtc.HasValue)
+            query = query.Where(g => g.EndedAt >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(g => g.EndedAt < toUtc.Value);
+
+        return await query
             .OrderByDescending(g => g.EndedAt)
             .Skip(offset)
             .Take(limit)

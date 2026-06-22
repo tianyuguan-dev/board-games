@@ -5,6 +5,29 @@
   margin-bottom: 14px;
 }
 
+.av-history-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.av-history-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.av-history-filter input[type="date"] {
+  padding: 3px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
 .av-history-list {
   display: flex;
   flex-direction: column;

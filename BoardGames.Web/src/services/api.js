@@ -182,8 +182,20 @@ export async function getBalances(token) {
   return await response.json();
 }
 
-export async function getMyAvalonGames(limit = 20, offset = 0) {
-  const response = await authFetch(`${BASE_URL}/avalon/games/recent?limit=${limit}&offset=${offset}`);
+// Convert a user-picked local-time date (YYYY-MM-DD) into UTC ISO timestamps
+// covering that whole local day (00:00:00 to 24:00:00 in user's timezone).
+export function localDayToUtcRange(localDate) {
+  if (!localDate) return { from: null, to: null };
+  const start = new Date(`${localDate}T00:00:00`); // local midnight
+  const end = new Date(start.getTime() + 86400000); // +24h
+  return { from: start.toISOString(), to: end.toISOString() };
+}
+
+export async function getMyAvalonGames(limit = 20, offset = 0, from = null, to = null) {
+  const params = new URLSearchParams({ limit, offset });
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const response = await authFetch(`${BASE_URL}/avalon/games/recent?${params}`);
   if (!response || !response.ok) throw new Error("Failed to load game history");
   return await response.json();
 }

@@ -92,7 +92,19 @@ app.UseCors("AllowFrontend");
 
 // Serve frontend static files from wwwroot
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var path = ctx.File.PhysicalPath?.ToLowerInvariant() ?? "";
+        if (path.EndsWith(".png") || path.EndsWith(".jpg") || path.EndsWith(".jpeg")
+            || path.EndsWith(".webp") || path.EndsWith(".svg") || path.EndsWith(".gif"))
+        {
+            // 30 days — images rarely change. If you replace an image, bump a ?v= query in CSS to bust.
+            ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=2592000, immutable";
+        }
+    }
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
