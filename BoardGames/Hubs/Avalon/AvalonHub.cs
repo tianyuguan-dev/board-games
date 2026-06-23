@@ -281,6 +281,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
             await Groups.AddToGroupAsync(connId, room.RoomId);
             await Clients.Client(connId).SendAsync("YourSeat", 2);
+            await BroadcastRoomPlayers(room.RoomId);
             await SendGameStateToAll(room);
 
             return (object)new { room.RoomId, room.MaxPlayers, PlayerCount = 5 };

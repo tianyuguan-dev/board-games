@@ -348,13 +348,19 @@
   position: absolute;
   right: 16px;
   bottom: 14px;
-  display: grid;
-  grid-template-columns: auto auto;
-  column-gap: 10px;
-  row-gap: 3px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 10px;
   padding: 6px 10px;
   background: rgba(15, 23, 42, 0.45);
   border-radius: 8px;
+}
+
+.evil-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .evil-role-chip {
@@ -1893,6 +1899,7 @@
   position: relative;
   z-index: 20;
   opacity: 1;
+  margin-bottom: 16px;
 }
 
 /* Game-over title in details panel (mirrors banner styling, tuned for light background) */

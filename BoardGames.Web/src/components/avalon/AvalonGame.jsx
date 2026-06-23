@@ -527,14 +527,26 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
             {roleConfig && roleConfig.length > 0 && (() => {
               const evilRoles = roleConfig.filter((r) => !["Merlin", "Percival", "LoyalServant"].includes(r));
               if (evilRoles.length === 0) return null;
+              const grouped = groupRoles(evilRoles);
+              const oberon = grouped.find((g) => g.role === "Oberon");
+              const rightOrder = { Mordred: 0, Morgana: 1, Assassin: 2, MinionOfMordred: 3 };
+              const rightCol = grouped
+                .filter((g) => g.role !== "Oberon")
+                .sort((a, b) => (rightOrder[a.role] ?? 99) - (rightOrder[b.role] ?? 99));
+              const renderChip = ({ role, count }) => (
+                <span key={role} className="evil-role-chip">
+                  <span className="evil-role-emoji">{ROLE_LABELS[role]?.emoji}</span>
+                  {ROLE_LABELS[role]?.name || role}{count > 1 ? ` ×${count}` : ""}
+                </span>
+              );
               return (
                 <div className="evil-roles-display">
-                  {groupRoles(evilRoles).map(({ role, count }) => (
-                    <span key={role} className="evil-role-chip">
-                      <span className="evil-role-emoji">{ROLE_LABELS[role]?.emoji}</span>
-                      {ROLE_LABELS[role]?.name || role}{count > 1 ? ` ×${count}` : ""}
-                    </span>
-                  ))}
+                  <div className="evil-col">
+                    {oberon && renderChip(oberon)}
+                  </div>
+                  <div className="evil-col">
+                    {rightCol.map(renderChip)}
+                  </div>
                 </div>
               );
             })()}
@@ -1024,7 +1036,9 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                 </div>
               </div>
               <div className="btn-row gameover-actions" style={{ marginTop: 12 }}>
-                {!isGuest && (
+                {isGuest ? (
+                  <button className="btn-themed" onClick={handleLeave}>Leave</button>
+                ) : (
                   isHost ? (
                     <button className="btn-themed" onClick={handleStart}
                       disabled={roomPlayers.length !== maxPlayers || (roomPlayers.filter((p) => !p.isHost).some((p) => !p.isReady) && roomPlayers.length > 1)}>
