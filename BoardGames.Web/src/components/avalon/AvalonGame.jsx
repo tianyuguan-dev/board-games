@@ -942,12 +942,12 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
         )}
 
         {gs.phase === "Assassination" && myIndex === gs.assassinIndex && (
-          <div className="action-panel action-highlight-danger">
+          <div className="assassin-picking-panel">
             {gs.bonusAssassination
-              ? <p className="action-title">Evil already won ({gs.bonusLossReason})! Find Merlin for double points! Click on your target.</p>
+              ? <p className="assassin-picking-text">Evil already won ({gs.bonusLossReason})! Find Merlin for double points. Click on your target.</p>
               : gs.earlyAssassination
-              ? <p className="action-title">Choose your target! Click on who you think is Merlin!</p>
-              : <p className="action-title">Good won 3 missions. Click on who you think is Merlin!</p>
+              ? <p className="assassin-picking-text">Choose your target. Click on who you think is Merlin.</p>
+              : <p className="assassin-picking-text">Good won 3 missions. Click on who you think is Merlin.</p>
             }
           </div>
         )}

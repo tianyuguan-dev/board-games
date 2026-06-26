@@ -551,7 +551,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             room.ReassignSeats();
             room.BuildSeatMap();
             room.RebuildRoleConfig(playerCount);
-            room.Game = new AvalonGame(playerCount, room.RoleConfig, new Random().Next(playerCount), room.MaxRejects);
+            room.Game = new AvalonGame(playerCount, room.RoleConfig, room.PickStartLeader(playerCount), room.MaxRejects);
             room.ReadyPlayers.Clear();
             room.NightConfirmedPlayers.Clear();
 

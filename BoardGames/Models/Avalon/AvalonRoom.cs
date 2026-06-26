@@ -18,7 +18,19 @@ public class AvalonRoom
     public string? HostConnectionId { get; set; }
     public HashSet<string> ReadyPlayers { get; init; } = new();        // Lobby ready (before game / game over)
     public HashSet<string> NightConfirmedPlayers { get; init; } = new(); // ConfirmNightReveal during game
+    public Queue<int> RecentStartLeaders { get; init; } = new();        // Last 2 start-leader seat indices, to avoid repeats
     public AvalonGame? Game { get; set; }
+
+    public int PickStartLeader(int playerCount)
+    {
+        var pool = Enumerable.Range(0, playerCount).Except(RecentStartLeaders).ToList();
+        // Fallback: if every index has been recent (e.g., playerCount shrank), use full range
+        if (pool.Count == 0) pool = Enumerable.Range(0, playerCount).ToList();
+        var pick = pool[Random.Shared.Next(pool.Count)];
+        RecentStartLeaders.Enqueue(pick);
+        while (RecentStartLeaders.Count > 2) RecentStartLeaders.Dequeue();
+        return pick;
+    }
     public bool HasMerlin { get; set; } = true;
     public bool HasPercival { get; set; } = true;
     public bool HasAssassin { get; set; } = true;
