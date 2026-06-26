@@ -100,7 +100,7 @@ app.UseStaticFiles(new StaticFileOptions
         if (path.EndsWith(".png") || path.EndsWith(".jpg") || path.EndsWith(".jpeg")
             || path.EndsWith(".webp") || path.EndsWith(".svg") || path.EndsWith(".gif"))
         {
-            // 30 days — images rarely change. If you replace an image, bump a ?v= query in CSS to bust.
+            // 30 days, immutable. Bust by bumping ?v= query string in CSS/JSX references.
             ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=2592000, immutable";
         }
     }

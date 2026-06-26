@@ -43,7 +43,7 @@ export default function Login({ onLogin }) {
   return (
     <div className="page-center">
       <img
-        src="/icon.jpg"
+        src="/icon.jpg?v=1"
         alt="Guan Yu Board Games"
         style={{ width: 96, height: 96, borderRadius: 16, display: "block", margin: "0 auto 12px", boxShadow: "0 4px 14px rgba(0,0,0,0.12)" }}
       />

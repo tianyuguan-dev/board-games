@@ -37,14 +37,14 @@ const ROLE_LABELS = {
 };
 
 const ROLE_IMAGES = {
-  Merlin: "/Merlin.png",
-  Percival: "/Percival.png",
-  LoyalServant: "/Loyal_Servant_of_Arthur_clean.png",
-  Assassin: "/Assassin.png",
-  Morgana: "/Morgana.png",
-  Mordred: "/Mordred.png",
-  Oberon: "/Oberon.png",
-  MinionOfMordred: "/Minion_of_Mordred_clean.png",
+  Merlin: "/Merlin.png?v=1",
+  Percival: "/Percival.png?v=1",
+  LoyalServant: "/Loyal_Servant_of_Arthur_clean.png?v=1",
+  Assassin: "/Assassin.png?v=1",
+  Morgana: "/Morgana.png?v=1",
+  Mordred: "/Mordred.png?v=1",
+  Oberon: "/Oberon.png?v=1",
+  MinionOfMordred: "/Minion_of_Mordred_clean.png?v=1",
 };
 
 function groupRoles(roles) {
@@ -416,7 +416,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
             <span className="seat-number">{i + 1}.</span>
             {isHost && <span className="drag-handle">&#9776;</span>}
             {p.nickname}
-            {p.isHost && <img src="/leader.png" alt="Host" className="lobby-host-icon" />}
+            {p.isHost && <img src="/leader.png?v=1" alt="Host" className="lobby-host-icon" />}
             {!p.isHost && p.isReady && <span className="lobby-ready-mark">{"\u2713"}</span>}
             {isHost && !p.isHost && (
               <span className="player-actions">
@@ -509,8 +509,8 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                     className={`mission-dot ${isSuccess ? "success" : isFail ? "fail" : ""} ${i === gs.currentMissionIndex ? "current" : ""} ${protectedRound ? "protected" : ""}`}
                     title={protectedRound ? "Two fails needed to fail this mission" : `Mission ${i + 1}: ${sizes[i] || ""} players`}
                   >
-                    {isSuccess && <img src="/success_icon.png" alt="Success" className="mission-icon" />}
-                    {isFail && <img src="/fail_icon.png" alt="Fail" className="mission-icon" />}
+                    {isSuccess && <img src="/success_icon.png?v=1" alt="Success" className="mission-icon" />}
+                    {isFail && <img src="/fail_icon.png?v=1" alt="Fail" className="mission-icon" />}
                     {!isSuccess && !isFail && (sizes[i] ?? (i + 1))}
                   </div>
                 );
@@ -569,11 +569,11 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
               <div key={pi} className={`history-proposal ${p.approved === true ? "approved" : p.approved === false ? "rejected" : ""}`}>
                 <div className="proposal-header">
                   <span className="proposal-label">#{pi + 1}</span>
-                  <img src="/leader.png" alt="" className="history-inline-icon" />
+                  <img src="/leader.png?v=1" alt="" className="history-inline-icon" />
                   <span className="proposal-leader">{gameState.playerNames[p.leaderIndex]}</span>
                   {p.approved != null && (
                     <img
-                      src={p.approved ? "/approve.png" : "/reject.png"}
+                      src={p.approved ? "/approve.png?v=1" : "/reject.png?v=1"}
                       alt={p.approved ? "Approved" : "Rejected"}
                       className="history-result-icon"
                     />
@@ -583,7 +583,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                   <div className="proposal-team">
                     {p.team.map((t) => (
                       <span key={t} className="history-chip history-team-chip">
-                        <img src="/team.png" alt="" className="history-chip-shield" />
+                        <img src="/team.png?v=1" alt="" className="history-chip-shield" />
                         {gameState.playerNames[t]}
                       </span>
                     ))}
@@ -601,10 +601,10 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                 {p.missionResult && p.missionResult !== "Pending" && (
                   <div className="proposal-mission-result">
                     {[...Array(p.successCount)].map((_, i) => (
-                      <img key={`s${i}`} src="/success_icon.png" alt="Success" className="history-mission-dot" />
+                      <img key={`s${i}`} src="/success_icon.png?v=1" alt="Success" className="history-mission-dot" />
                     ))}
                     {[...Array(p.failCount)].map((_, i) => (
-                      <img key={`f${i}`} src="/fail_icon.png" alt="Fail" className="history-mission-dot" />
+                      <img key={`f${i}`} src="/fail_icon.png?v=1" alt="Fail" className="history-mission-dot" />
                     ))}
                   </div>
                 )}
@@ -824,8 +824,8 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
             >
               <span className="player-name">
                 {name}
-                {isCurrLeader && <img src="/leader.png" alt="Leader" className="leader-icon" />}
-                {(onTeam || selected) && <img src="/team.png" alt="On team" className="team-icon" />}
+                {isCurrLeader && <img src="/leader.png?v=1" alt="Leader" className="leader-icon" />}
+                {(onTeam || selected) && <img src="/team.png?v=1" alt="On team" className="team-icon" />}
               </span>
               {isMe && <span className="me-tag">(You)</span>}
               {isAlly && <span className="ally-tag">Ally</span>}
@@ -846,7 +846,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                 return (
                   <div key={i} className="team-slot-wrap">
                     <div className={`team-slot ${filled ? "filled" : "empty"}`}>
-                      {filled && <img src="/team.png" alt="" />}
+                      {filled && <img src="/team.png?v=1" alt="" />}
                     </div>
                     <span className="team-slot-name">{playerName || ""}</span>
                   </div>
@@ -873,7 +873,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
               <div className="proposed-team-members">
                 {gs.proposedTeam.map((i) => (
                   <span key={i} className="proposed-team-member">
-                    <img src="/team.png" alt="" className="proposed-team-icon" />
+                    <img src="/team.png?v=1" alt="" className="proposed-team-icon" />
                     {gs.playerNames[i]}
                   </span>
                 ))}
@@ -890,14 +890,14 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                     onClick={() => handleVote(true)}
                     aria-label="Approve team"
                   >
-                    <span className="vote-img-frame"><img src="/approve.png" alt="" /></span>
+                    <span className="vote-img-frame"><img src="/approve.png?v=1" alt="" /></span>
                   </button>
                   <button
                     className="vote-img-btn vote-reject"
                     onClick={() => handleVote(false)}
                     aria-label="Reject team"
                   >
-                    <span className="vote-img-frame"><img src="/reject.png" alt="" /></span>
+                    <span className="vote-img-frame"><img src="/reject.png?v=1" alt="" /></span>
                   </button>
                 </div>
               </div>
@@ -919,7 +919,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                       onClick={() => handleMissionCard(true)}
                       aria-label="Play Success card"
                     >
-                      <span className="vote-img-frame"><img src="/success.png" alt="" /></span>
+                      <span className="vote-img-frame"><img src="/success.png?v=1" alt="" /></span>
                     </button>
                     <button
                       className="vote-img-btn vote-reject"
@@ -928,7 +928,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                       title={isEvil ? "" : "Good players can only play Success"}
                       aria-label="Play Fail card"
                     >
-                      <span className="vote-img-frame"><img src="/fail.png" alt="" /></span>
+                      <span className="vote-img-frame"><img src="/fail.png?v=1" alt="" /></span>
                     </button>
                   </div>
                 </div>
@@ -972,9 +972,9 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
             : (iWon ? "YOU WIN" : "YOU LOSE");
           const subtitleText = isDoublePoints ? (iWon ? "YOU WIN" : "YOU LOSE") : null;
           const gameoverBg =
-            gs.winner === "Good" ? "/good-win.png" :
-            isDoublePoints ? "/evil-epic-win.png" :
-            "/evil-normal-win.png";
+            gs.winner === "Good" ? "/good-win.png?v=1" :
+            isDoublePoints ? "/evil-epic-win.png?v=1" :
+            "/evil-normal-win.png?v=1";
           const sharedBgStyle = {
             backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.25)), url('${gameoverBg}')`,
             backgroundSize: 'cover',
@@ -1030,7 +1030,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                   {roomPlayers.map((p, i) => (
                     <span key={i} className={`status-chip ${p.isHost || p.isReady ? "acted" : "pending"}`}>
                       {p.nickname}
-                      {p.isHost && <img src="/leader.png" alt="Host" className="status-chip-host" />}
+                      {p.isHost && <img src="/leader.png?v=1" alt="Host" className="status-chip-host" />}
                     </span>
                   ))}
                 </div>

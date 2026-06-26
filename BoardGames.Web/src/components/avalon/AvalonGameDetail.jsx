@@ -89,9 +89,9 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
     : (iWon ? "YOU WIN" : "YOU LOSE");
   const subtitleText = isDoublePoints ? (iWon ? "YOU WIN" : "YOU LOSE") : null;
   const gameoverBg =
-    game.winner === "Good" ? "/good-win.png" :
-    isDoublePoints ? "/evil-epic-win.png" :
-    "/evil-normal-win.png";
+    game.winner === "Good" ? "/good-win.png?v=1" :
+    isDoublePoints ? "/evil-epic-win.png?v=1" :
+    "/evil-normal-win.png?v=1";
   const detailsBgStyle = {
     backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.25)), url('${gameoverBg}')`,
     backgroundSize: 'cover',
@@ -128,8 +128,8 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
                   className={`mission-dot ${isSuccess ? "success" : isFail ? "fail" : ""} ${protectedRound ? "protected" : ""}`}
                   title={protectedRound ? "Two fails needed to fail this mission" : `Mission ${i + 1}: ${missionSizes[i] || ""} players`}
                 >
-                  {isSuccess && <img src="/success_icon.png" alt="Success" className="mission-icon" />}
-                  {isFail && <img src="/fail_icon.png" alt="Fail" className="mission-icon" />}
+                  {isSuccess && <img src="/success_icon.png?v=1" alt="Success" className="mission-icon" />}
+                  {isFail && <img src="/fail_icon.png?v=1" alt="Fail" className="mission-icon" />}
                   {!isSuccess && !isFail && (missionSizes[i] ?? (i + 1))}
                 </div>
               );
@@ -179,11 +179,11 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
               >
                 <div className="proposal-header">
                   <span className="proposal-label">#{p.proposalIndex + 1}</span>
-                  <img src="/leader.png" alt="" className="history-inline-icon" />
+                  <img src="/leader.png?v=1" alt="" className="history-inline-icon" />
                   <span className="proposal-leader">{playerNames[p.leaderSeatIndex]}</span>
                   {p.approved != null && (
                     <img
-                      src={p.approved ? "/approve.png" : "/reject.png"}
+                      src={p.approved ? "/approve.png?v=1" : "/reject.png?v=1"}
                       alt={p.approved ? "Approved" : "Rejected"}
                       className="history-result-icon"
                     />
@@ -193,7 +193,7 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
                   <div className="proposal-team">
                     {p.teamSeats.map((t) => (
                       <span key={t} className="history-chip history-team-chip">
-                        <img src="/team.png" alt="" className="history-chip-shield" />
+                        <img src="/team.png?v=1" alt="" className="history-chip-shield" />
                         {playerNames[t]}
                       </span>
                     ))}
@@ -211,10 +211,10 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
                 {p.missionResult && p.missionResult !== "Pending" && (
                   <div className="proposal-mission-result">
                     {[...Array(p.successCount)].map((_, i) => (
-                      <img key={`s${i}`} src="/success_icon.png" alt="Success" className="history-mission-dot" />
+                      <img key={`s${i}`} src="/success_icon.png?v=1" alt="Success" className="history-mission-dot" />
                     ))}
                     {[...Array(p.failCount)].map((_, i) => (
-                      <img key={`f${i}`} src="/fail_icon.png" alt="Fail" className="history-mission-dot" />
+                      <img key={`f${i}`} src="/fail_icon.png?v=1" alt="Fail" className="history-mission-dot" />
                     ))}
                   </div>
                 )}

@@ -179,9 +179,9 @@
   box-sizing: border-box;
 }
 
-.scoreboard.gameboard-56 { background-image: url(/gameboard56.png); }
-.scoreboard.gameboard-78 { background-image: url(/gameboard78.png); }
-.scoreboard.gameboard-910 { background-image: url(/gameboard910.png); }
+.scoreboard.gameboard-56 { background-image: url(/gameboard56.png?v=1); }
+.scoreboard.gameboard-78 { background-image: url(/gameboard78.png?v=1); }
+.scoreboard.gameboard-910 { background-image: url(/gameboard910.png?v=1); }
 
 .scoreboard-clickable {
   cursor: pointer;
@@ -326,7 +326,7 @@
 
 /* "Protected" round — needs 2 fails to fail (mission 4 in 7+ player games) */
 .mission-dot.protected {
-  box-shadow: 0 0 0 4px #f59e0b;
+  box-shadow: 0 0 0 2px #f59e0b;
   position: relative;
 }
 
@@ -428,7 +428,7 @@
   position: relative;
   min-width: 36px;
   height: 26px;
-  background: url('/cloth-banner.png') center / 100% 100% no-repeat;
+  background: url('/cloth-banner.png?v=1') center / 100% 100% no-repeat;
   border: 1px solid #a07a30;
   border-radius: 6px;
   box-shadow:
@@ -526,7 +526,7 @@
   padding: 24px 36px;
   border-radius: 12px;
   margin: 16px 0;
-  background: url('/night-bg.png') center / cover no-repeat;
+  background: url('/night-bg.png?v=1') center / cover no-repeat;
   border: 2px solid #ffd27a;
   box-shadow:
     inset 0 0 0 1px rgba(255, 240, 190, 0.7),
@@ -578,7 +578,7 @@
   gap: 10px;
   padding: 16px 20px;
   margin-bottom: 14px;
-  background: url('/old-map.png') center / cover no-repeat;
+  background: url('/old-map.png?v=1') center / cover no-repeat;
   border: 1px solid #a07a30;
   border-radius: 10px;
   box-shadow:
@@ -627,7 +627,7 @@
 }
 
 .vote-night-panel {
-  background: url('/night-sky.png') center / cover no-repeat;
+  background: url('/night-sky.png?v=1') center / cover no-repeat;
   border: 1px solid #a07a30;
   border-radius: 10px;
   padding: 16px 20px;
@@ -638,7 +638,7 @@
 }
 
 .mission-task-panel {
-  background: url('/task-bg.png') center / cover no-repeat;
+  background: url('/task-bg.png?v=1') center / cover no-repeat;
   border: 1px solid #a07a30;
   border-radius: 10px;
   padding: 16px 20px;
@@ -665,7 +665,7 @@
 }
 
 .mission-progress-panel {
-  background: url('/mission-bg.png') center / cover no-repeat;
+  background: url('/mission-bg.png?v=1') center / cover no-repeat;
   border: 1px solid #a07a30;
   border-radius: 10px;
   padding: 28px 20px;
@@ -886,7 +886,7 @@
 
 .night-player {
   padding: 4px 14px;
-  background: url('/cloth-banner.png') center / 100% 100% no-repeat;
+  background: url('/cloth-banner.png?v=1') center / 100% 100% no-repeat;
   border: 1px solid #a07a30;
   border-radius: 6px;
   font-family: Georgia, "Times New Roman", serif;
@@ -955,7 +955,7 @@
 
 /* === Team proposal panel: wood plank + slots + wax seal === */
 .team-proposal-panel {
-  background: url('/wood-table.png') center / cover no-repeat;
+  background: url('/wood-table.png?v=1') center / cover no-repeat;
   border: 1px solid #a07a30;
   border-radius: 10px;
   padding: 10px 16px;
@@ -1112,7 +1112,7 @@
   position: relative;
   margin: 16px 0;
   padding: 20px 24px;
-  background: url('/assassin-picking.png') center / cover no-repeat;
+  background: url('/assassin-picking.png?v=1') center / cover no-repeat;
   background-color: #1a0a0a;
   border: 2px solid #ef4444;
   border-radius: 10px;
@@ -1148,7 +1148,7 @@
   gap: 12px;
   margin: 16px 0;
   padding: 16px 20px;
-  background: url('/assassin-picking.png') center / cover no-repeat;
+  background: url('/assassin-picking.png?v=1') center / cover no-repeat;
   background-color: #1a0a0a;
   border: 2px solid #ef4444;
   border-radius: 12px;
@@ -1283,7 +1283,7 @@
 
 /* History */
 .history-panel {
-  background: url('/cloth-banner.png') center / 100% 100% no-repeat;
+  background: url('/cloth-banner.png?v=1') center / 100% 100% no-repeat;
   background-color: #ead7a8;
   border: 1px solid #a07a30;
   border-radius: 10px;
@@ -1581,7 +1581,7 @@
   font-size: 12px;
   font-weight: 700;
   border: 1px solid #a07a30;
-  background: url('/cloth-banner.png') center / 100% 100% no-repeat;
+  background: url('/cloth-banner.png?v=1') center / 100% 100% no-repeat;
   color: #3d2410;
   text-shadow: 0 1px 0 rgba(255, 240, 200, 0.5);
   box-shadow:
@@ -2047,7 +2047,7 @@
 .vote-anim-card {
   position: relative;
   overflow: hidden;
-  background: url('/night-sky.png') center / cover no-repeat;
+  background: url('/night-sky.png?v=1') center / cover no-repeat;
   border: 2px solid #ffd27a;
   border-radius: 14px;
   padding: 28px 36px;
@@ -2076,11 +2076,11 @@
 }
 
 .vote-anim-overlay.approve .vote-anim-card::before {
-  background-image: url('/approve.png');
+  background-image: url('/approve.png?v=1');
 }
 
 .vote-anim-overlay.reject .vote-anim-card::before {
-  background-image: url('/reject.png');
+  background-image: url('/reject.png?v=1');
 }
 
 .vote-anim-card > * {
@@ -2123,7 +2123,7 @@
 }
 
 .vote-anim-team-name {
-  background: url('/cloth-banner.png') center / 100% 100% no-repeat;
+  background: url('/cloth-banner.png?v=1') center / 100% 100% no-repeat;
   border: 1px solid #a07a30;
   border-radius: 6px;
   color: #3d2410;
@@ -2170,7 +2170,7 @@
 .mission-anim-card {
   position: relative;
   overflow: hidden;
-  background: url('/task-bg.png') center / cover no-repeat;
+  background: url('/task-bg.png?v=1') center / cover no-repeat;
   border: 2px solid #ffd27a;
   border-radius: 16px;
   padding: 32px 44px;
@@ -2199,11 +2199,11 @@
 }
 
 .mission-anim-overlay.success .mission-anim-card::before {
-  background-image: url('/success.png');
+  background-image: url('/success.png?v=1');
 }
 
 .mission-anim-overlay.fail .mission-anim-card::before {
-  background-image: url('/fail.png');
+  background-image: url('/fail.png?v=1');
 }
 
 .mission-anim-card > * {
