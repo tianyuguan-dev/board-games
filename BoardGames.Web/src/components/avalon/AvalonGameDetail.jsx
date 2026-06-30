@@ -103,10 +103,12 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
   return (
     <div className="av-container">
       <div className="av-header">
-        <button className="btn-small" onClick={onBack}>← Back</button>
-        <span className="room-info">
-          {game.playerCount} players · {formatDuration(game.durationSeconds)} · Room {game.roomId}
-        </span>
+        <div className="av-header-row">
+          <span className="room-info">
+            {game.playerCount} players · {formatDuration(game.durationSeconds)} · Room {game.roomId}
+            {game.isRanked === false && <span className="mode-badge casual" style={{ marginLeft: 6 }}>Casual</span>}
+          </span>
+        </div>
       </div>
 
       <div className="game-over">
@@ -148,21 +150,26 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
               return (
                 <div key={i} className={`role-reveal ${teamForRole(role) === "Evil" ? "evil" : "good"}`}>
                   <strong>{playerNames[i]}</strong>: {ROLE_LABELS[role]?.emoji} {ROLE_LABELS[role]?.name || role}
-                  <span style={{
-                    marginLeft: 8,
-                    fontWeight: 800,
-                    fontFamily: 'Georgia, "Times New Roman", serif',
-                    color: won ? "#ffd27a" : "#8a1818",
-                    textShadow: won
-                      ? '0 0 6px rgba(255, 210, 120, 0.6), 0 1px 2px rgba(0, 0, 0, 0.7)'
-                      : '0 1px 0 rgba(255, 245, 215, 0.6)'
-                  }}>
-                    {won ? "+" : ""}{p.balanceDelta}
-                  </span>
+                  {game.isRanked !== false && (
+                    <span style={{
+                      marginLeft: 8,
+                      fontWeight: 800,
+                      fontFamily: 'Georgia, "Times New Roman", serif',
+                      color: won ? "#ffd27a" : "#8a1818",
+                      textShadow: won
+                        ? '0 0 6px rgba(255, 210, 120, 0.6), 0 1px 2px rgba(0, 0, 0, 0.7)'
+                        : '0 1px 0 rgba(255, 245, 215, 0.6)'
+                    }}>
+                      {won ? "+" : ""}{p.balanceDelta}
+                    </span>
+                  )}
                 </div>
               );
             })}
           </div>
+        </div>
+        <div className="btn-row gameover-actions" style={{ marginTop: 12 }}>
+          <button className="btn-themed" onClick={onBack}>← Back</button>
         </div>
       </div>
 

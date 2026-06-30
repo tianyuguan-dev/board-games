@@ -16,6 +16,7 @@ public class AvalonGameSummaryDto
     public string MyRole { get; set; } = "";
     public bool MyIsWinner { get; set; }
     public decimal MyBalanceDelta { get; set; }
+    public bool IsRanked { get; set; }
 
     public static AvalonGameSummaryDto From(AvalonGameHistory game, int myUserId)
     {
@@ -29,7 +30,8 @@ public class AvalonGameSummaryDto
             WinReason = game.WinReason,
             MyRole = me?.Role.ToString() ?? "",
             MyIsWinner = me?.IsWinner ?? false,
-            MyBalanceDelta = me?.BalanceDelta ?? 0
+            MyBalanceDelta = me?.BalanceDelta ?? 0,
+            IsRanked = game.IsRanked
         };
     }
 }
@@ -50,6 +52,7 @@ public class AvalonGameDetailDto
     public DateTime StartedAt { get; set; }
     public DateTime EndedAt { get; set; }
     public int DurationSeconds { get; set; }
+    public bool IsRanked { get; set; }
 
     // Current viewer's perspective (so the detail page can render the same "YOU WIN" banner as in-game settlement)
     public int MySeatIndex { get; set; }
@@ -81,6 +84,7 @@ public class AvalonGameDetailDto
             StartedAt = game.StartedAt,
             EndedAt = game.EndedAt,
             DurationSeconds = (int)(game.EndedAt - game.StartedAt).TotalSeconds,
+            IsRanked = game.IsRanked,
             Players = game.Players
                 .OrderBy(p => p.SeatIndex)
                 .Select(p => new AvalonPlayerDetailDto

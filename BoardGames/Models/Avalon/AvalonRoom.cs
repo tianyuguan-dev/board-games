@@ -19,6 +19,7 @@ public class AvalonRoom
     public HashSet<string> ReadyPlayers { get; init; } = new();        // Lobby ready (before game / game over)
     public HashSet<string> NightConfirmedPlayers { get; init; } = new(); // ConfirmNightReveal during game
     public Queue<int> RecentStartLeaders { get; init; } = new();        // Last 2 start-leader seat indices, to avoid repeats
+    public bool IsRanked { get; set; } = true;                          // Ranked = balance applied; Casual = display only
     public AvalonGame? Game { get; set; }
 
     public int PickStartLeader(int playerCount)

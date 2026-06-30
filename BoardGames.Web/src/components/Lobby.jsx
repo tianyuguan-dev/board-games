@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Leaderboard from "./Leaderboard";
+import WheelPicker from "./WheelPicker";
 
 export default function Lobby({ connection, nickname, onJoinRoom, onBack }) {
   const [roomId, setRoomId] = useState("");
@@ -55,24 +56,11 @@ export default function Lobby({ connection, nickname, onJoinRoom, onBack }) {
         </div>
       )}
 
-      {leaderboard.length > 0 && (
-        <div className="section">
-          <h3>Leaderboard</h3>
-          <Leaderboard entries={leaderboard} nickname={nickname} valueLabel="Balance" />
-        </div>
-      )}
-
       <div className="section">
         <h3>Create Room</h3>
-        <div className="inline-group">
+        <div className="inline-group" style={{ flexWrap: "wrap", gap: 10 }}>
           <label className="text-muted" style={{ whiteSpace: 'nowrap' }}>Max Players:</label>
-          <select
-            value={maxPlayers}
-            onChange={(e) => setMaxPlayers(Number(e.target.value))}
-            style={{ width: 60 }}
-          >
-            {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <WheelPicker value={maxPlayers} min={1} max={7} onChange={setMaxPlayers} itemHeight={26} width={56} />
           <button onClick={handleCreate}>Create</button>
         </div>
       </div>
@@ -92,6 +80,13 @@ export default function Lobby({ connection, nickname, onJoinRoom, onBack }) {
       </div>
 
       {error && <p className="error-msg">{error}</p>}
+
+      {leaderboard.length > 0 && (
+        <div className="section">
+          <h3>Leaderboard</h3>
+          <Leaderboard entries={leaderboard} nickname={nickname} valueLabel="Balance" />
+        </div>
+      )}
       <hr />
       <button onClick={onBack} style={{ background: '#94a3b8' }}>Back</button>
     </div>

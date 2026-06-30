@@ -96,6 +96,7 @@ export default function AvalonHistory({ onSelectGame, onBack }) {
             >
               <div className="av-history-row1">
                 <span className="av-date">{formatDate(g.endedAt)}</span>
+                {g.isRanked === false && <span className="mode-badge casual">Casual</span>}
                 <span className={`winner-badge ${g.winner.toLowerCase()}`}>
                   {g.winner === "Good" ? "Good Wins" : "Evil Wins"}
                 </span>
@@ -106,7 +107,7 @@ export default function AvalonHistory({ onSelectGame, onBack }) {
                   {ROLE_LABELS[g.myRole] || g.myRole}
                 </span>
                 <span className={`result-tag ${won ? "won" : "lost"}`}>
-                  {won ? "Won" : "Lost"} {deltaSign}{g.myBalanceDelta}
+                  {won ? "Won" : "Lost"}{g.isRanked === false ? "" : ` ${deltaSign}${g.myBalanceDelta}`}
                 </span>
               </div>
             </div>

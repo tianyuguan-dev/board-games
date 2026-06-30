@@ -73,7 +73,7 @@ function countProposals(state) {
   return state.history.reduce((sum, props) => sum + (props?.length ?? 0), 0);
 }
 
-export default function AvalonGame({ connection, nickname, isGuest, roomId, maxPlayers, playerCount, roomPlayers, mySeatIndex, isHost, roleConfig, maxRejects, needsRejoin, gameInProgress, onLeave }) {
+export default function AvalonGame({ connection, nickname, isGuest, roomId, maxPlayers, playerCount, roomPlayers, mySeatIndex, isHost, roleConfig, maxRejects, isRanked, needsRejoin, gameInProgress, onLeave }) {
   const [gameState, setGameState] = useState(null);
   const [myIndex, setMyIndex] = useState(-1);
   // Use lobby-time mySeatIndex (from RoomUpdate) when game hasn't started yet,
@@ -624,7 +624,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
       <div className="page-center" style={{ maxWidth: 500 }}>
         <h2>Room {roomId}</h2>
         {balance !== null && <p className="text-gold mb-16">{nickname || "You"}'s net wins: {balance}</p>}
-        <p className="text-muted">Players: {playerCount} / {maxPlayers} (need 5-10)</p>
+        <p className="text-muted">Players: {playerCount} / {maxPlayers}</p>
         {isHost && (
           <div className="role-adjust-row" style={{ marginBottom: 12, justifyContent: "center" }}>
             <button
@@ -632,7 +632,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
               disabled={maxPlayers <= 5 || maxPlayers <= roomPlayers.length}
               onClick={() => connection.invoke("SetMaxPlayers", roomId, maxPlayers - 1).catch(() => {})}
             >-</button>
-            <span className="role-adjust-label">Max Players: {maxPlayers}</span>
+            <span className="role-adjust-label">Players: {maxPlayers}</span>
             <button
               className="role-adjust-btn"
               disabled={maxPlayers >= 10}
@@ -640,6 +640,26 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
             >+</button>
           </div>
         )}
+        <div style={{ textAlign: "center", marginBottom: 12 }}>
+          <div className="mode-toggle" role="radiogroup" aria-label="Game mode">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={isRanked}
+              className={`mode-option ${isRanked ? "active" : ""}`}
+              onClick={() => isHost && !isRanked && connection.invoke("SetRanked", roomId, true).catch(() => {})}
+              disabled={!isHost}
+            >Ranked</button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!isRanked}
+              className={`mode-option ${!isRanked ? "active" : ""}`}
+              onClick={() => isHost && isRanked && connection.invoke("SetRanked", roomId, false).catch(() => {})}
+              disabled={!isHost}
+            >Casual</button>
+          </div>
+        </div>
         {renderPlayerList()}
 
         {roleConfig.length > 0 && (() => {
@@ -792,8 +812,20 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
   return (
     <div className="av-container">
       <div className="av-header">
-        <span className="room-info">Room {roomId}{balance !== null && ` | ${nickname || "You"}'s net wins: ${balance}`}</span>
-        <button className="btn-small" style={{ color: "#dc2626" }} onClick={handleLeave}>Leave</button>
+        <div className="av-header-row">
+          <span className="room-info">
+            Room {roomId}
+            <span className={`mode-badge ${isRanked ? "ranked" : "casual"}`} style={{ marginLeft: 6 }}>
+              {isRanked ? "Ranked" : "Casual"}
+            </span>
+          </span>
+          <button className="btn-small" style={{ color: "#dc2626" }} onClick={handleLeave}>Leave</button>
+        </div>
+        {balance !== null && (
+          <div className="av-header-row" style={{ marginTop: 4 }}>
+            <span className="room-info">{nickname || "You"}'s net wins: {balance}</span>
+          </div>
+        )}
       </div>
       {renderAnimations()}
 
@@ -1004,7 +1036,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
                 <div className="roles-reveal">
                   {gs.allRoles.map((role, i) => {
                     const delta = gs.balanceDeltas?.[i];
-                    const deltaShown = delta != null;
+                    const deltaShown = isRanked && delta != null;
                     const won = deltaShown && delta >= 0;
                     return (
                       <div key={i} className={`role-reveal ${AvalonTeamForRole(role) === "Evil" ? "evil" : "good"}`}>

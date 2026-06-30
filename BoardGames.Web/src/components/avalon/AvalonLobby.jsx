@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import "./AvalonGame.css";
 import Leaderboard from "../Leaderboard";
+import WheelPicker from "../WheelPicker";
 
 export default function AvalonLobby({ connection, nickname, isGuest, onJoinRoom, onBack, onShowHistory }) {
   const [roomId, setRoomId] = useState("");
-  const [maxPlayers, setMaxPlayers] = useState(7);
+  const [maxPlayers, setMaxPlayers] = useState(8);
+  const [isRanked, setIsRanked] = useState(true);
   const [error, setError] = useState("");
   const [balance, setBalance] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardExpanded, setLeaderboardExpanded] = useState(false);
   const [activeRoom, setActiveRoom] = useState(null);
 
   useEffect(() => {
@@ -18,7 +21,7 @@ export default function AvalonLobby({ connection, nickname, isGuest, onJoinRoom,
 
   async function handleCreate() {
     try {
-      const room = await connection.invoke("CreateRoom", maxPlayers);
+      const room = await connection.invoke("CreateRoom", maxPlayers, isRanked);
       onJoinRoom(room.roomId, room.maxPlayers, 1);
     } catch (e) {
       setError(e.message || "Failed to create room");
@@ -74,11 +77,25 @@ export default function AvalonLobby({ connection, nickname, isGuest, onJoinRoom,
             <>
               <div className="section">
                 <h3>Create Room</h3>
-                <div className="inline-group">
-                  <label className="text-muted" style={{ whiteSpace: "nowrap" }}>Players:</label>
-                  <select value={maxPlayers} onChange={(e) => setMaxPlayers(Number(e.target.value))} style={{ width: 60 }}>
-                    {[5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                <div className="inline-group" style={{ flexWrap: "wrap", gap: 10 }}>
+                  <label className="text-muted" style={{ fontSize: 13 }}>Players:</label>
+                  <WheelPicker value={maxPlayers} min={5} max={10} onChange={setMaxPlayers} itemHeight={26} width={56} />
+                  <div className="mode-toggle mode-toggle-vertical" role="radiogroup" aria-label="Game mode">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={isRanked}
+                      className={`mode-option ${isRanked ? "active" : ""}`}
+                      onClick={() => setIsRanked(true)}
+                    >Ranked</button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={!isRanked}
+                      className={`mode-option ${!isRanked ? "active" : ""}`}
+                      onClick={() => setIsRanked(false)}
+                    >Casual</button>
+                  </div>
                   <button onClick={handleCreate}>Create</button>
                 </div>
               </div>
@@ -117,8 +134,21 @@ export default function AvalonLobby({ connection, nickname, isGuest, onJoinRoom,
 
       {leaderboard.length > 0 && (
         <div className="section">
-          <h3>Leaderboard</h3>
-          <Leaderboard entries={leaderboard} nickname={nickname} valueLabel="Net Wins" />
+          <button
+            type="button"
+            className="leaderboard-toggle"
+            onClick={() => setLeaderboardExpanded((v) => !v)}
+            aria-expanded={leaderboardExpanded}
+          >
+            <span>{leaderboardExpanded ? "Hide" : "Show"} Leaderboard</span>
+            <span
+              className="leaderboard-chevron"
+              style={{ transform: leaderboardExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
+            >▶</span>
+          </button>
+          {leaderboardExpanded && (
+            <Leaderboard entries={leaderboard} nickname={nickname} valueLabel="Net Wins" />
+          )}
         </div>
       )}
       <hr />

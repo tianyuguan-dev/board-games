@@ -31,7 +31,8 @@ public class AvalonGameHistoryRepository(AppDbContext db) : IAvalonGameHistoryRe
             EarlyAssassination = game.EarlyAssassination,
             AssassinTargetSeat = game.AssassinTarget,
             StartedAt = game.StartedAt,
-            EndedAt = DateTime.UtcNow
+            EndedAt = DateTime.UtcNow,
+            IsRanked = room.IsRanked
         };
 
         for (int i = 0; i < game.PlayerCount; i++)

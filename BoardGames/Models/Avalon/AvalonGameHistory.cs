@@ -13,6 +13,7 @@ public class AvalonGameHistory
     public int? AssassinTargetSeat { get; set; }
     public DateTime StartedAt { get; set; }
     public DateTime EndedAt { get; set; }
+    public bool IsRanked { get; set; } = true;
 
     public List<AvalonGamePlayer> Players { get; set; } = new();
     public List<AvalonGameProposal> Proposals { get; set; } = new();

@@ -28,6 +28,7 @@ function App() {
   const [isHost, setIsHost] = useState(false);
   const [roleConfig, setRoleConfig] = useState([]);
   const [maxRejects, setMaxRejects] = useState(4);
+  const [isRanked, setIsRanked] = useState(true);
   const [gameInProgress, setGameInProgress] = useState(false);
   const [avalonView, setAvalonView] = useState(null); // null | 'history' | 'detail'
   const [avalonHistoryGameId, setAvalonHistoryGameId] = useState(null);
@@ -63,6 +64,7 @@ function App() {
       if (data.roleConfig) setRoleConfig(data.roleConfig);
       if (data.maxRejects != null) setMaxRejects(data.maxRejects);
       if (data.maxPlayers != null) setMaxPlayers(data.maxPlayers);
+      if (data.isRanked != null) setIsRanked(data.isRanked);
     });
     conn.on("Kicked", (reason) => {
       // Delay the popup so player can see the final dealer hand (or other end-of-round state)
@@ -273,7 +275,7 @@ function App() {
     if (!roomId) {
       return <AvalonLobby connection={connection} nickname={nickname} isGuest={isGuest} onJoinRoom={handleJoinRoom} onBack={handleBackToHome} onShowHistory={() => setAvalonView("history")} />;
     }
-    return <AvalonGame connection={connection} nickname={nickname} isGuest={isGuest} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} mySeatIndex={mySeatIndex} isHost={isHost} roleConfig={roleConfig} maxRejects={maxRejects} needsRejoin={needsRejoinRef} gameInProgress={gameInProgress} onLeave={handleLeave} />;
+    return <AvalonGame connection={connection} nickname={nickname} isGuest={isGuest} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} mySeatIndex={mySeatIndex} isHost={isHost} roleConfig={roleConfig} maxRejects={maxRejects} isRanked={isRanked} needsRejoin={needsRejoinRef} gameInProgress={gameInProgress} onLeave={handleLeave} />;
   }
 
   return null;

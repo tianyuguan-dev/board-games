@@ -87,7 +87,8 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
                 MySeatIndex = room.Players[connId],
                 RoleConfig = room.RoleConfig.Select(r => r.ToString()).ToList(),
                 MaxRejects = room.MaxRejects,
-                MaxPlayers = room.MaxPlayers
+                MaxPlayers = room.MaxPlayers,
+                IsRanked = room.IsRanked
             });
         }
     }
@@ -135,18 +136,22 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
                         && game.Roles[game.AssassinTarget.Value] != AvalonRole.Merlin
                         && game.Roles[game.AssassinTarget.Value] != AvalonRole.Percival;
 
-        for (int i = 0; i < game.PlayerCount; i++)
+        // Casual mode: skip balance writes entirely (history is still persisted so the +/- still shows in gameover/history UI).
+        if (room.IsRanked)
         {
-            var userId = room.GamePlayerUserIds.ElementAtOrDefault(i);
-            if (userId == 0) continue;
+            for (int i = 0; i < game.PlayerCount; i++)
+            {
+                var userId = room.GamePlayerUserIds.ElementAtOrDefault(i);
+                if (userId == 0) continue;
 
-            var team = AvalonConfig.GetTeam(game.Roles[i]);
-            bool isWinner = (team == AvalonTeam.Good && game.Winner == GameWinner.Good)
-                            || (team == AvalonTeam.Evil && game.Winner == GameWinner.Evil);
-            decimal delta = isWinner ? points : -points;
-            if (shielded && game.AssassinTarget.HasValue && i == game.AssassinTarget.Value)
-                delta += 0.5m;
-            await balanceRepository.UpdateBalance(userId, GameType.Avalon, delta);
+                var team = AvalonConfig.GetTeam(game.Roles[i]);
+                bool isWinner = (team == AvalonTeam.Good && game.Winner == GameWinner.Good)
+                                || (team == AvalonTeam.Evil && game.Winner == GameWinner.Evil);
+                decimal delta = isWinner ? points : -points;
+                if (shielded && game.AssassinTarget.HasValue && i == game.AssassinTarget.Value)
+                    delta += 0.5m;
+                await balanceRepository.UpdateBalance(userId, GameType.Avalon, delta);
+            }
         }
 
         // Persist game history. Failure must not block settlement (players already saw their balance update).
@@ -219,7 +224,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
     // --- Room management ---
 
-    public async Task<object> CreateRoom(int maxPlayers)
+    public async Task<object> CreateRoom(int maxPlayers, bool isRanked = true)
     {
         if (IsGuestUser())
             throw new InvalidOperationException("Guests can only play the solo demo. Register an account to play multiplayer.");
@@ -230,10 +235,26 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             room.HostConnectionId = Context.ConnectionId;
             room.PlayerNicknames[Context.ConnectionId] = await GetNickname();
             room.PlayerUserIds[Context.ConnectionId] = GetUserId();
+            room.IsRanked = isRanked;
             room.ApplyDefaultRoles();
             await Groups.AddToGroupAsync(Context.ConnectionId, room.RoomId);
             await BroadcastRoomPlayers(room.RoomId);
             return (object)new { room.RoomId, room.MaxPlayers };
+        });
+    }
+
+    public async Task SetRanked(string roomId, bool isRanked)
+    {
+        var room = roomManager.GetRoom(roomId)
+            ?? throw new HubException("Room not found");
+        await WithLock(room, async () =>
+        {
+            if (Context.ConnectionId != room.HostConnectionId)
+                throw new HubException("Only the host can change game mode");
+            if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
+                throw new HubException("Cannot change game mode during an active game");
+            room.IsRanked = isRanked;
+            await BroadcastRoomPlayers(room.RoomId);
         });
     }
 

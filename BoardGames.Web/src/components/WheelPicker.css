@@ -1,0 +1,57 @@
+.wheel-picker {
+  position: relative;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 50%, #f8fafc 100%);
+  border: 1px solid #cbd5e1;
+  overflow: hidden;
+  display: inline-block;
+}
+
+.wheel-scroll {
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  /* Fade top/bottom so non-center rows appear dimmer at the edges */
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 70%, transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 70%, transparent 100%);
+}
+
+.wheel-scroll::-webkit-scrollbar { display: none; }
+
+.wheel-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  cursor: pointer;
+  user-select: none;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #94a3b8;
+  transition: none;
+}
+
+.wheel-item.active {
+  font-size: 18px;
+  font-weight: 800;
+  color: #3d2410;
+}
+
+.wheel-item:not(.active):hover {
+  color: #475569;
+}
+
+/* The gold "selected" frame in the middle (purely visual) */
+.wheel-highlight {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  border-top: 1px solid rgba(160, 122, 48, 0.6);
+  border-bottom: 1px solid rgba(160, 122, 48, 0.6);
+  pointer-events: none;
+  background: rgba(160, 122, 48, 0.05);
+}
