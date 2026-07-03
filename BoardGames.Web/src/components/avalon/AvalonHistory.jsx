@@ -70,16 +70,20 @@ export default function AvalonHistory({ onSelectGame, onBack }) {
       </div>
 
       <div className="av-history-filter">
-        <DatePickerEN value={date} onChange={setDate} />
-        <select value={mode} onChange={(e) => setMode(e.target.value)} aria-label="Mode filter">
-          <option value="">All</option>
-          <option value="ranked">Ranked</option>
-          <option value="casual">Casual</option>
-        </select>
-        <button className="btn-small" onClick={handleApplyFilter} disabled={loading}>Apply</button>
-        {(date || mode) && (
-          <button className="btn-small btn-secondary" onClick={handleClearFilter} disabled={loading}>Clear</button>
-        )}
+        <div className="av-history-filter-controls">
+          <DatePickerEN value={date} onChange={setDate} />
+          <select value={mode} onChange={(e) => setMode(e.target.value)} aria-label="Mode filter">
+            <option value="">All</option>
+            <option value="ranked">Ranked</option>
+            <option value="casual">Casual</option>
+          </select>
+        </div>
+        <div className="av-history-filter-actions">
+          <button className="btn-small" onClick={handleApplyFilter} disabled={loading}>Apply</button>
+          {(date || mode) && (
+            <button className="btn-small btn-secondary" onClick={handleClearFilter} disabled={loading}>Clear</button>
+          )}
+        </div>
       </div>
 
       {error && <p className="error-msg">{error}</p>}

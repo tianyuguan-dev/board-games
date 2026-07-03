@@ -176,17 +176,21 @@ export default function Admin() {
         >
           ← Back to User Detail
         </button>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-          <DatePickerEN value={avalonHistoryDate} onChange={setAvalonHistoryDate} />
-          <select value={avalonHistoryMode} onChange={(e) => setAvalonHistoryMode(e.target.value)} aria-label="Mode filter">
-            <option value="">All</option>
-            <option value="ranked">Ranked</option>
-            <option value="casual">Casual</option>
-          </select>
-          <button className="btn-small" onClick={() => loadAvalonHistory(avalonHistoryDate, avalonHistoryMode)}>Apply</button>
-          {(avalonHistoryDate || avalonHistoryMode) && (
-            <button className="btn-small" onClick={() => { setAvalonHistoryDate(""); setAvalonHistoryMode(""); loadAvalonHistory("", ""); }} style={{ background: "#94a3b8" }}>Clear</button>
-          )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <DatePickerEN value={avalonHistoryDate} onChange={setAvalonHistoryDate} />
+            <select value={avalonHistoryMode} onChange={(e) => setAvalonHistoryMode(e.target.value)} aria-label="Mode filter">
+              <option value="">All</option>
+              <option value="ranked">Ranked</option>
+              <option value="casual">Casual</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button className="btn-small" onClick={() => loadAvalonHistory(avalonHistoryDate, avalonHistoryMode)}>Apply</button>
+            {(avalonHistoryDate || avalonHistoryMode) && (
+              <button className="btn-small" onClick={() => { setAvalonHistoryDate(""); setAvalonHistoryMode(""); loadAvalonHistory("", ""); }} style={{ background: "#94a3b8" }}>Clear</button>
+            )}
+          </div>
         </div>
         {error && <p className="error-msg">{error}</p>}
         {avalonHistory.length === 0 ? (

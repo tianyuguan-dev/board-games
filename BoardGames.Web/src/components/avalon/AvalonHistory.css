@@ -7,12 +7,19 @@
 
 .av-history-filter {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
   margin-bottom: 14px;
   font-size: 13px;
   color: #475569;
+}
+
+.av-history-filter-controls,
+.av-history-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .av-history-filter label {
