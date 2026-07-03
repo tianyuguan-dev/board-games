@@ -29,18 +29,19 @@ export default function AvalonHistory({ onSelectGame, onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [date, setDate] = useState("");
+  const [mode, setMode] = useState("");   // "" | "ranked" | "casual"
 
   useEffect(() => {
-    loadPage(0, true, "");
+    loadPage(0, true, "", "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadPage(off, replace, dateArg = date) {
+  async function loadPage(off, replace, dateArg = date, modeArg = mode) {
     setLoading(true);
     setError("");
     try {
       const { from, to } = localDayToUtcRange(dateArg);
-      const batch = await getMyAvalonGames(PAGE_SIZE, off, from, to);
+      const batch = await getMyAvalonGames(PAGE_SIZE, off, from, to, modeArg || null);
       setGames(replace ? batch : [...games, ...batch]);
       setOffset(off + batch.length);
       setHasMore(batch.length === PAGE_SIZE);
@@ -52,12 +53,13 @@ export default function AvalonHistory({ onSelectGame, onBack }) {
   }
 
   function handleApplyFilter() {
-    loadPage(0, true, date);
+    loadPage(0, true, date, mode);
   }
 
   function handleClearFilter() {
     setDate("");
-    loadPage(0, true, "");
+    setMode("");
+    loadPage(0, true, "", "");
   }
 
   return (
@@ -69,8 +71,13 @@ export default function AvalonHistory({ onSelectGame, onBack }) {
 
       <div className="av-history-filter">
         <DatePickerEN value={date} onChange={setDate} />
+        <select value={mode} onChange={(e) => setMode(e.target.value)} aria-label="Mode filter">
+          <option value="">All</option>
+          <option value="ranked">Ranked</option>
+          <option value="casual">Casual</option>
+        </select>
         <button className="btn-small" onClick={handleApplyFilter} disabled={loading}>Apply</button>
-        {date && (
+        {(date || mode) && (
           <button className="btn-small btn-secondary" onClick={handleClearFilter} disabled={loading}>Clear</button>
         )}
       </div>

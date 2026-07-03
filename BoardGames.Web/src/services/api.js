@@ -191,10 +191,11 @@ export function localDayToUtcRange(localDate) {
   return { from: start.toISOString(), to: end.toISOString() };
 }
 
-export async function getMyAvalonGames(limit = 20, offset = 0, from = null, to = null) {
+export async function getMyAvalonGames(limit = 20, offset = 0, from = null, to = null, mode = null) {
   const params = new URLSearchParams({ limit, offset });
   if (from) params.set("from", from);
   if (to) params.set("to", to);
+  if (mode) params.set("mode", mode);
   const response = await authFetch(`${BASE_URL}/avalon/games/recent?${params}`);
   if (!response || !response.ok) throw new Error("Failed to load game history");
   return await response.json();

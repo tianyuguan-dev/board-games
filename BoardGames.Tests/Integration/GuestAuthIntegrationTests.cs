@@ -95,7 +95,7 @@ public class GuestAuthIntegrationTests : IClassFixture<CustomWebApplicationFacto
         await conn.StartAsync();
 
         var ex = await Assert.ThrowsAsync<HubException>(
-            () => conn.InvokeAsync<object>("CreateRoom", 5));
+            () => conn.InvokeAsync<object>("CreateRoom", 5, true));
         Assert.Contains("Guests can only play the solo demo", ex.Message);
     }
 
@@ -111,7 +111,7 @@ public class GuestAuthIntegrationTests : IClassFixture<CustomWebApplicationFacto
 
         var host = CreateHubConnection("/hub/avalon", hostToken);
         await host.StartAsync();
-        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5);
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             roomJson.ToString()!)!["roomId"].ToString()!;
 

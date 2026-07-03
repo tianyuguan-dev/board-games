@@ -16,7 +16,8 @@ public class AvalonGameHistoryController(IAvalonGameHistoryRepository repo) : Co
         [FromQuery] int limit = 20,
         [FromQuery] int offset = 0,
         [FromQuery] string? from = null,
-        [FromQuery] string? to = null)
+        [FromQuery] string? to = null,
+        [FromQuery] string? mode = null)
     {
         if (limit < 1 || limit > 100) limit = 20;
         if (offset < 0) offset = 0;
@@ -29,8 +30,15 @@ public class AvalonGameHistoryController(IAvalonGameHistoryRepository repo) : Co
         if (!string.IsNullOrEmpty(to) && DateTime.TryParse(to, null, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var t))
             toUtc = t;
 
+        bool? isRanked = mode switch
+        {
+            "ranked" => true,
+            "casual" => false,
+            _ => null,
+        };
+
         var userId = User.GetUserIdOrZero();
-        var games = await repo.GetMyRecentGames(userId, limit, offset, fromUtc, toUtc);
+        var games = await repo.GetMyRecentGames(userId, limit, offset, fromUtc, toUtc, isRanked);
         var dtos = games.Select(g => AvalonGameSummaryDto.From(g, userId)).ToList();
         return Ok(dtos);
     }

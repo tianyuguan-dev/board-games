@@ -91,7 +91,7 @@ public class AvalonGameHistoryRepository(AppDbContext db) : IAvalonGameHistoryRe
         await db.SaveChangesAsync();
     }
 
-    public async Task<List<AvalonGameHistory>> GetMyRecentGames(int userId, int limit, int offset, DateTime? fromUtc = null, DateTime? toUtc = null)
+    public async Task<List<AvalonGameHistory>> GetMyRecentGames(int userId, int limit, int offset, DateTime? fromUtc = null, DateTime? toUtc = null, bool? isRanked = null)
     {
         var gameIds = await db.AvalonGamePlayers
             .Where(p => p.UserId == userId)
@@ -106,6 +106,8 @@ public class AvalonGameHistoryRepository(AppDbContext db) : IAvalonGameHistoryRe
             query = query.Where(g => g.EndedAt >= fromUtc.Value);
         if (toUtc.HasValue)
             query = query.Where(g => g.EndedAt < toUtc.Value);
+        if (isRanked.HasValue)
+            query = query.Where(g => g.IsRanked == isRanked.Value);
 
         return await query
             .OrderByDescending(g => g.EndedAt)

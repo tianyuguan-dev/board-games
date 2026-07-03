@@ -50,7 +50,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
     {
         var conn = Conn(await Tok(user));
         await conn.StartAsync();
-        var json = await conn.InvokeAsync<object>("CreateRoom", max);
+        var json = await conn.InvokeAsync<object>("CreateRoom", max, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
         return roomId;
@@ -61,7 +61,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
     {
         var host = Conn(await Tok("adj_host1"));
         await host.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -75,7 +75,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
     {
         var host = Conn(await Tok("adj_host2"));
         await host.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -94,7 +94,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
     {
         var host = Conn(await Tok("adj_unknown"));
         await host.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -110,7 +110,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var guestToken = await Tok("adj_guest3");
         var host = Conn(hostToken); var guest = Conn(guestToken);
         await host.StartAsync(); await guest.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
         await guest.InvokeAsync<object>("JoinRoom", roomId);
@@ -127,7 +127,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         await host.StartAsync();
         // 9p default: 3 evil + 6 good. Free a LoyalServant slot, add Oberon (evil=4, good=5),
         // then try to free another LoyalServant which would tip the balance to good=4=evil=4.
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -143,7 +143,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
     {
         var host = Conn(await Tok("rej_host"));
         await host.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 5);
+        var json = await host.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -159,7 +159,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var guestToken = await Tok("leave_guest");
         var host = Conn(hostToken); var guest = Conn(guestToken);
         await host.StartAsync(); await guest.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 5);
+        var json = await host.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
         await guest.InvokeAsync<object>("JoinRoom", roomId);
@@ -181,7 +181,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var c2 = Conn(t2); var c3 = Conn(t3); var c4 = Conn(t4); var c5 = Conn(t5);
         await Task.WhenAll(host.StartAsync(), c2.StartAsync(), c3.StartAsync(), c4.StartAsync(), c5.StartAsync());
 
-        var json = await host.InvokeAsync<object>("CreateRoom", 5);
+        var json = await host.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
         foreach (var c in new[] { c2, c3, c4, c5 }) await c.InvokeAsync<object>("JoinRoom", roomId);
@@ -200,7 +200,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
     {
         var host = Conn(await Tok("adj_assassin"));
         await host.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 7);
+        var json = await host.InvokeAsync<object>("CreateRoom", 7, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -216,7 +216,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var host = Conn(await Tok("adj_morgana"));
         await host.StartAsync();
         // 9p default: 6G, 3E. Margin enough to drop Percival (→5G, 3E) before dropping Morgana.
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -232,7 +232,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var host = Conn(await Tok("adj_merlin"));
         await host.StartAsync();
         // 9p: Margin to drop Assassin + Percival before dropping Merlin (since both require it).
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -248,7 +248,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var host = Conn(await Tok("adj_percival"));
         await host.StartAsync();
         // 9p has 6G margin so dropping Percival keeps Good > Evil (5 > 3).
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -262,7 +262,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var host = Conn(await Tok("adj_loyal"));
         await host.StartAsync();
         // 9p has 4 LoyalServants; safe to drop a couple and add back.
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -280,7 +280,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var host = Conn(await Tok("adj_rule_assassin"));
         await host.StartAsync();
         // 9p so margin is enough to drop Percival (its Merlin dep) before testing Merlin removal.
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -296,7 +296,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var host = Conn(await Tok("adj_rule_percival"));
         await host.StartAsync();
         // 7p OK: dropping Morgana (4G, 2E) doesn't violate Good > Evil; Percival's dep breaks → reject.
-        var json = await host.InvokeAsync<object>("CreateRoom", 7);
+        var json = await host.InvokeAsync<object>("CreateRoom", 7, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -311,7 +311,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var host = Conn(await Tok("adj_rule_evil"));
         await host.StartAsync();
         // 9p so removing Percival + Morgana + Mordred is feasible without Good <= Evil violation.
-        var json = await host.InvokeAsync<object>("CreateRoom", 9);
+        var json = await host.InvokeAsync<object>("CreateRoom", 9, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -328,7 +328,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
     {
         var host = Conn(await Tok("adj_rule_too_many"));
         await host.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 5);
+        var json = await host.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -345,7 +345,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
     {
         var host = Conn(await Tok("smp_host"));
         await host.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 7);
+        var json = await host.InvokeAsync<object>("CreateRoom", 7, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -362,7 +362,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var guestToken = await Tok("smp_guest2");
         var host = Conn(hostToken); var guest = Conn(guestToken);
         await host.StartAsync(); await guest.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 7);
+        var json = await host.InvokeAsync<object>("CreateRoom", 7, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
         await guest.InvokeAsync<object>("JoinRoom", roomId);
@@ -377,7 +377,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
     {
         var host = Conn(await Tok("smp_range"));
         await host.StartAsync();
-        var json = await host.InvokeAsync<object>("CreateRoom", 7);
+        var json = await host.InvokeAsync<object>("CreateRoom", 7, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
 
@@ -401,7 +401,7 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         await host.StartAsync();
         foreach (var g in guests) await g.StartAsync();
 
-        var json = await host.InvokeAsync<object>("CreateRoom", 7);
+        var json = await host.InvokeAsync<object>("CreateRoom", 7, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             json.ToString()!)!["roomId"].ToString()!;
         foreach (var g in guests) await g.InvokeAsync<object>("JoinRoom", roomId);
@@ -410,5 +410,96 @@ public class AvalonHubExtraTests : IClassFixture<CustomWebApplicationFactory>, I
         var ex = await Assert.ThrowsAsync<HubException>(
             () => host.InvokeAsync("SetMaxPlayers", roomId, 5));
         Assert.Contains("Cannot shrink below current player count", ex.Message);
+    }
+
+    // ───────── Ranked / Casual mode ─────────
+
+    // Waits for one RoomUpdate broadcast and returns the IsRanked flag from the payload.
+    private static async Task<bool> AwaitIsRanked(HubConnection conn, Func<Task> trigger)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        var sub = conn.On<System.Text.Json.JsonElement>("RoomUpdate", payload =>
+        {
+            if (payload.TryGetProperty("isRanked", out var flag))
+                tcs.TrySetResult(flag.GetBoolean());
+        });
+        try
+        {
+            await trigger();
+            return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally { sub.Dispose(); }
+    }
+
+    [Fact]
+    public async Task CreateRoom_Ranked_Broadcasts_IsRanked_True()
+    {
+        var host = Conn(await Tok("mode_default"));
+        await host.StartAsync();
+        var isRanked = await AwaitIsRanked(host, () => host.InvokeAsync("CreateRoom", 5, true));
+        Assert.True(isRanked);
+    }
+
+    [Fact]
+    public async Task CreateRoom_Casual_Broadcasts_IsRanked_False()
+    {
+        var host = Conn(await Tok("mode_casual_create"));
+        await host.StartAsync();
+        var isRanked = await AwaitIsRanked(host, () => host.InvokeAsync("CreateRoom", 5, false));
+        Assert.False(isRanked);
+    }
+
+    [Fact]
+    public async Task SetRanked_HostCanToggle()
+    {
+        var host = Conn(await Tok("mode_toggle_host"));
+        await host.StartAsync();
+        var json = await host.InvokeAsync<object>("CreateRoom", 5, true);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            json.ToString()!)!["roomId"].ToString()!;
+
+        var casualFlag = await AwaitIsRanked(host, () => host.InvokeAsync("SetRanked", roomId, false));
+        Assert.False(casualFlag);
+
+        var rankedFlag = await AwaitIsRanked(host, () => host.InvokeAsync("SetRanked", roomId, true));
+        Assert.True(rankedFlag);
+    }
+
+    [Fact]
+    public async Task SetRanked_Throws_NonHost()
+    {
+        var host = Conn(await Tok("mode_nonhost_h"));
+        var guest = Conn(await Tok("mode_nonhost_g"));
+        await host.StartAsync(); await guest.StartAsync();
+        var json = await host.InvokeAsync<object>("CreateRoom", 5, true);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            json.ToString()!)!["roomId"].ToString()!;
+        await guest.InvokeAsync<object>("JoinRoom", roomId);
+
+        var ex = await Assert.ThrowsAsync<HubException>(
+            () => guest.InvokeAsync("SetRanked", roomId, false));
+        Assert.Contains("host", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SetRanked_Throws_DuringActiveGame()
+    {
+        var t1 = await Tok("mode_active_a"); var t2 = await Tok("mode_active_b");
+        var t3 = await Tok("mode_active_c"); var t4 = await Tok("mode_active_d");
+        var t5 = await Tok("mode_active_e");
+        var host = Conn(t1);
+        var others = new[] { Conn(t2), Conn(t3), Conn(t4), Conn(t5) };
+        await Task.WhenAll(new[] { host }.Concat(others).Select(c => c.StartAsync()));
+
+        var json = await host.InvokeAsync<object>("CreateRoom", 5, true);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            json.ToString()!)!["roomId"].ToString()!;
+        foreach (var c in others) await c.InvokeAsync<object>("JoinRoom", roomId);
+        foreach (var c in others) await c.InvokeAsync("Ready", roomId);
+        await host.InvokeAsync("StartGame", roomId);
+
+        var ex = await Assert.ThrowsAsync<HubException>(
+            () => host.InvokeAsync("SetRanked", roomId, false));
+        Assert.Contains("active game", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -56,7 +56,7 @@ public class AvalonDisconnectGraceTests : IClassFixture<FastTimerWebApplicationF
         var host = Conn(hostToken); var guest = Conn(guestToken);
         await host.StartAsync(); await guest.StartAsync();
 
-        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5);
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             roomJson.ToString()!)!["roomId"].ToString()!;
         await guest.InvokeAsync<object>("JoinRoom", roomId);
@@ -84,7 +84,7 @@ public class AvalonDisconnectGraceTests : IClassFixture<FastTimerWebApplicationF
         foreach (var c in conns) await c.StartAsync();
 
         var host = conns[0];
-        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5);
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             roomJson.ToString()!)!["roomId"].ToString()!;
 

@@ -115,6 +115,34 @@ public class AvalonGameHistoryRepositoryTests
     }
 
     [Fact]
+    public async Task PersistGame_DefaultsIsRankedTrue()
+    {
+        using var db = NewDb();
+        var repo = new AvalonGameHistoryRepository(db);
+
+        var room = BuildFinishedRoom(new[] { 11, 12, 13, 14, 15 });
+        // AvalonRoom.IsRanked defaults to true — don't touch it
+        await repo.PersistGame(room);
+
+        var hist = await db.AvalonGameHistories.FirstAsync();
+        Assert.True(hist.IsRanked);
+    }
+
+    [Fact]
+    public async Task PersistGame_CasualRoom_StoresIsRankedFalse()
+    {
+        using var db = NewDb();
+        var repo = new AvalonGameHistoryRepository(db);
+
+        var room = BuildFinishedRoom(new[] { 11, 12, 13, 14, 15 });
+        room.IsRanked = false;
+        await repo.PersistGame(room);
+
+        var hist = await db.AvalonGameHistories.FirstAsync();
+        Assert.False(hist.IsRanked);
+    }
+
+    [Fact]
     public async Task GetMyRecentGames_ReturnsOnlyParticipantGames()
     {
         using var db = NewDb();

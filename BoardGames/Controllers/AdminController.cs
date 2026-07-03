@@ -90,7 +90,7 @@ public class AdminController(
     }
 
     [HttpGet("users/{id}/avalon-history")]
-    public async Task<IActionResult> GetUserAvalonHistory(int id, [FromQuery] int limit = 20, [FromQuery] int offset = 0, [FromQuery] string? from = null, [FromQuery] string? to = null)
+    public async Task<IActionResult> GetUserAvalonHistory(int id, [FromQuery] int limit = 20, [FromQuery] int offset = 0, [FromQuery] string? from = null, [FromQuery] string? to = null, [FromQuery] string? mode = null)
     {
         if (!IsAuthorized()) return Unauthorized();
         if (limit < 1 || limit > 100) limit = 20;
@@ -102,7 +102,14 @@ public class AdminController(
         if (!string.IsNullOrEmpty(to) && DateTime.TryParse(to, null, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var t))
             toUtc = t;
 
-        var games = await avalonHistoryRepo.GetMyRecentGames(id, limit, offset, fromUtc, toUtc);
+        bool? isRanked = mode switch
+        {
+            "ranked" => true,
+            "casual" => false,
+            _ => null,
+        };
+
+        var games = await avalonHistoryRepo.GetMyRecentGames(id, limit, offset, fromUtc, toUtc, isRanked);
         var dtos = games.Select(g => AvalonGameSummaryDto.From(g, id)).ToList();
         return Ok(dtos);
     }

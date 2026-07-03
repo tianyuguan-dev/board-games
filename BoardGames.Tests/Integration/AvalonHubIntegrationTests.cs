@@ -51,7 +51,7 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
         var conn = CreateHubConnection("/hub/avalon", token);
         await conn.StartAsync();
 
-        var result = await conn.InvokeAsync<object>("CreateRoom", 5);
+        var result = await conn.InvokeAsync<object>("CreateRoom", 5, true);
         Assert.NotNull(result);
     }
 
@@ -66,7 +66,7 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
         await host.StartAsync();
         await guest.StartAsync();
 
-        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5);
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             roomJson.ToString()!)!["roomId"].ToString()!;
 
@@ -84,7 +84,7 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
         await conn1.StartAsync();
         await conn2.StartAsync();
 
-        var roomJson = await conn1.InvokeAsync<object>("CreateRoom", 5);
+        var roomJson = await conn1.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             roomJson.ToString()!)!["roomId"].ToString()!;
 
@@ -111,7 +111,7 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
         var conn = CreateHubConnection("/hub/avalon", token);
         await conn.StartAsync();
 
-        var roomJson = await conn.InvokeAsync<object>("CreateRoom", 5);
+        var roomJson = await conn.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             roomJson.ToString()!)!["roomId"].ToString()!;
 
@@ -127,7 +127,7 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
         var conn = CreateHubConnection("/hub/avalon", token);
         await conn.StartAsync();
 
-        await conn.InvokeAsync<object>("CreateRoom", 5);
+        await conn.InvokeAsync<object>("CreateRoom", 5, true);
         await conn.InvokeAsync("LeaveRoom");
     }
 
@@ -142,7 +142,7 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
         await host.StartAsync();
         await guest.StartAsync();
 
-        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5);
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 5, true);
         var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
             roomJson.ToString()!)!["roomId"].ToString()!;
         await guest.InvokeAsync<object>("JoinRoom", roomId);

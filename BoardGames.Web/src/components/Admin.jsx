@@ -27,6 +27,7 @@ export default function Admin() {
   const [newPassword, setNewPassword] = useState("");
   const [avalonHistory, setAvalonHistory] = useState(null); // null = not viewing; [] = loaded empty
   const [avalonHistoryDate, setAvalonHistoryDate] = useState("");
+  const [avalonHistoryMode, setAvalonHistoryMode] = useState("");   // "" | "ranked" | "casual"
   const [selectedGameId, setSelectedGameId] = useState(null);
 
   const headers = { "Content-Type": "application/json", "X-Admin-Token": password };
@@ -107,13 +108,14 @@ export default function Admin() {
     } catch { setError("Failed to update balance"); }
   }
 
-  async function loadAvalonHistory(date = avalonHistoryDate) {
+  async function loadAvalonHistory(date = avalonHistoryDate, mode = avalonHistoryMode) {
     setError(""); setSuccess("");
     try {
       const params = new URLSearchParams({ limit: 50 });
       const { from, to } = localDayToUtcRange(date);
       if (from) params.set("from", from);
       if (to) params.set("to", to);
+      if (mode) params.set("mode", mode);
       const res = await fetch(`${BASE_URL}/users/${selectedUser.id}/avalon-history?${params}`, { headers });
       if (!res.ok) { setError("Failed to load Avalon history"); return; }
       setAvalonHistory(await res.json());
@@ -176,15 +178,20 @@ export default function Admin() {
         </button>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
           <DatePickerEN value={avalonHistoryDate} onChange={setAvalonHistoryDate} />
-          <button className="btn-small" onClick={() => loadAvalonHistory(avalonHistoryDate)}>Apply</button>
-          {avalonHistoryDate && (
-            <button className="btn-small" onClick={() => { setAvalonHistoryDate(""); loadAvalonHistory(""); }} style={{ background: "#94a3b8" }}>Clear</button>
+          <select value={avalonHistoryMode} onChange={(e) => setAvalonHistoryMode(e.target.value)} aria-label="Mode filter">
+            <option value="">All</option>
+            <option value="ranked">Ranked</option>
+            <option value="casual">Casual</option>
+          </select>
+          <button className="btn-small" onClick={() => loadAvalonHistory(avalonHistoryDate, avalonHistoryMode)}>Apply</button>
+          {(avalonHistoryDate || avalonHistoryMode) && (
+            <button className="btn-small" onClick={() => { setAvalonHistoryDate(""); setAvalonHistoryMode(""); loadAvalonHistory("", ""); }} style={{ background: "#94a3b8" }}>Clear</button>
           )}
         </div>
         {error && <p className="error-msg">{error}</p>}
         {avalonHistory.length === 0 ? (
           <p className="text-muted" style={{ textAlign: "center", marginTop: 24 }}>
-            {avalonHistoryDate ? "No games on that date." : "This user has no Avalon games yet."}
+            {(avalonHistoryDate || avalonHistoryMode) ? "No games matching filter." : "This user has no Avalon games yet."}
           </p>
         ) : (
           <div style={{ overflowX: "auto", maxWidth: "100%", WebkitOverflowScrolling: "touch" }}>
@@ -192,22 +199,30 @@ export default function Admin() {
               <thead>
                 <tr>
                   <th>Ended</th>
+                  <th>Mode</th>
                   <th>Role</th>
                   <th>Result</th>
-                  <th>Balance</th>
                   <th>Players</th>
                 </tr>
               </thead>
               <tbody>
-                {avalonHistory.map((g) => (
-                  <tr key={g.id} onClick={() => setSelectedGameId(g.id)} style={{ cursor: "pointer" }}>
-                    <td style={{ whiteSpace: "nowrap" }}>{formatDateTime(g.endedAt)}</td>
-                    <td style={{ color: ROLE_TEAM[g.myRole] === "evil" ? "#dc2626" : "#0369a1" }}>{g.myRole}</td>
-                    <td style={{ color: g.myIsWinner ? "#16a34a" : "#94a3b8" }}>{g.myIsWinner ? "Won" : "Lost"}</td>
-                    <td>{g.myBalanceDelta >= 0 ? "+" : ""}{g.myBalanceDelta}</td>
-                    <td>{g.playerCount}</td>
-                  </tr>
-                ))}
+                {avalonHistory.map((g) => {
+                  const delta = g.isRanked === false ? 0 : g.myBalanceDelta;
+                  const shown = g.myIsWinner ? `+${Math.abs(delta)}` : `-${Math.abs(delta)}`;
+                  return (
+                    <tr key={g.id} onClick={() => setSelectedGameId(g.id)} style={{ cursor: "pointer" }}>
+                      <td style={{ whiteSpace: "nowrap" }}>{formatDateTime(g.endedAt)}</td>
+                      <td>
+                        <span className={`mode-badge ${g.isRanked === false ? "casual" : "ranked"}`}>
+                          {g.isRanked === false ? "Casual" : "Ranked"}
+                        </span>
+                      </td>
+                      <td style={{ color: ROLE_TEAM[g.myRole] === "evil" ? "#dc2626" : "#0369a1" }}>{g.myRole}</td>
+                      <td style={{ color: g.myIsWinner ? "#2563eb" : "#dc2626", fontWeight: 700 }}>{shown}</td>
+                      <td>{g.playerCount}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -263,7 +278,7 @@ export default function Admin() {
 
         <div className="section">
           <h3>Game History</h3>
-          <button onClick={() => loadAvalonHistory("")}>View Avalon History</button>
+          <button onClick={() => loadAvalonHistory("", "")}>View Avalon History</button>
         </div>
 
         <hr />
