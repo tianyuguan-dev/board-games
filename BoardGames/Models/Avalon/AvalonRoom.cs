@@ -91,6 +91,17 @@ public class AvalonRoom
     public string? LowestSeatConnectionId() =>
         Players.OrderBy(p => p.Value).Select(p => p.Key).FirstOrDefault();
 
+    // Grace-timer expiry. Every disconnect stores a new DisconnectedPlayer, and its timer keeps that instance, so
+    // only the timer for the latest disconnect matches; stale timers (after a rejoin, or a later disconnect) do nothing.
+    // Deliberately no clock check: Task.Delay can finish slightly before DateTime.UtcNow shows the grace has passed.
+    // Caller holds Lock.
+    public bool TryExpireDisconnected(int userId, DisconnectedPlayer expected)
+    {
+        if (!DisconnectedPlayers.TryGetValue(userId, out var current) || !ReferenceEquals(current, expected))
+            return false;
+        return DisconnectedPlayers.Remove(userId);
+    }
+
     public DisconnectedPlayer? TryRejoin(string newConnectionId, int userId)
     {
         // Case 1: Player is in DisconnectedPlayers (normal reconnect)
