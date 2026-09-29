@@ -3,23 +3,18 @@ using BoardGames.Models.Avalon;
 
 namespace BoardGames.Services.Avalon;
 
-public class AvalonRoomManager : IAvalonRoomManager
+public class AvalonRoomManager(Func<int>? nextRoomId = null) : IAvalonRoomManager
 {
     private readonly ConcurrentDictionary<string, AvalonRoom> _rooms = new();
-    private readonly Random _random = new();
+    // Scripted ids for tests; null means Random.Shared (see RoomIds).
+    private readonly Func<int>? _nextRoomId = nextRoomId;
 
     public AvalonRoom CreateRoom(int maxPlayers)
     {
         if (maxPlayers < 5) maxPlayers = 5;
         if (maxPlayers > 10) maxPlayers = 10;
 
-        string roomId = _random.Next(10000, 100000).ToString();
-        while (_rooms.ContainsKey(roomId))
-            roomId = _random.Next(10000, 100000).ToString();
-
-        var room = new AvalonRoom(roomId, maxPlayers);
-        _rooms.TryAdd(roomId, room);
-        return room;
+        return RoomIds.Register(_rooms, id => new AvalonRoom(id, maxPlayers), _nextRoomId);
     }
 
     public AvalonRoom? GetRoom(string roomId)
