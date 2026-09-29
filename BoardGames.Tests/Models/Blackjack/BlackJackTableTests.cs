@@ -1,9 +1,24 @@
 using BoardGames.Models.BlackJack;
+using BoardGames.Models.Poker;
 
 namespace BoardGames.Tests.Models.Blackjack;
 
 public class BlackJackTableTests
 {
+    // Records every Create call. The first deck can be cut to a given size to put the table at its reshuffle threshold.
+    private class CountingDeckFactory(int? firstDeckSize = null) : IDeckFactory
+    {
+        public List<int> Calls { get; } = new();
+
+        public Deck Create(int deckCount)
+        {
+            Calls.Add(deckCount);
+            if (Calls.Count == 1 && firstDeckSize is int size)
+                return new Deck(Enumerable.Range(0, size).Select(_ => new Card { Suit = Suit.Spade, Rank = Rank.Two }));
+            return new Deck(deckCount);
+        }
+    }
+
     private static void PlaceBetsAndStart(BlackJackGame game, int playerCount)
     {
         for (int i = 0; i < playerCount; i++)
@@ -83,5 +98,40 @@ public class BlackJackTableTests
             }
             Assert.Equal(BlackJackGameState.Finished, game.State);
         }
+    }
+
+    [Fact]
+    public void Constructor_CreatesDeckFromFactoryOnce()
+    {
+        var factory = new CountingDeckFactory();
+
+        _ = new BlackJackTable(deckCount: 2, factory);
+
+        Assert.Equal([2], factory.Calls);
+    }
+
+    [Fact]
+    public void NewRound_AboveThreshold_DoesNotCallFactory()
+    {
+        // 1 deck: threshold is 13, so 14 cards left is above it.
+        var factory = new CountingDeckFactory(firstDeckSize: 14);
+        var table = new BlackJackTable(deckCount: 1, factory);
+
+        table.NewRound(1);
+
+        Assert.Single(factory.Calls);
+        Assert.Equal(14, table.CardsRemaining);
+    }
+
+    [Fact]
+    public void NewRound_AtThreshold_CallsFactoryAgain()
+    {
+        var factory = new CountingDeckFactory(firstDeckSize: 13);
+        var table = new BlackJackTable(deckCount: 1, factory);
+
+        table.NewRound(1);
+
+        Assert.Equal([1, 1], factory.Calls);
+        Assert.Equal(52, table.CardsRemaining);
     }
 }
