@@ -31,6 +31,12 @@ public class Deck
         }
     }
 
+    // A deck holding exactly these cards, e.g. a stacked deck for tests. Deal() takes from the end of the list.
+    public Deck(IEnumerable<Card> cards)
+    {
+        _cards.AddRange(cards);
+    }
+
     public void Shuffle()
     {
         var rng = Random.Shared;

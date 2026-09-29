@@ -1,4 +1,5 @@
 using BoardGames.Data;
+using BoardGames.Models.Poker;
 using BoardGames.Services.Avalon;
 using BoardGames.Services.BlackJack;
 using Microsoft.AspNetCore.Hosting;
@@ -10,6 +11,10 @@ namespace BoardGames.Tests.Integration;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
+    // BlackJack rounds deal from an unshuffled shoe so no test depends on who is dealt a natural.
+    // Override to false to keep the production (shuffled) deck registration.
+    protected virtual bool UseUnshuffledDeck => true;
+
     // Tests that exercise auto-timer fall-through (turn timeout / betting timeout) override this
     // factory's TimerSettings via the FastTimers nested type below. Default factory keeps production timing
     // so non-timer tests stay deterministic.
@@ -32,6 +37,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 options.UseInMemoryDatabase(dbName));
 
             services.AddSignalR(opts => opts.EnableDetailedErrors = true);
+
+            if (UseUnshuffledDeck)
+            {
+                var deckFactory = services.SingleOrDefault(d => d.ServiceType == typeof(IDeckFactory));
+                if (deckFactory != null) services.Remove(deckFactory);
+                services.AddSingleton<IDeckFactory, UnshuffledDeckFactory>();
+            }
         });
 
         builder.UseEnvironment("Development");

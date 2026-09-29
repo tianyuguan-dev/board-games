@@ -12,6 +12,12 @@ public class BlackJackGameTests
         return deck;
     }
 
+    // Ranks in deal order: P0 card 1, P0 card 2, P1 card 1, ..., dealer card 1, dealer card 2, then any draws.
+    private static Deck CreateStackedDeck(params Rank[] dealOrder)
+    {
+        return new Deck(dealOrder.Reverse().Select(r => new Card { Suit = Suit.Spade, Rank = r }));
+    }
+
     [Fact]
     public void Constructor_ThrowsException_WhenPlayerCountLessThan1()
     {
@@ -34,6 +40,50 @@ public class BlackJackGameTests
         game.Start();
 
         Assert.Equal(3, game.Results.Count);
+    }
+
+    [Fact]
+    public void Start_PlayerNatural_WinsAndIsSkipped()
+    {
+        var deck = CreateStackedDeck(
+            Rank.Ace, Rank.King,   // P0: natural
+            Rank.Ten, Rank.Nine,   // P1: 19
+            Rank.Ten, Rank.Eight); // dealer: 18
+        var game = new BlackJackGame(deck, playerCount: 2);
+        game.Start();
+
+        Assert.Equal(BlackJackGameResult.PlayerWin, game.Results[0]);
+        Assert.Null(game.Results[1]);
+        Assert.Equal(1, game.CurrentPlayerIndex);
+        Assert.Equal(BlackJackGameState.PlayerTurn, game.State);
+    }
+
+    [Fact]
+    public void Start_DealerNatural_FinishesRound()
+    {
+        var deck = CreateStackedDeck(
+            Rank.Ten, Rank.Nine,   // P0: 19
+            Rank.Ten, Rank.Eight,  // P1: 18
+            Rank.Ace, Rank.King);  // dealer: natural
+        var game = new BlackJackGame(deck, playerCount: 2);
+        game.Start();
+
+        Assert.Equal(BlackJackGameState.Finished, game.State);
+        Assert.Equal(BlackJackGameResult.DealerWin, game.Results[0]);
+        Assert.Equal(BlackJackGameResult.DealerWin, game.Results[1]);
+    }
+
+    [Fact]
+    public void Start_BothNatural_IsPush()
+    {
+        var deck = CreateStackedDeck(
+            Rank.Ace, Rank.King,   // P0: natural
+            Rank.Ace, Rank.Queen); // dealer: natural
+        var game = new BlackJackGame(deck);
+        game.Start();
+
+        Assert.Equal(BlackJackGameState.Finished, game.State);
+        Assert.Equal(BlackJackGameResult.Push, game.Results[0]);
     }
 
     [Fact]
@@ -164,7 +214,8 @@ public class BlackJackGameTests
     [Fact]
     public void ForfeitPlayer_DoesNotSkipWhenNotCurrentPlayer()
     {
-        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 3);
+        // Unshuffled deck: no one is dealt a natural, so player 0 is current after Start.
+        var game = new BlackJackGame(new Deck(), playerCount: 3);
         game.Start();
 
         // Player 0 is current, forfeit player 2
