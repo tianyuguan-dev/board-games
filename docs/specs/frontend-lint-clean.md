@@ -106,7 +106,8 @@ The code paths these fixes touch, which must behave exactly as they do today:
 8. `canAddMore` is removed. The role-config UI renders and behaves the same.
 9. The AvalonGame handler-registration effect still depends only on `[connection]`. The AvalonGameDetail effect still fetches once
    per `gameId`. The Admin user list still fetches once on login and not on each search keystroke.
-10. `dotnet test` passes with no test removed or weakened. No backend files change.
+10. `dotnet test` passes with no test removed or weakened. No backend production files (`BoardGames/`) change. The only
+    `BoardGames.Tests/` change is the separately committed flaky-test fix `6693a58` (D6).
 
 ## Test plan
 
@@ -123,7 +124,7 @@ cannot check get the manual script below.
 | 7 | Manual: open Profile, balances load. Network tab shows `GET /api/auth/balances` with a `Bearer` header. |
 | 8 | Manual: host adjusts roles in an Avalon room. The +/- buttons and the server errors (`roleError`) behave as before. |
 | 9 | Review the diff: the dependency arrays for these three effects are unchanged. Manual: log into Admin, type in the search box (no request per keystroke), open a game detail (one request in the Network tab). |
-| 10 | `dotnet test` from the repo root. Report the result. `git diff --stat` shows no `BoardGames/` or `BoardGames.Tests/` changes. |
+| 10 | `dotnet test` from the repo root. Report the result. `git diff --stat main -- BoardGames BoardGames.Tests` shows only `BoardGames.Tests/Integration/AvalonGameIntegrationTests.cs` (from `6693a58`). |
 
 ## Decisions (2026-09-30)
 
@@ -134,6 +135,9 @@ cannot check get the manual script below.
 - **D4. Tests.** The CI lint gate plus the manual script in the Test plan count as this change's tests. No Vitest for now.
 - **D5. Pre-existing disables (found in T5 review).** `DatePickerEN.jsx:20` and `AvalonHistory.jsx:36` already had
   `exhaustive-deps` disables with no reason. They get a reason in T6, so every disable in `src` follows one format.
+- **D6. Flaky Avalon test fix rides on this branch.** `LeaveRoom_DuringGameOver_DisbandsRoom` failed about 1 run in 4
+  because it could pick an evil assassination target, which `AvalonGame.Assassinate` ignores. It was fixed test-only in
+  `6693a58` (assertions unchanged) so this branch's CI is not randomly red. AC10 allows that one test-file change.
 
 ## Tasks
 
@@ -195,5 +199,5 @@ Baseline: **13 errors, 3 warnings.**
    - Files: `BoardGames.Web/package.json` (`"lint": "eslint . --max-warnings 0"`), `.github/workflows/ci.yml` (add a `Lint`
      step `npm run lint` after `Install` and before `Build`, and delete the TODO).
    - Proves: AC1, AC2, AC3, AC4, AC10. Checks: `npm run lint` exits 0 with 0 problems. A throwaway branch with an unused
-     variable fails the `frontend` job (then delete the branch). `git diff --stat main` shows no `BoardGames/` or `BoardGames.Tests/` changes.
+     variable fails the `frontend` job (then delete the branch). `git diff --stat main -- BoardGames BoardGames.Tests` shows only the `6693a58` test fix (D6).
    - Depends on T1-T6.
