@@ -1,12 +1,15 @@
 using System.Collections.Concurrent;
 using BoardGames.Models.BlackJack;
+using BoardGames.Models.Poker;
 
 namespace BoardGames.Services.BlackJack;
 
-public class BlackJackRoomManager: IBlackJackRoomManager
+public class BlackJackRoomManager(IDeckFactory? deckFactory = null) : IBlackJackRoomManager
 {
     private readonly ConcurrentDictionary<string, BlackJackRoom> _rooms = new();
     private readonly Random _random = new();
+    // Stateless and shared by every room; readonly so no connection can swap it.
+    private readonly IDeckFactory? _deckFactory = deckFactory;
     
     public BlackJackRoom CreateRoom(int maxPlayers)
     {
@@ -16,7 +19,7 @@ public class BlackJackRoomManager: IBlackJackRoomManager
             roomId = _random.Next(10000, 100000).ToString();
         }
 
-        var blackJackRoom = new BlackJackRoom(roomId, maxPlayers);
+        var blackJackRoom = new BlackJackRoom(roomId, maxPlayers, _deckFactory);
         _rooms.TryAdd(roomId, blackJackRoom);
         return blackJackRoom;
     }

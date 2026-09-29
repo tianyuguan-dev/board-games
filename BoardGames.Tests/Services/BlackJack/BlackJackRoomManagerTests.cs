@@ -1,3 +1,4 @@
+using BoardGames.Models.Poker;
 using BoardGames.Services.BlackJack;
 
 namespace BoardGames.Tests.Services.BlackJack;
@@ -5,6 +6,29 @@ namespace BoardGames.Tests.Services.BlackJack;
 public class BlackJackRoomManagerTests
 {
     private readonly BlackJackRoomManager _roomManager = new();
+
+    private class CountingDeckFactory : IDeckFactory
+    {
+        public List<int> Calls { get; } = new();
+
+        public Deck Create(int deckCount)
+        {
+            Calls.Add(deckCount);
+            return new Deck(deckCount);
+        }
+    }
+
+    [Fact]
+    public void CreateRoom_UsesInjectedDeckFactory()
+    {
+        var factory = new CountingDeckFactory();
+        var manager = new BlackJackRoomManager(factory);
+
+        var room = manager.CreateRoom(3);
+
+        Assert.Equal([3], factory.Calls);
+        Assert.Equal(3 * 52, room.BlackJackTable.CardsRemaining);
+    }
 
     [Fact]
     public void CreateRoom_ReturnsRoomWithCorrectMaxPlayers()

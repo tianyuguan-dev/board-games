@@ -1,3 +1,5 @@
+using BoardGames.Models.Poker;
+
 namespace BoardGames.Models.BlackJack;
 
 public class BlackJackRoom
@@ -24,11 +26,11 @@ public class BlackJackRoom
     // Serializes all mutations/reads of this room's state across concurrent SignalR threads
     // and the background turn/betting timers. Plain Dictionary is not thread-safe.
     public SemaphoreSlim Lock { get; } = new(1, 1);
-    public BlackJackRoom(string roomId, int maxPlayers)
+    public BlackJackRoom(string roomId, int maxPlayers, IDeckFactory? deckFactory = null)
     {
         RoomId = roomId;
         MaxPlayers = maxPlayers;
-        BlackJackTable = new BlackJackTable(maxPlayers);
+        BlackJackTable = new BlackJackTable(maxPlayers, deckFactory);
         Players = new Dictionary<string, int>();
     }
 
