@@ -214,7 +214,8 @@ public class BlackJackGameTests
     [Fact]
     public void ForfeitPlayer_DoesNotSkipWhenNotCurrentPlayer()
     {
-        var game = new BlackJackGame(CreateShuffledDeck(), playerCount: 3);
+        // Unshuffled deck: no one is dealt a natural, so player 0 is current after Start.
+        var game = new BlackJackGame(new Deck(), playerCount: 3);
         game.Start();
 
         // Player 0 is current, forfeit player 2
