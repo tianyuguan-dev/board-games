@@ -496,11 +496,12 @@ public class AvalonGameIntegrationTests : IClassFixture<CustomWebApplicationFact
 
         // Default 5p config includes Assassin → reject-limit routes through Assassination phase
         // for a bonus shot at Merlin. Have the assassin pick to push through to GameOver.
+        // Roles are shuffled, so the target must be looked up: AvalonGame.Assassinate ignores an evil target.
         if (players[0].Phase == "Assassination")
         {
-            var assassinSeat = players[0].AssassinIndex!.Value;
-            var target = (assassinSeat + 1) % 5;
-            await players[assassinSeat].Connection.InvokeAsync("Assassinate", roomId, target);
+            var assassin = players.First(p => p.SeatIndex == players[0].AssassinIndex);
+            var target = players.First(p => p.MyTeam == "Good").SeatIndex;
+            await assassin.Connection.InvokeAsync("Assassinate", roomId, target);
             await WaitForAllStates(players);
         }
 
