@@ -33,6 +33,22 @@ public class BlackJackRoomTests
     }
 
     [Fact]
+    public void ReassignSeats_CompactsInSeatOrder()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        // Added out of seat order, so the result cannot depend on insertion order.
+        room.Players.Add("at-5", 5);
+        room.Players.Add("at-0", 0);
+        room.Players.Add("at-2", 2);
+
+        room.ReassignSeats();
+
+        Assert.Equal(0, room.Players["at-0"]);
+        Assert.Equal(1, room.Players["at-2"]);
+        Assert.Equal(2, room.Players["at-5"]);
+    }
+
+    [Fact]
     public void ReassignSeats_WorksWithEmptyPlayers()
     {
         var room = new BlackJackRoom("12345", 4);

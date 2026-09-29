@@ -6,7 +6,8 @@ public class BlackJackRoom
 {
     public string RoomId { get; init; }
     public int MaxPlayers { get; init; }
-    public Dictionary<string, int> Players { get; set; }
+    // Read by room-manager lookups from other threads; written only under Lock.
+    public MembershipMap<string, int> Players { get; set; }
     public BlackJackTable BlackJackTable { get; set; }
     public BlackJackGame? BlackJackGame { get; set; }
     public HashSet<string> ReadyPlayers { get; init; } = new();
@@ -31,14 +32,15 @@ public class BlackJackRoom
         RoomId = roomId;
         MaxPlayers = maxPlayers;
         BlackJackTable = new BlackJackTable(maxPlayers, deckFactory);
-        Players = new Dictionary<string, int>();
+        Players = new MembershipMap<string, int>();
     }
 
     public void ReassignSeats()
     {
-        Dictionary<string, int> newPlayers = new();
+        MembershipMap<string, int> newPlayers = new();
         int seatIndex = 0;
-        foreach (var player in Players)
+        // Compact in current seat order so relative seating is kept.
+        foreach (var player in Players.OrderBy(p => p.Value))
         {
             newPlayers.Add(player.Key, seatIndex);
             seatIndex++;

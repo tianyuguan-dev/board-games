@@ -32,6 +32,52 @@ public class BlackJackRoomManagerTests
     }
 
     [Fact]
+    public async Task CrossRoomLookups_DuringConcurrentMembershipChanges_DoNotThrow()
+    {
+        var manager = new BlackJackRoomManager();
+        var busy = new[] { manager.CreateRoom(4), manager.CreateRoom(4) };
+        var target = manager.CreateRoom(4);
+        var home = manager.CreateRoom(4);
+        home.Players["stable"] = 0;
+        var until = DateTime.UtcNow.AddSeconds(3);
+
+        // Writers change membership the way the hub does: only under the room's own lock.
+        var writers = Enumerable.Range(0, 4).Select(w => Task.Run(async () =>
+        {
+            for (var i = 0; DateTime.UtcNow < until; i++)
+            {
+                var room = busy[i % 2];
+                var conn = $"w{w}-{i % 20}";
+                await room.Lock.WaitAsync();
+                try
+                {
+                    room.Players[conn] = i % 4;
+                    room.Players.Remove(conn);
+                }
+                finally { room.Lock.Release(); }
+            }
+        }));
+        // Readers scan every room without those rooms' locks, as FindRoomByConnectionId and JoinRoom's check do.
+        var readers = Enumerable.Range(0, 4).Select(r => Task.Run(async () =>
+        {
+            while (DateTime.UtcNow < until)
+            {
+                Assert.Same(home, manager.FindRoomByConnectionId("stable"));
+                Assert.True(manager.IsInAnyRoom("stable"));
+                await target.Lock.WaitAsync();
+                try
+                {
+                    var ex = Assert.Throws<InvalidOperationException>(() => manager.JoinRoom(target.RoomId, "stable"));
+                    Assert.Equal("Player is already in a room", ex.Message);
+                }
+                finally { target.Lock.Release(); }
+            }
+        }));
+
+        await Task.WhenAll(writers.Concat(readers)).WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
     public async Task CreateRoom_ConcurrentCalls_AllDistinctAndRegistered()
     {
         var manager = new BlackJackRoomManager();
@@ -143,41 +189,6 @@ public class BlackJackRoomManagerTests
 
         Assert.Throws<InvalidOperationException>(
             () => _roomManager.JoinRoom(room.RoomId, "conn-3"));
-    }
-
-    [Fact]
-    public void FindAndRemoveByConnectionId_RemovesPlayerAndReturnsRoomId()
-    {
-        var room = _roomManager.CreateRoom(4);
-        _roomManager.JoinRoom(room.RoomId, "conn-1");
-
-        var (roomId, seatIndex) = _roomManager.FindAndRemoveByConnectionId("conn-1");
-
-        Assert.Equal(room.RoomId, roomId);
-        Assert.Equal(0, seatIndex);
-        Assert.Empty(room.Players);
-    }
-
-    [Fact]
-    public void FindAndRemoveByConnectionId_ReturnsNullWhenPlayerNotFound()
-    {
-        var (roomId, seatIndex) = _roomManager.FindAndRemoveByConnectionId("conn-999");
-
-        Assert.Null(roomId);
-        Assert.Equal(-1, seatIndex);
-    }
-
-    [Fact]
-    public void FindAndRemoveByConnectionId_DoesNotAffectOtherPlayers()
-    {
-        var room = _roomManager.CreateRoom(4);
-        _roomManager.JoinRoom(room.RoomId, "conn-1");
-        _roomManager.JoinRoom(room.RoomId, "conn-2");
-
-        _roomManager.FindAndRemoveByConnectionId("conn-1");
-
-        Assert.Single(room.Players);
-        Assert.True(room.Players.ContainsKey("conn-2"));
     }
 
     [Fact]

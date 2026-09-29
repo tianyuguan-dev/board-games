@@ -17,6 +17,57 @@ public class AvalonRoomManagerTests
     }
 
     [Fact]
+    public async Task CrossRoomLookups_DuringConcurrentMembershipChanges_DoNotThrow()
+    {
+        var mgr = new AvalonRoomManager();
+        var busy = new[] { mgr.CreateRoom(5), mgr.CreateRoom(5) };
+        var target = mgr.CreateRoom(5);
+        var home = mgr.CreateRoom(5);
+        home.Players["stable"] = 0;
+        home.PlayerUserIds["stable"] = 777;
+        var until = DateTime.UtcNow.AddSeconds(3);
+
+        // Writers change membership the way the hub does: only under the room's own lock.
+        var writers = Enumerable.Range(0, 4).Select(w => Task.Run(async () =>
+        {
+            for (var i = 0; DateTime.UtcNow < until; i++)
+            {
+                var room = busy[i % 2];
+                var conn = $"w{w}-{i % 20}";
+                await room.Lock.WaitAsync();
+                try
+                {
+                    room.Players[conn] = i % 10;
+                    room.PlayerUserIds[conn] = 1000 + w;
+                    room.DisconnectedPlayers[1000 + w] = new DisconnectedPlayer { UserId = 1000 + w };
+                    room.Players.Remove(conn);
+                    room.PlayerUserIds.Remove(conn);
+                    room.DisconnectedPlayers.Remove(1000 + w);
+                }
+                finally { room.Lock.Release(); }
+            }
+        }));
+        // Readers scan every room without those rooms' locks, as FindRoom* and JoinRoom's check do.
+        var readers = Enumerable.Range(0, 4).Select(r => Task.Run(async () =>
+        {
+            while (DateTime.UtcNow < until)
+            {
+                Assert.Equal((home.RoomId, 0), mgr.FindRoomByConnectionId("stable"));
+                Assert.Equal(home.RoomId, mgr.FindRoomByUserId(777));
+                await target.Lock.WaitAsync();
+                try
+                {
+                    var ex = Assert.Throws<InvalidOperationException>(() => mgr.JoinRoom(target.RoomId, "stable"));
+                    Assert.Equal("Player is already in a room", ex.Message);
+                }
+                finally { target.Lock.Release(); }
+            }
+        }));
+
+        await Task.WhenAll(writers.Concat(readers)).WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
     public async Task CreateRoom_ConcurrentCalls_AllDistinctAndRegistered()
     {
         var mgr = new AvalonRoomManager();
@@ -157,17 +208,6 @@ public class AvalonRoomManagerTests
         var (rid, seat) = mgr.FindRoomByConnectionId("ghost");
         Assert.Null(rid);
         Assert.Equal(-1, seat);
-    }
-
-    [Fact]
-    public void FindAndRemoveByConnectionId_RemovesPlayer()
-    {
-        var mgr = new AvalonRoomManager();
-        var room = mgr.CreateRoom(5);
-        room.Players["leaver"] = 1;
-        var (rid, _) = mgr.FindAndRemoveByConnectionId("leaver");
-        Assert.Equal(room.RoomId, rid);
-        Assert.False(room.Players.ContainsKey("leaver"));
     }
 
     [Fact]

@@ -57,19 +57,6 @@ public class AvalonRoomManager(Func<int>? nextRoomId = null) : IAvalonRoomManage
         return (null, -1);
     }
 
-    public (string? roomId, int seatIndex) FindAndRemoveByConnectionId(string connectionId)
-    {
-        foreach (var room in _rooms.Values)
-        {
-            if (room.Players.TryGetValue(connectionId, out int seatIndex))
-            {
-                room.Players.Remove(connectionId);
-                return (room.RoomId, seatIndex);
-            }
-        }
-        return (null, -1);
-    }
-
     public string? FindRoomByUserId(int userId)
     {
         foreach (var room in _rooms.Values)

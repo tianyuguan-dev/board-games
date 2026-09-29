@@ -803,6 +803,9 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
         await WithLock(room, async () =>
         {
+            // The lookup ran before the lock; an overlapping leave or disconnect may already have removed this connection.
+            if (!room.Players.ContainsKey(connectionId)) return;
+
             var roomId = room.RoomId;
             await Groups.RemoveFromGroupAsync(connectionId, roomId);
 
@@ -824,7 +827,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
                 if (room.Players.Count == 0) { roomManager.RemoveRoom(roomId); return; }
                 if (room.HostConnectionId == connectionId)
-                    room.HostConnectionId = room.Players.Keys.First();
+                    room.HostConnectionId = room.LowestSeatConnectionId();
                 room.ReassignSeats();
                 room.RebuildRoleConfig();
 
@@ -858,7 +861,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         if (room.Players.Count == 0) { roomManager.RemoveRoom(room.RoomId); return; }
 
         if (room.HostConnectionId == connectionId)
-            room.HostConnectionId = room.Players.Keys.First();
+            room.HostConnectionId = room.LowestSeatConnectionId();
 
         room.ReassignSeats();
         room.RebuildRoleConfig();
@@ -904,7 +907,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             if (room.Players.Count == 0) { roomManager.RemoveRoom(roomId); return; }
 
             if (room.HostConnectionId == null || !room.Players.ContainsKey(room.HostConnectionId))
-                room.HostConnectionId = room.Players.Keys.FirstOrDefault();
+                room.HostConnectionId = room.LowestSeatConnectionId();
 
             room.ReassignSeats();
             room.RebuildRoleConfig();
