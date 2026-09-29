@@ -4,24 +4,17 @@ using BoardGames.Models.Poker;
 
 namespace BoardGames.Services.BlackJack;
 
-public class BlackJackRoomManager(IDeckFactory? deckFactory = null) : IBlackJackRoomManager
+public class BlackJackRoomManager(IDeckFactory? deckFactory = null, Func<int>? nextRoomId = null) : IBlackJackRoomManager
 {
     private readonly ConcurrentDictionary<string, BlackJackRoom> _rooms = new();
-    private readonly Random _random = new();
     // Stateless and shared by every room; readonly so no connection can swap it.
     private readonly IDeckFactory? _deckFactory = deckFactory;
+    // Scripted ids for tests; null means Random.Shared (see RoomIds).
+    private readonly Func<int>? _nextRoomId = nextRoomId;
     
     public BlackJackRoom CreateRoom(int maxPlayers)
     {
-        string roomId = _random.Next(10000, 100000).ToString();
-        while (_rooms.ContainsKey(roomId))
-        {
-            roomId = _random.Next(10000, 100000).ToString();
-        }
-
-        var blackJackRoom = new BlackJackRoom(roomId, maxPlayers, _deckFactory);
-        _rooms.TryAdd(roomId, blackJackRoom);
-        return blackJackRoom;
+        return RoomIds.Register(_rooms, id => new BlackJackRoom(id, maxPlayers, _deckFactory), _nextRoomId);
     }
 
     public BlackJackRoom? GetRoom(string roomId)

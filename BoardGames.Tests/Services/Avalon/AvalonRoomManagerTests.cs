@@ -1,5 +1,6 @@
 using BoardGames.Models.Avalon;
 using BoardGames.Services.Avalon;
+using BoardGames.Tests.Services;
 
 namespace BoardGames.Tests.Services.Avalon;
 
@@ -13,6 +14,42 @@ public class AvalonRoomManagerTests
         for (int i = 0; i < 20; i++)
             ids.Add(mgr.CreateRoom(5).RoomId);
         Assert.Equal(20, ids.Count);
+    }
+
+    [Fact]
+    public async Task CreateRoom_ConcurrentCalls_AllDistinctAndRegistered()
+    {
+        var mgr = new AvalonRoomManager();
+
+        var tasks = Enumerable.Range(0, 64).Select(_ => Task.Run(() =>
+            Enumerable.Range(0, 50).Select(_ => mgr.CreateRoom(5)).ToList()));
+        var rooms = (await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(10))).SelectMany(r => r).ToList();
+
+        Assert.Equal(3200, rooms.Select(r => r.RoomId).Distinct().Count());
+        Assert.All(rooms, r => Assert.Same(r, mgr.GetRoom(r.RoomId)));
+    }
+
+    [Fact]
+    public void CreateRoom_IdTaken_RetriesWithNextId()
+    {
+        var mgr = new AvalonRoomManager(ScriptedIds.Of(12345, 12345, 23456));
+
+        var first = mgr.CreateRoom(5);
+        var second = mgr.CreateRoom(5);
+
+        Assert.Equal("12345", first.RoomId);
+        Assert.Equal("23456", second.RoomId);
+        Assert.Same(first, mgr.GetRoom("12345"));
+    }
+
+    [Fact]
+    public void CreateRoom_AllIdsTaken_ThrowsAfterRetryLimit()
+    {
+        var mgr = new AvalonRoomManager(ScriptedIds.Of(12345));
+        var first = mgr.CreateRoom(5);
+
+        Assert.Throws<InvalidOperationException>(() => mgr.CreateRoom(5));
+        Assert.Same(first, mgr.GetRoom("12345"));
     }
 
     [Theory]
