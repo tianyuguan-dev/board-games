@@ -33,7 +33,7 @@ export default function AvalonHistory({ onSelectGame, onBack }) {
 
   useEffect(() => {
     loadPage(0, true, "", "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load the first page once on mount; filters reload through their own handlers
   }, []);
 
   async function loadPage(off, replace, dateArg = date, modeArg = mode) {

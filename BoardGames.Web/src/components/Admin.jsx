@@ -37,21 +37,34 @@ export default function Admin() {
     setTimeout(() => setSuccess(""), 3000);
   }
 
-  const fetchUsers = useCallback(async (query) => {
-    setError("");
+  // Returns the outcome instead of setting state, so the login effect can apply it in a .then callback.
+  const requestUsers = useCallback(async (query) => {
     try {
       const url = query ? `${BASE_URL}/users?search=${encodeURIComponent(query)}` : `${BASE_URL}/users`;
       const res = await fetch(url, { headers: { "X-Admin-Token": password } });
-      if (!res.ok) { setAuthed(false); sessionStorage.removeItem("adminToken"); setError("Unauthorized"); return; }
-      setUsers(await res.json());
-    } catch { setError("Failed to fetch users"); }
+      if (!res.ok) return { unauthorized: true };
+      return { users: await res.json() };
+    } catch { return { failed: true }; }
   }, [password]);
 
+  function applyUsers(result) {
+    if (result.unauthorized) { setAuthed(false); sessionStorage.removeItem("adminToken"); setError("Unauthorized"); }
+    else if (result.failed) setError("Failed to fetch users");
+    else setUsers(result.users);
+  }
+
+  function fetchUsers(query) {
+    setError("");
+    return requestUsers(query).then(applyUsers);
+  }
+
   useEffect(() => {
-    if (authed) fetchUsers(search);
+    if (authed) requestUsers(search).then(applyUsers);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch once on login; not on each search keystroke or password edit
   }, [authed]);
 
   function handleLogin() {
+    setError("");
     sessionStorage.setItem("adminToken", password);
     setAuthed(true);
   }

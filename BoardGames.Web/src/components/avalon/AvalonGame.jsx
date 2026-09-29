@@ -73,7 +73,7 @@ function countProposals(state) {
   return state.history.reduce((sum, props) => sum + (props?.length ?? 0), 0);
 }
 
-export default function AvalonGame({ connection, nickname, isGuest, roomId, maxPlayers, playerCount, roomPlayers, mySeatIndex, isHost, roleConfig, maxRejects, isRanked, needsRejoin, gameInProgress, onLeave }) {
+export default function AvalonGame({ connection, nickname, isGuest, roomId, maxPlayers, playerCount, roomPlayers, mySeatIndex, isHost, roleConfig, maxRejects, isRanked, needsRejoinRef, gameInProgress, onLeave }) {
   const [gameState, setGameState] = useState(null);
   const [myIndex, setMyIndex] = useState(-1);
   // Use lobby-time mySeatIndex (from RoomUpdate) when game hasn't started yet,
@@ -154,8 +154,8 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
     });
 
     // Try rejoin only after page refresh (not after normal Create/Join)
-    if (needsRejoin && needsRejoin.current) {
-      needsRejoin.current = false;
+    if (needsRejoinRef && needsRejoinRef.current) {
+      needsRejoinRef.current = false;
       connection.invoke("Rejoin", roomId).catch(() => {
         connection.invoke("JoinRoom", roomId).catch(() => {
           sessionStorage.removeItem("roomId");
@@ -177,6 +177,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
       connection.off("BalanceUpdate");
       connection.off("GameAborted");
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per connection: re-running would re-register handlers and resend Rejoin/GetGameState
   }, [connection]);
 
   async function handleReady() {
@@ -667,7 +668,6 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
           const evilRoles = roleConfig.filter((r) => !["Merlin","Percival","LoyalServant"].includes(r));
           const counts = {};
           for (const r of roleConfig) counts[r] = (counts[r] || 0) + 1;
-          const canAddMore = goodRoles.length - evilRoles.length > 2 && goodRoles.length > 2;
           return (
             <div className="section">
               <h3>

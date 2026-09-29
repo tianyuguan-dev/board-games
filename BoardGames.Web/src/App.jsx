@@ -275,7 +275,7 @@ function App() {
     if (!roomId) {
       return <AvalonLobby connection={connection} nickname={nickname} isGuest={isGuest} onJoinRoom={handleJoinRoom} onBack={handleBackToHome} onShowHistory={() => setAvalonView("history")} />;
     }
-    return <AvalonGame connection={connection} nickname={nickname} isGuest={isGuest} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} mySeatIndex={mySeatIndex} isHost={isHost} roleConfig={roleConfig} maxRejects={maxRejects} isRanked={isRanked} needsRejoin={needsRejoinRef} gameInProgress={gameInProgress} onLeave={handleLeave} />;
+    return <AvalonGame connection={connection} nickname={nickname} isGuest={isGuest} roomId={roomId} maxPlayers={maxPlayers} playerCount={playerCount} roomPlayers={roomPlayers} mySeatIndex={mySeatIndex} isHost={isHost} roleConfig={roleConfig} maxRejects={maxRejects} isRanked={isRanked} needsRejoinRef={needsRejoinRef} gameInProgress={gameInProgress} onLeave={handleLeave} />;
   }
 
   return null;

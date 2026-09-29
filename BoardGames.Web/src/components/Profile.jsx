@@ -15,8 +15,9 @@ export default function Profile({ token, nickname, onNicknameChange, onBack }) {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
 
+  // Refetch when the session token changes.
   useEffect(() => {
-    getBalances(token).then(setBalances).catch(() => {});
+    getBalances().then(setBalances).catch(() => {});
   }, [token]);
 
   function showMessage(msg, type) {
