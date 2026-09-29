@@ -266,6 +266,34 @@ public class BlackJackHubIntegrationTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
+    public async Task HostLeaves_LowestSeatBecomesHost()
+    {
+        var host = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_hostleave_host"));
+        var seat1 = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_hostleave_s1"));
+        var seat2 = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_hostleave_s2"));
+        await host.StartAsync(); await seat1.StartAsync(); await seat2.StartAsync();
+
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 4);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            roomJson.ToString()!)!["roomId"].ToString()!;
+        await seat1.InvokeAsync<object>("JoinRoom", roomId);
+        await seat2.InvokeAsync<object>("JoinRoom", roomId);
+
+        var seat1IsHost = new TaskCompletionSource<bool>();
+        bool? seat2IsHost = null;
+        seat1.On<System.Text.Json.JsonElement>("RoomUpdate", u =>
+        {
+            if (u.GetProperty("isHost").GetBoolean()) seat1IsHost.TrySetResult(true);
+        });
+        seat2.On<System.Text.Json.JsonElement>("RoomUpdate", u => seat2IsHost = u.GetProperty("isHost").GetBoolean());
+
+        await host.InvokeAsync("LeaveRoom");
+
+        await seat1IsHost.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(seat2IsHost ?? true);
+    }
+
+    [Fact]
     public async Task KickPlayer_NonHost_Throws()
     {
         var token1 = await RegisterAndGetToken("bj_kickfail_host");

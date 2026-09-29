@@ -38,7 +38,8 @@ public class BlackJackRoom
     {
         Dictionary<string, int> newPlayers = new();
         int seatIndex = 0;
-        foreach (var player in Players)
+        // Compact in current seat order so relative seating is kept.
+        foreach (var player in Players.OrderBy(p => p.Value))
         {
             newPlayers.Add(player.Key, seatIndex);
             seatIndex++;
