@@ -98,8 +98,9 @@ The code paths these fixes touch, which must behave exactly as they do today:
 5. The rules are not weakened across the board. `eslint.config.js` still extends `js.configs.recommended`,
    `reactHooks.configs.flat.recommended` and `reactRefresh.configs.vite`. No `eslint-disable` comment covers a whole file.
    Any line-level disable names its rule and gives a reason. The only rule option change is `no-empty: { allowEmptyCatch: true }`.
-   There are at most 4 line-level disables: the 3 `exhaustive-deps` warnings, plus the Admin `set-state-in-effect` error if
-   it cannot be fixed without changing behaviour.
+   The line-level disables in `src` are exactly these 5, all `react-hooks/exhaustive-deps` with a reason (D5): the 3 baseline
+   warnings (#2 Admin, #8 AvalonGame, #14 AvalonGameDetail) and the 2 pre-existing ones in `DatePickerEN.jsx` and
+   `AvalonHistory.jsx`. The Admin `set-state-in-effect` error was fixed in code (T5), so it has no disable.
 6. The `needsRejoin` prop is renamed to `needsRejoinRef` in `App.jsx` and `AvalonGame.jsx`. The rejoin behaviour in "Behaviour" is unchanged.
 7. `getBalances` takes no arguments, and `Profile.jsx` calls it with none.
 8. `canAddMore` is removed. The role-config UI renders and behaves the same.
@@ -131,6 +132,8 @@ cannot check get the manual script below.
 - **D2. Empty catches.** `no-empty: ["error", { allowEmptyCatch: true }]` in `eslint.config.js`. No comment in each block.
 - **D3. `canAddMore` is dead code.** It was never meant to gate a button. Delete it. There is no game-rule follow-up.
 - **D4. Tests.** The CI lint gate plus the manual script in the Test plan count as this change's tests. No Vitest for now.
+- **D5. Pre-existing disables (found in T5 review).** `DatePickerEN.jsx:20` and `AvalonHistory.jsx:36` already had
+  `exhaustive-deps` disables with no reason. They get a reason in T6, so every disable in `src` follows one format.
 
 ## Tasks
 
@@ -180,10 +183,11 @@ Baseline: **13 errors, 3 warnings.**
      log in with a bad token (shows "Unauthorized", no loop).
    - Lint after: 0 errors, 2 warnings.
 
-6. **Silence the two remaining `exhaustive-deps` warnings** (#8, #14, D1)
+6. **Silence the two remaining `exhaustive-deps` warnings** (#8, #14, D1), and give reasons to the 2 pre-existing disables (D5)
    - Files: `BoardGames.Web/src/components/avalon/AvalonGame.jsx` (handler-registration effect),
-     `BoardGames.Web/src/components/avalon/AvalonGameDetail.jsx`.
-   - Line-level disables with reasons only. Neither dependency array changes.
+     `BoardGames.Web/src/components/avalon/AvalonGameDetail.jsx`, `BoardGames.Web/src/components/DatePickerEN.jsx` (line 20),
+     `BoardGames.Web/src/components/avalon/AvalonHistory.jsx` (line 36).
+   - Line-level disables with reasons only: add two, and append a `-- <reason>` to the two existing ones. No dependency array changes.
    - Proves: AC5, AC9. Manual check: open an admin game detail and see exactly one request. A refresh mid-game still sends exactly one `Rejoin`.
    - Lint after: 0 errors, 0 warnings.
 
