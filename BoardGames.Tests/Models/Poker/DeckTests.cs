@@ -89,4 +89,40 @@ public class DeckTests
         Assert.DoesNotContain(cards, c => c.Rank == Rank.BlackJoker);
         Assert.DoesNotContain(cards, c => c.Rank == Rank.RedJoker);
     }
+
+    [Fact]
+    public void Deck_FromCards_DealsLastCardFirst()
+    {
+        var deck = new Deck([
+            new Card { Suit = Suit.Heart, Rank = Rank.Two },
+            new Card { Suit = Suit.Spade, Rank = Rank.Ace },
+        ]);
+
+        var first = deck.Deal();
+        var second = deck.Deal();
+
+        Assert.Equal((Suit.Spade, Rank.Ace), (first.Suit, first.Rank));
+        Assert.Equal((Suit.Heart, Rank.Two), (second.Suit, second.Rank));
+    }
+
+    [Fact]
+    public void Deck_FromCards_RemainingMatchesInput()
+    {
+        var deck = new Deck([
+            new Card { Suit = Suit.Club, Rank = Rank.King },
+            new Card { Suit = Suit.Club, Rank = Rank.Queen },
+            new Card { Suit = Suit.Club, Rank = Rank.Jack },
+        ]);
+
+        Assert.Equal(3, deck.Remaining);
+    }
+
+    [Fact]
+    public void Deck_FromCards_Empty_DealThrows()
+    {
+        var deck = new Deck(Array.Empty<Card>());
+
+        Assert.Equal(0, deck.Remaining);
+        Assert.Throws<InvalidOperationException>(() => deck.Deal());
+    }
 }
