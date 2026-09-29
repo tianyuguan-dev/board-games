@@ -17,7 +17,7 @@ export default function DatePickerEN({ value, onChange }) {
   // On mount, if no external value yet, sync parent to today so picker + parent agree.
   useEffect(() => {
     if (!value) onChange(todayStr());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync parent to today once on mount only
   }, []);
 
   const effective = value || todayStr();

@@ -177,6 +177,7 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
       connection.off("BalanceUpdate");
       connection.off("GameAborted");
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per connection: re-running would re-register handlers and resend Rejoin/GetGameState
   }, [connection]);
 
   async function handleReady() {

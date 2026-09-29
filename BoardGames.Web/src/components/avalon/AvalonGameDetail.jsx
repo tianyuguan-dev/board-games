@@ -54,6 +54,7 @@ export default function AvalonGameDetail({ gameId, onBack, fetchDetail }) {
       }
     })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch once per gameId; Admin passes a new fetchDetail on every render
   }, [gameId]);
 
   if (loading) {
