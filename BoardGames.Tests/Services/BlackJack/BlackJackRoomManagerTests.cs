@@ -1,5 +1,6 @@
 using BoardGames.Models.Poker;
 using BoardGames.Services.BlackJack;
+using BoardGames.Tests.Services;
 
 namespace BoardGames.Tests.Services.BlackJack;
 
@@ -28,6 +29,43 @@ public class BlackJackRoomManagerTests
 
         Assert.Equal([3], factory.Calls);
         Assert.Equal(3 * 52, room.BlackJackTable.CardsRemaining);
+    }
+
+    [Fact]
+    public async Task CreateRoom_ConcurrentCalls_AllDistinctAndRegistered()
+    {
+        var manager = new BlackJackRoomManager();
+
+        var tasks = Enumerable.Range(0, 64).Select(_ => Task.Run(() =>
+            Enumerable.Range(0, 50).Select(_ => manager.CreateRoom(1)).ToList()));
+        var rooms = (await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(10))).SelectMany(r => r).ToList();
+
+        Assert.Equal(3200, rooms.Select(r => r.RoomId).Distinct().Count());
+        Assert.All(rooms, r => Assert.Same(r, manager.GetRoom(r.RoomId)));
+        Assert.Equal(3200, rooms.Select(r => r.BlackJackTable).Distinct(ReferenceEqualityComparer.Instance).Count());
+    }
+
+    [Fact]
+    public void CreateRoom_IdTaken_RetriesWithNextId()
+    {
+        var manager = new BlackJackRoomManager(nextRoomId: ScriptedIds.Of(12345, 12345, 23456));
+
+        var first = manager.CreateRoom(4);
+        var second = manager.CreateRoom(4);
+
+        Assert.Equal("12345", first.RoomId);
+        Assert.Equal("23456", second.RoomId);
+        Assert.Same(first, manager.GetRoom("12345"));
+    }
+
+    [Fact]
+    public void CreateRoom_AllIdsTaken_ThrowsAfterRetryLimit()
+    {
+        var manager = new BlackJackRoomManager(nextRoomId: ScriptedIds.Of(12345));
+        var first = manager.CreateRoom(4);
+
+        Assert.Throws<InvalidOperationException>(() => manager.CreateRoom(4));
+        Assert.Same(first, manager.GetRoom("12345"));
     }
 
     [Fact]

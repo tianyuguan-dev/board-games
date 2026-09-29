@@ -7,13 +7,6 @@ public class RoomIdsTests
 {
     private record TestRoom(string Id);
 
-    // Returns the given ids in order, then repeats the last one.
-    private static Func<int> Script(params int[] ids)
-    {
-        var i = 0;
-        return () => ids[Math.Min(i++, ids.Length - 1)];
-    }
-
     [Fact]
     public void Register_ReturnsRegisteredRoomWithFiveDigitId()
     {
@@ -33,7 +26,7 @@ public class RoomIdsTests
         rooms.TryAdd("12345", existing);
         var created = new List<string>();
 
-        var room = RoomIds.Register(rooms, id => { created.Add(id); return new TestRoom(id); }, Script(12345, 23456));
+        var room = RoomIds.Register(rooms, id => { created.Add(id); return new TestRoom(id); }, ScriptedIds.Of(12345, 23456));
 
         Assert.Equal("23456", room.Id);
         Assert.Same(existing, rooms["12345"]);
