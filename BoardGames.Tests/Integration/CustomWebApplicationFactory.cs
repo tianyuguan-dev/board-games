@@ -15,6 +15,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     // so non-timer tests stay deterministic.
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Test-only settings so the suite does not depend on the git-ignored appsettings.Development.json
+        // (needed on CI, where that file does not exist).
+        builder.UseSetting("Jwt:Key", "integration-tests-only-signing-key-0123456789abcdef");
+        builder.UseSetting("Jwt:Issuer", "BoardGamesTests");
+        builder.UseSetting("Admin:Password", "admin123"); // matches the token used in AdminIntegrationTests
+
         builder.ConfigureServices(services =>
         {
             var descriptor = services.SingleOrDefault(
