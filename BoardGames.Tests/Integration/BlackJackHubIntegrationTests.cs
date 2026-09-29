@@ -265,6 +265,17 @@ public class BlackJackHubIntegrationTests : IClassFixture<CustomWebApplicationFa
         Assert.True(kicked.Task.IsCompletedSuccessfully, "Guest should be kicked");
     }
 
+    private static TaskCompletionSource<bool> IsHostOnceRoomHas(HubConnection conn, int playerCount)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        conn.On<System.Text.Json.JsonElement>("RoomUpdate", u =>
+        {
+            if (u.GetProperty("players").GetArrayLength() == playerCount)
+                tcs.TrySetResult(u.GetProperty("isHost").GetBoolean());
+        });
+        return tcs;
+    }
+
     [Fact]
     public async Task HostLeaves_LowestSeatBecomesHost()
     {
@@ -279,18 +290,14 @@ public class BlackJackHubIntegrationTests : IClassFixture<CustomWebApplicationFa
         await seat1.InvokeAsync<object>("JoinRoom", roomId);
         await seat2.InvokeAsync<object>("JoinRoom", roomId);
 
-        var seat1IsHost = new TaskCompletionSource<bool>();
-        bool? seat2IsHost = null;
-        seat1.On<System.Text.Json.JsonElement>("RoomUpdate", u =>
-        {
-            if (u.GetProperty("isHost").GetBoolean()) seat1IsHost.TrySetResult(true);
-        });
-        seat2.On<System.Text.Json.JsonElement>("RoomUpdate", u => seat2IsHost = u.GetProperty("isHost").GetBoolean());
+        // Each seat's first RoomUpdate that no longer lists the host says whether it is host now.
+        var seat1IsHost = IsHostOnceRoomHas(seat1, 2);
+        var seat2IsHost = IsHostOnceRoomHas(seat2, 2);
 
         await host.InvokeAsync("LeaveRoom");
 
-        await seat1IsHost.Task.WaitAsync(TimeSpan.FromSeconds(3));
-        Assert.False(seat2IsHost ?? true);
+        Assert.True(await seat1IsHost.Task.WaitAsync(TimeSpan.FromSeconds(3)));
+        Assert.False(await seat2IsHost.Task.WaitAsync(TimeSpan.FromSeconds(3)));
     }
 
     [Fact]
