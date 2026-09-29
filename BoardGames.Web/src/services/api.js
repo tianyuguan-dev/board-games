@@ -175,7 +175,7 @@ export async function changePassword(token, oldPassword, newPassword) {
   return true;
 }
 
-export async function getBalances(token) {
+export async function getBalances() {
   const response = await authFetch(`${BASE_URL}/auth/balances`);
 
   if (!response || !response.ok) throw new Error("Failed to get balances");
