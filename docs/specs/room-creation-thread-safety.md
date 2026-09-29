@@ -68,7 +68,7 @@ Nothing that players see changes, for every role in either game.
 
 ## Acceptance criteria
 
-1. Neither room manager has a `System.Random` instance field. Ids come from a thread-safe source.
+1. Neither room manager has a `System.Random` field, instance or static. Ids come from a thread-safe source.
 2. 64 parallel tasks × 50 `CreateRoom` calls each, on one manager (per game), finish within 10 s. They return 3,200 distinct ids,
    all in [10000, 99999], and `GetRoom(id)` returns the same instance for every one.
 3. When the id source returns an id already in use, `CreateRoom` registers the room under the next unused id, and the existing
@@ -82,7 +82,7 @@ Nothing that players see changes, for every role in either game.
 
 | AC | Proof |
 |----|-------|
-| 1 | Unit test `RoomManagers_HaveNoRandomInstanceField`: reflection over `BlackJackRoomManager` and `AvalonRoomManager` finds no field of type `System.Random`. It guards against someone putting the old pattern back. |
+| 1 | Unit test `RoomManagers_HaveNoRandomField`: reflection over `BlackJackRoomManager` and `AvalonRoomManager` finds no instance or static field of type `System.Random`. It guards against someone putting the old pattern back. |
 | 2 | `BlackJackRoomManagerTests.CreateRoom_ConcurrentCalls_AllDistinctAndRegistered` and `AvalonRoomManagerTests.CreateRoom_ConcurrentCalls_AllDistinctAndRegistered` (`Task.WhenAll` with a 10 s `WaitAsync`). This also brings back the concurrent test dropped from task 5 of `blackjack-deterministic-deck-tests.md`, adding a one-deck-factory-call-per-room assertion for BlackJack. |
 | 3 | `CreateRoom_IdTaken_RetriesWithNextId` for each manager: the scripted id source returns `"12345"` twice, then `"23456"`. The first create gets `12345`, the second gets `23456`, and room `12345` is the same object as before. |
 | 4 | `CreateRoom_AllIdsTaken_ThrowsAfterRetryLimit` for each manager: the scripted source always returns `"12345"` after it is taken. The test expects `InvalidOperationException`, and `GetRoom` still returns only the original room. |
@@ -143,6 +143,6 @@ No task touches a per-player DTO. **T2 and T3 change DI singletons that every co
 
 4. **Guard test and final verification** (AC1, AC5, AC6)
    - Files: new `BoardGames.Tests/Services/RoomManagerStructureTests.cs`.
-   - Test (new): `RoomManagers_HaveNoRandomInstanceField`. Reflection over both manager types finds no instance field of type
+   - Test (new): `RoomManagers_HaveNoRandomField`. Reflection over both manager types finds no instance or static field of type
      `System.Random`.
    - Verification (no code): the full `dotnet test` passes 20 runs in a row, and `git diff` shows no edits to existing test methods.
