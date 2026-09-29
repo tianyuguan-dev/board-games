@@ -51,7 +51,8 @@ Nothing that players see changes. For each finding, the behaviour that must be k
   - after a page refresh with `roomId` in sessionStorage, AvalonGame calls `Rejoin` once. If that fails it calls `JoinRoom`,
     and if that also fails it clears `roomId` and returns to the lobby.
   - after App's `onclose` handler sets the ref to true and the connection is rebuilt, the same one-shot rejoin runs.
-  - after a normal Create/Join (`handleJoinRoom` sets the ref to false), no Rejoin is sent. If `gameInProgress`, `GetGameState` is sent instead.
+  - after a normal Create/Join (`handleJoinRoom` sets the ref to false), AvalonGame sends no Rejoin. If `gameInProgress`, it sends
+    `GetGameState` instead. The lobby's "Rejoin Room" button sends its own single `Rejoin` before `handleJoinRoom` runs; that one is expected.
   - the ref is cleared **before** the invoke, so re-running the effect never sends a second Rejoin.
 - **`canAddMore` (#13).** Delete it. It is dead code and was never meant to gate a button (D3). The role-config +/- buttons
   at `AvalonGame.jsx:702-716` do not read it. The server's `AdjustRole` enforces role limits.
@@ -117,7 +118,7 @@ cannot check get the manual script below.
 | 3 | Look at the `ci.yml` diff. Push a throwaway branch with an unused variable, check that the `frontend` job fails, then delete the branch. |
 | 4 | `npm run build` locally and in CI. |
 | 5 | Review the `eslint.config.js` diff, and `grep -rn "eslint-disable" BoardGames.Web/src`: each hit names a rule and gives a reason. |
-| 6 | Manual, with 2 browsers on `npm run dev` plus the backend. (a) Start an Avalon game, refresh one tab in TeamVote: it rejoins, sees its own role only, and DevTools WS shows exactly one `Rejoin`. (b) Stop and restart the backend mid-game: it reconnects and sends one `Rejoin`. (c) Refresh after the room is gone: it lands back in the lobby. (d) Join a game in progress from the lobby: `GetGameState`, no `Rejoin`. The backend Rejoin/grace behaviour is already covered by the existing integration tests (`FastTimerWebApplicationFactory`), which must still pass. |
+| 6 | Manual, with 2 browsers on `npm run dev` plus the backend. (a) Start an Avalon game, refresh one tab in TeamVote: it rejoins, sees its own role only, and DevTools WS shows exactly one `Rejoin`. (b) Stop the backend mid-game until auto-reconnect gives up and `onclose` fires (about 150 s with `RECONNECT_DELAYS`), then restart it: the rebuilt connection sends exactly one `Rejoin`. Rooms are in memory, so it then falls back to one `JoinRoom` and lands in the lobby. (c) Refresh after the room is gone: it lands back in the lobby. (d) Join a game in progress from the lobby with the "Rejoin Room" button: the lobby sends exactly one `Rejoin`, AvalonGame sends none of its own and requests `GetGameState`. The backend Rejoin/grace behaviour is already covered by the existing integration tests (`FastTimerWebApplicationFactory`), which must still pass. |
 | 7 | Manual: open Profile, balances load. Network tab shows `GET /api/auth/balances` with a `Bearer` header. |
 | 8 | Manual: host adjusts roles in an Avalon room. The +/- buttons and the server errors (`roleError`) behave as before. |
 | 9 | Review the diff: the dependency arrays for these three effects are unchanged. Manual: log into Admin, type in the search box (no request per keystroke), open a game detail (one request in the Network tab). |
