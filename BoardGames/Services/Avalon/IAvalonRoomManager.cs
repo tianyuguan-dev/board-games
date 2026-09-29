@@ -8,7 +8,6 @@ public interface IAvalonRoomManager
     AvalonRoom? GetRoom(string roomId);
     void JoinRoom(string roomId, string connectionId);
     (string? roomId, int seatIndex) FindRoomByConnectionId(string connectionId);
-    (string? roomId, int seatIndex) FindAndRemoveByConnectionId(string connectionId);
     string? FindRoomByUserId(int userId);
     void RemoveRoom(string roomId);
 }

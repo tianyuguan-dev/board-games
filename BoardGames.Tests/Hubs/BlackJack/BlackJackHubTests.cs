@@ -297,7 +297,7 @@ public class BlackJackHubTests
     [Fact]
     public async Task OnDisconnectedAsync_DoesNotNotifyWhenPlayerNotInAnyRoom()
     {
-        _mockRoomManager.Setup(r => r.FindAndRemoveByConnectionId(ConnectionId)).Returns(((string?)null, -1));
+        _mockRoomManager.Setup(r => r.FindRoomByConnectionId(ConnectionId)).Returns((BlackJackRoom?)null);
 
         await _hub.OnDisconnectedAsync(null);
 

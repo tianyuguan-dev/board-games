@@ -160,17 +160,6 @@ public class AvalonRoomManagerTests
     }
 
     [Fact]
-    public void FindAndRemoveByConnectionId_RemovesPlayer()
-    {
-        var mgr = new AvalonRoomManager();
-        var room = mgr.CreateRoom(5);
-        room.Players["leaver"] = 1;
-        var (rid, _) = mgr.FindAndRemoveByConnectionId("leaver");
-        Assert.Equal(room.RoomId, rid);
-        Assert.False(room.Players.ContainsKey("leaver"));
-    }
-
-    [Fact]
     public void FindRoomByUserId_LooksAtPlayerUserIdsAndDisconnected()
     {
         var mgr = new AvalonRoomManager();

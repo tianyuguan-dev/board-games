@@ -146,41 +146,6 @@ public class BlackJackRoomManagerTests
     }
 
     [Fact]
-    public void FindAndRemoveByConnectionId_RemovesPlayerAndReturnsRoomId()
-    {
-        var room = _roomManager.CreateRoom(4);
-        _roomManager.JoinRoom(room.RoomId, "conn-1");
-
-        var (roomId, seatIndex) = _roomManager.FindAndRemoveByConnectionId("conn-1");
-
-        Assert.Equal(room.RoomId, roomId);
-        Assert.Equal(0, seatIndex);
-        Assert.Empty(room.Players);
-    }
-
-    [Fact]
-    public void FindAndRemoveByConnectionId_ReturnsNullWhenPlayerNotFound()
-    {
-        var (roomId, seatIndex) = _roomManager.FindAndRemoveByConnectionId("conn-999");
-
-        Assert.Null(roomId);
-        Assert.Equal(-1, seatIndex);
-    }
-
-    [Fact]
-    public void FindAndRemoveByConnectionId_DoesNotAffectOtherPlayers()
-    {
-        var room = _roomManager.CreateRoom(4);
-        _roomManager.JoinRoom(room.RoomId, "conn-1");
-        _roomManager.JoinRoom(room.RoomId, "conn-2");
-
-        _roomManager.FindAndRemoveByConnectionId("conn-1");
-
-        Assert.Single(room.Players);
-        Assert.True(room.Players.ContainsKey("conn-2"));
-    }
-
-    [Fact]
     public void JoinRoom_ThrowsWhenGameInProgress()
     {
         var room = _roomManager.CreateRoom(4);

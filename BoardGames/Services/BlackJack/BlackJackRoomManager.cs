@@ -58,23 +58,6 @@ public class BlackJackRoomManager(IDeckFactory? deckFactory = null, Func<int>? n
         return _rooms.Values.FirstOrDefault(r => r.Players.ContainsKey(connectionId));
     }
 
-    public (string? roomId, int seatIndex) FindAndRemoveByConnectionId(string connectionId)
-    {
-        string? roomId=null;
-        int seatIndex=-1;
-        _rooms.Values.ToList().ForEach(room =>
-        {
-            var connectionIds = room.Players.Keys;
-            if (connectionIds.Contains(connectionId))
-            {
-                seatIndex = room.Players[connectionId];
-                room.Players.Remove(connectionId);
-                roomId = room.RoomId;
-            }
-        });
-        return (roomId,seatIndex);
-    }
-
     public void RemoveRoom(string roomId)
     {
         _rooms.TryRemove(roomId, out _);
