@@ -110,6 +110,26 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task LeaveRoom_Twice_SecondIsNoOp()
+    {
+        var host = CreateHubConnection("/hub/avalon", await RegisterAndGetToken("av_leave2_host"));
+        var guest = CreateHubConnection("/hub/avalon", await RegisterAndGetToken("av_leave2_guest"));
+        await host.StartAsync(); await guest.StartAsync();
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            (await host.InvokeAsync<object>("CreateRoom", 5, true)).ToString()!)!["roomId"].ToString()!;
+        await guest.InvokeAsync<object>("JoinRoom", roomId);
+
+        var playerLeft = 0;
+        host.On<int>("PlayerLeft", _ => Interlocked.Increment(ref playerLeft));
+
+        await guest.InvokeAsync("LeaveRoom");
+        await guest.InvokeAsync("LeaveRoom"); // no error, no second removal
+        await host.InvokeAsync<decimal>("GetBalance"); // round trip: earlier messages to host are delivered first
+
+        Assert.Equal(1, playerLeft);
+    }
+
+    [Fact]
     public async Task CreateRoom_ReturnsRoomInfo()
     {
         var token = await RegisterAndGetToken("av_create");

@@ -803,6 +803,9 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
         await WithLock(room, async () =>
         {
+            // The lookup ran before the lock; an overlapping leave or disconnect may already have removed this connection.
+            if (!room.Players.ContainsKey(connectionId)) return;
+
             var roomId = room.RoomId;
             await Groups.RemoveFromGroupAsync(connectionId, roomId);
 
