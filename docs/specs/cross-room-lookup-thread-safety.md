@@ -174,6 +174,14 @@ review.
      `HostLeavesMidGame_LowestSeatBecomesHost`, and `HostGraceExpires_LowestSeatBecomesHost` (with `FastTimerWebApplicationFactory`).
      Each test uses `ReorderPlayer` / `MovePlayer` so that join order differs from seat order. That way it fails on today's
      "first key" rule and passes on the new rule.
+   - **As built:** only `MarkDisconnected_Host_LowestSeatBecomesHost` and `HostLeavesLobby_LowestSeatBecomesHost` fail on the
+     old rule (checked). The two mid-game tests pass on both rules, because `StartGame` → `ReassignSeats` rebuilds `Players` in
+     seat order, and a `Dictionary` re-add after a reconnect reuses the freed slot. They stay as end-to-end regression tests:
+     after T5 removes any order, they guard the mid-game paths. The grace test is named `HostDisconnectsMidGame_...`, because the
+     host moves at disconnect time (`MarkDisconnected`), not at grace expiry. It does not wait for `GameAborted`: that step depends on
+     a pre-existing grace-timer bug (`Task.Delay` can finish up to ~0.6 ms before `DateTime.UtcNow` says the grace has passed, so
+     `CheckDisconnectedPlayer` returns early and never retries). The bug was measured at 50/1000 early completions and is recorded in
+     the backlog.
 
 4. **`BlackJackRoom.Players` becomes `MembershipMap`** (D1, AC1 part). ⚠ Shared room state: needs concurrency review.
    - Files: `BoardGames/Models/BlackJack/BlackJackRoom.cs` (declaration, constructor, `ReassignSeats` builds a `MembershipMap`).

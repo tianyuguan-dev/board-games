@@ -824,7 +824,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 
                 if (room.Players.Count == 0) { roomManager.RemoveRoom(roomId); return; }
                 if (room.HostConnectionId == connectionId)
-                    room.HostConnectionId = room.Players.Keys.First();
+                    room.HostConnectionId = room.LowestSeatConnectionId();
                 room.ReassignSeats();
                 room.RebuildRoleConfig();
 
@@ -858,7 +858,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         if (room.Players.Count == 0) { roomManager.RemoveRoom(room.RoomId); return; }
 
         if (room.HostConnectionId == connectionId)
-            room.HostConnectionId = room.Players.Keys.First();
+            room.HostConnectionId = room.LowestSeatConnectionId();
 
         room.ReassignSeats();
         room.RebuildRoleConfig();
@@ -904,7 +904,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             if (room.Players.Count == 0) { roomManager.RemoveRoom(roomId); return; }
 
             if (room.HostConnectionId == null || !room.Players.ContainsKey(room.HostConnectionId))
-                room.HostConnectionId = room.Players.Keys.FirstOrDefault();
+                room.HostConnectionId = room.LowestSeatConnectionId();
 
             room.ReassignSeats();
             room.RebuildRoleConfig();

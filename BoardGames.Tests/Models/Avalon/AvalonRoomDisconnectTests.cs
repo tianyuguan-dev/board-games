@@ -31,6 +31,23 @@ public class AvalonRoomDisconnectTests
     }
 
     [Fact]
+    public void MarkDisconnected_Host_LowestSeatBecomesHost()
+    {
+        var room = new AvalonRoom("R1", 5);
+        // Inserted out of seat order: the first remaining key ("a", seat 2) is not the lowest seat ("b", seat 1).
+        foreach (var (conn, seat) in new[] { ("host", 0), ("a", 2), ("b", 1) })
+        {
+            room.Players[conn] = seat;
+            room.PlayerUserIds[conn] = 100 + seat;
+        }
+        room.HostConnectionId = "host";
+
+        room.MarkDisconnected("host");
+
+        Assert.Equal("b", room.HostConnectionId);
+    }
+
+    [Fact]
     public void MarkDisconnected_ReturnsNullForUnknownConnection()
     {
         var room = SeatedRoom();

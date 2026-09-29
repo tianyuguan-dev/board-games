@@ -44,6 +44,71 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
         return conn;
     }
 
+
+    // The first RoomUpdate with this many players (i.e. after someone left) says whether the connection is host.
+    private static TaskCompletionSource<bool> IsHostOnceRoomHas(HubConnection conn, int playerCount)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        conn.On<System.Text.Json.JsonElement>("RoomUpdate", u =>
+        {
+            if (u.GetProperty("players").GetArrayLength() == playerCount)
+                tcs.TrySetResult(u.GetProperty("isHost").GetBoolean());
+        });
+        return tcs;
+    }
+
+    [Fact]
+    public async Task HostLeavesLobby_LowestSeatBecomesHost()
+    {
+        var conns = new List<HubConnection>();
+        for (int i = 0; i < 3; i++)
+        {
+            var c = CreateHubConnection("/hub/avalon", await RegisterAndGetToken($"av_hostlobby_{i}"));
+            await c.StartAsync();
+            conns.Add(c);
+        }
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            (await conns[0].InvokeAsync<object>("CreateRoom", 5, true)).ToString()!)!["roomId"].ToString()!;
+        for (int i = 1; i < 3; i++) await conns[i].InvokeAsync<object>("JoinRoom", roomId);
+        // Seats become host 0, p2 1, p1 2, so join order (p1 before p2) differs from seat order.
+        await conns[0].InvokeAsync("ReorderPlayer", roomId, 2, 1);
+
+        var p2Host = IsHostOnceRoomHas(conns[2], 2);
+        var p1Host = IsHostOnceRoomHas(conns[1], 2);
+        await conns[0].InvokeAsync("LeaveRoom");
+
+        Assert.True(await p2Host.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(await p1Host.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task HostLeavesMidGame_LowestSeatBecomesHost()
+    {
+        var conns = new List<HubConnection>();
+        for (int i = 0; i < 5; i++)
+        {
+            var c = CreateHubConnection("/hub/avalon", await RegisterAndGetToken($"av_hostmid_{i}"));
+            await c.StartAsync();
+            conns.Add(c);
+        }
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            (await conns[0].InvokeAsync<object>("CreateRoom", 5, true)).ToString()!)!["roomId"].ToString()!;
+        for (int i = 1; i < 5; i++) await conns[i].InvokeAsync<object>("JoinRoom", roomId);
+        // p4 moves to seat 1: seats host 0, p4 1, p1 2, p2 3, p3 4.
+        await conns[0].InvokeAsync("ReorderPlayer", roomId, 4, 1);
+        for (int i = 1; i < 5; i++) await conns[i].InvokeAsync("Ready", roomId);
+        await conns[0].InvokeAsync("StartGame", roomId);
+
+        // End-to-end regression only: StartGame rebuilds Players in seat order, so the old "first key"
+        // rule gives the same answer mid-game. HostLeavesLobby_LowestSeatBecomesHost pins the rule.
+        var p4Host = IsHostOnceRoomHas(conns[4], 4);
+        var p1Host = IsHostOnceRoomHas(conns[1], 4);
+        await conns[0].InvokeAsync("LeaveRoom");
+
+        Assert.True(await p4Host.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(await p1Host.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
     [Fact]
     public async Task CreateRoom_ReturnsRoomInfo()
     {

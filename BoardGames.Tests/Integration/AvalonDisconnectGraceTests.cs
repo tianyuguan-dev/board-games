@@ -73,6 +73,50 @@ public class AvalonDisconnectGraceTests : IClassFixture<FastTimerWebApplicationF
         Assert.True(bal >= 0);
     }
 
+
+    // The first RoomUpdate with this many players (i.e. after someone left) says whether the connection is host.
+    private static TaskCompletionSource<bool> IsHostOnceRoomHas(HubConnection conn, int playerCount)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        conn.On<System.Text.Json.JsonElement>("RoomUpdate", u =>
+        {
+            if (u.GetProperty("players").GetArrayLength() == playerCount)
+                tcs.TrySetResult(u.GetProperty("isHost").GetBoolean());
+        });
+        return tcs;
+    }
+
+    [Fact]
+    public async Task HostDisconnectsMidGame_LowestSeatBecomesHost()
+    {
+        var conns = new List<HubConnection>();
+        for (int i = 0; i < 5; i++)
+        {
+            var c = Conn(await Tok($"disc_host_p{i}"));
+            await c.StartAsync();
+            conns.Add(c);
+        }
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            (await conns[0].InvokeAsync<object>("CreateRoom", 5, true)).ToString()!)!["roomId"].ToString()!;
+        for (int i = 1; i < 5; i++) await conns[i].InvokeAsync<object>("JoinRoom", roomId);
+        // p4 moves to seat 1: seats host 0, p4 1, p1 2, p2 3, p3 4.
+        await conns[0].InvokeAsync("ReorderPlayer", roomId, 4, 1);
+        for (int i = 1; i < 5; i++) await conns[i].InvokeAsync("Ready", roomId);
+        await conns[0].InvokeAsync("StartGame", roomId);
+
+        var p4Host = IsHostOnceRoomHas(conns[4], 4);
+        var p1Host = IsHostOnceRoomHas(conns[1], 4);
+
+        await conns[0].DisposeAsync();
+        _connections.Remove(conns[0]);
+
+        // The host moves at disconnect time (MarkDisconnected), before any grace timer runs.
+        // End-to-end regression only: after StartGame, Players is already in seat order, so the old
+        // "first key" rule gives the same answer here. MarkDisconnected_Host_LowestSeatBecomesHost pins the rule.
+        Assert.True(await p4Host.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(await p1Host.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
     [Fact]
     public async Task PlayerDisconnect_MidGame_TriggersGameAbortAfterGrace()
     {
