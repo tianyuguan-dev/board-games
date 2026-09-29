@@ -81,8 +81,12 @@ Players see no change, whatever their role, with one exception: when the host le
   `TryRemove`. There is no exception; the scan sees the player or it does not, and both are correct at that moment.
 - **Leave and disconnect overlapping for one connection:** both look up the room. The first one to take the lock removes the
   player; the second re-checks, finds nothing and returns. No double `PlayerLeft`, no second disband or seat reassignment.
-- **Reconnect (`TryRejoin`) swaps a connection id under the lock:** a concurrent `FindRoomByUserId` sees the user through
-  `PlayerUserIds` (old or new key) or through `DisconnectedPlayers`. In every case it returns the right room.
+- **Reconnect (`TryRejoin`) swaps a connection id under the lock:** a concurrent `FindRoomByUserId` usually sees the user
+  through `PlayerUserIds` (old or new key) or through `DisconnectedPlayers`. *As built:* between the remove and the add, a
+  lock-free scan can briefly find neither and return null. Reordering the writes cannot fully close this, because a
+  `ConcurrentDictionary` enumeration is not a snapshot. Its only reader is `GetActiveRoom`, a lobby hint, so another tab of the
+  same user may briefly not see "you have an active game". It never throws or returns a wrong room. Closing it fully would
+  need the separate index that D1 rejected.
 - **Grace timer expiry vs rejoin:** unchanged. Both run under the room lock.
 - **Room being filled right after `RoomIds.Register` publishes it:** a scan sees an empty or partly filled `ConcurrentDictionary`,
   which is safe.

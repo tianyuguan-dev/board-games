@@ -12,9 +12,11 @@ public class AvalonRoom
 {
     public string RoomId { get; init; }
     public int MaxPlayers { get; set; }
-    public Dictionary<string, int> Players { get; set; } = new(); // connectionId => seatIndex
+    // Players, PlayerUserIds and DisconnectedPlayers are read by room-manager lookups from other threads;
+    // they are written only under Lock.
+    public MembershipMap<string, int> Players { get; set; } = new(); // connectionId => seatIndex
     public Dictionary<string, string> PlayerNicknames { get; set; } = new();
-    public Dictionary<string, int> PlayerUserIds { get; set; } = new(); // connectionId => userId
+    public MembershipMap<string, int> PlayerUserIds { get; set; } = new(); // connectionId => userId
     public string? HostConnectionId { get; set; }
     public HashSet<string> ReadyPlayers { get; init; } = new();        // Lobby ready (before game / game over)
     public HashSet<string> NightConfirmedPlayers { get; init; } = new(); // ConfirmNightReveal during game
@@ -59,7 +61,7 @@ public class AvalonRoom
     public SemaphoreSlim Lock { get; } = new(1, 1);
 
     // Disconnected players awaiting reconnection (userId => info)
-    public Dictionary<int, DisconnectedPlayer> DisconnectedPlayers { get; set; } = new();
+    public MembershipMap<int, DisconnectedPlayer> DisconnectedPlayers { get; set; } = new();
 
     public DisconnectedPlayer? MarkDisconnected(string connectionId)
     {
@@ -144,7 +146,7 @@ public class AvalonRoom
 
     public void ReassignSeats()
     {
-        var newPlayers = new Dictionary<string, int>();
+        var newPlayers = new MembershipMap<string, int>();
         int seatIndex = 0;
         foreach (var player in Players.OrderBy(p => p.Value))
         {
