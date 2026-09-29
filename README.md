@@ -1,5 +1,7 @@
 # Guan Yu Board Games
 
+[![CI](https://github.com/tianyuguan-dev/board-games/actions/workflows/ci.yml/badge.svg)](https://github.com/tianyuguan-dev/board-games/actions/workflows/ci.yml)
+
 A real-time multiplayer board game platform where players join rooms and play together via WebSocket. Supports **Avalon** (social deduction, 5-10 players) and **BlackJack** (1-7 players).
 
 **Live Demo:** [guantianyu.cc](https://guantianyu.cc)
@@ -8,7 +10,7 @@ A real-time multiplayer board game platform where players join rooms and play to
 
 ## Why I Built This
 
-My friends and I play Avalon regularly, but dealing cards and tracking votes on paper is tedious. I needed a portfolio project to demonstrate my C# skills for job hunting in New Zealand — so I combined both needs and built a digital board game platform we actually use.
+My friends and I play Avalon regularly, but tracking votes on paper is tedious, worn cards give away hidden roles, and there was no way to keep score across game nights. So I built a digital platform we actually use, with ranked and casual modes.
 
 ## Tech Stack
 
@@ -16,9 +18,9 @@ My friends and I play Avalon regularly, but dealing cards and tracking votes on 
 
 **Frontend:** React / Vite
 
-**DevOps:** Docker (multi-stage build) / Docker Compose / AWS EC2 / Cloudflare (DNS + SSL)
+**DevOps:** Docker (multi-stage build) / Docker Compose / AWS EC2 / Cloudflare (DNS + SSL) / GitHub Actions CI
 
-**Testing:** xUnit (197 test cases covering game logic, auth, controllers, and DTOs)
+**Testing:** xUnit, Moq, WebApplicationFactory: 390+ tests across unit and integration layers (94% line coverage), run on every push by GitHub Actions
 
 ## Technical Challenges & Solutions
 
@@ -41,12 +43,19 @@ In Avalon, different roles see different information (e.g., Merlin sees evil pla
 ### Concurrent Player Actions
 Multiple players vote or play mission cards simultaneously. The backend uses thread-safe state management to handle concurrent SignalR calls, resolving actions only when all expected inputs arrive (e.g., all votes collected -> resolve proposal, all mission cards played -> resolve mission).
 
+## How It's Built
+
+I build this with Claude Code under a spec-first workflow: every feature starts as a written spec, is split into small independently testable tasks, and each change is reviewed by the agent and then by me before it merges. The project rules the agent follows (architecture, concurrency and testing rules) live in [CLAUDE.md](CLAUDE.md), and the workflow itself is encoded as custom commands in [`.claude/commands`](.claude/commands): `/spec`, `/breakdown` and `/review`.
+
 ## Project Structure
 
 ```
 BoardGames/              # ASP.NET Core backend (Hubs, Models, Services, Data)
 BoardGames.Web/          # React frontend (Vite)
-BoardGames.Tests/        # xUnit unit tests
+BoardGames.Tests/        # xUnit unit and integration tests
+.github/workflows/       # CI: backend tests + frontend build on every push
+.claude/commands/        # Claude Code commands for the spec-first workflow
+docs/specs/              # Feature specs
 Dockerfile               # Multi-stage build: Node 20 (frontend) -> .NET 8 (backend) -> runtime
 docker-compose.yml       # App + PostgreSQL containers
 ```
