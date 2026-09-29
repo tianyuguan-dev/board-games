@@ -172,6 +172,10 @@ needs the concurrency review. The other tasks change models, which are always us
    - Tests (new): `CreateRoom_UsesInjectedDeckFactory` (a counting fake is called once with `deckCount == maxPlayers`),
      `CreateRoom_ConcurrentCalls_EachRoomGetsOwnDeck` (parallel `CreateRoom` calls, one factory call per room, no exception).
      Existing `BlackJackRoomManagerTests` (`new()`) and `BlackJackHubTests` stay unchanged.
+   - **As built:** `CreateRoom_ConcurrentCalls_EachRoomGetsOwnDeck` was not written. `CreateRoom` shares a non-thread-safe
+     `Random` across connections and does `ContainsKey` + `TryAdd` without checking the result. This is pre-existing, and the same
+     pattern is in `AvalonRoomManager`. A concurrent test would hit that race and be flaky itself. It is recorded as a separate
+     backlog item and needs its own fix.
 
 6. **Unshuffled deck for all integration tests** (D2, AC1 for F2-F5, AC2 DI part, AC4)
    - Files: new `BoardGames.Tests/Integration/UnshuffledDeckFactory.cs`,
