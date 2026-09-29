@@ -667,7 +667,6 @@ export default function AvalonGame({ connection, nickname, isGuest, roomId, maxP
           const evilRoles = roleConfig.filter((r) => !["Merlin","Percival","LoyalServant"].includes(r));
           const counts = {};
           for (const r of roleConfig) counts[r] = (counts[r] || 0) + 1;
-          const canAddMore = goodRoles.length - evilRoles.length > 2 && goodRoles.length > 2;
           return (
             <div className="section">
               <h3>
