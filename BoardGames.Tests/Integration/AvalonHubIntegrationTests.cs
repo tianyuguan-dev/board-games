@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using BoardGames.Services.Avalon;
 using System.Net.Http.Json;
 using BoardGames.Dtos;
 using Microsoft.AspNetCore.SignalR;
@@ -185,6 +187,42 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
 
         Assert.NotEqual(first, second);
         Assert.Equal(second, await conn.InvokeAsync<string?>("GetActiveRoom"));
+    }
+
+    [Fact]
+    public async Task Rejoin_RacingRoomRemoval_FailsAndSeatsNobody()
+    {
+        var host = CreateHubConnection("/hub/avalon", await RegisterAndGetToken("av_race_host"));
+        var playerToken = await RegisterAndGetToken("av_race_player");
+        var player = CreateHubConnection("/hub/avalon", playerToken);
+        await host.StartAsync(); await player.StartAsync();
+        var roomId = RoomIdOf(await host.InvokeAsync<object>("CreateRoom", 5, true));
+        await player.InvokeAsync<object>("JoinRoom", roomId);
+        var disconnected = new TaskCompletionSource<bool>();
+        host.On<string>("PlayerDisconnected", _ => disconnected.TrySetResult(true));
+        await player.DisposeAsync();
+        _connections.Remove(player);
+        await disconnected.Task.WaitAsync(TimeSpan.FromSeconds(5)); // the seat is now waiting for a rejoin
+        var back = CreateHubConnection("/hub/avalon", playerToken);
+        await back.StartAsync();
+        var manager = _factory.Services.GetRequiredService<IAvalonRoomManager>();
+        var room = manager.GetRoom(roomId)!;
+
+        // Hold the room lock so the rejoin queues on it, then remove the room the way the hub does (under the lock).
+        // Rejoin does not look the room up again inside the lock, so without the guard it rejoins the removed room.
+        await room.Lock.WaitAsync();
+        Task rejoin;
+        try
+        {
+            rejoin = back.InvokeAsync<object>("Rejoin", roomId);
+            await Task.Delay(200); // let the rejoin look the room up and wait on the lock
+            manager.RemoveRoom(roomId);
+        }
+        finally { room.Lock.Release(); }
+
+        var ex = await Assert.ThrowsAsync<HubException>(() => rejoin);
+        Assert.Contains("Room not found", ex.Message);
+        Assert.Single(room.DisconnectedPlayers); // TryRejoin never ran on the removed room
     }
 
     [Fact]

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using BoardGames.Services.BlackJack;
 using System.Net.Http.Json;
 using BoardGames.Dtos;
 using Microsoft.AspNetCore.SignalR;
@@ -361,6 +363,38 @@ public class BlackJackHubIntegrationTests : IClassFixture<CustomWebApplicationFa
 
         // The first room is untouched and still accepts players.
         await guest.InvokeAsync<object>("JoinRoom", roomId);
+    }
+
+    [Fact]
+    public async Task Ready_RacingRoomRemoval_FailsThenCanCreate()
+    {
+        var host = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_race_host"));
+        var guest = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_race_guest"));
+        await host.StartAsync(); await guest.StartAsync();
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 4);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            roomJson.ToString()!)!["roomId"].ToString()!;
+        await guest.InvokeAsync<object>("JoinRoom", roomId);
+        var manager = _factory.Services.GetRequiredService<IBlackJackRoomManager>();
+        var room = manager.GetRoom(roomId)!;
+
+        // Hold the room lock so Ready queues on it, then remove the room under the lock.
+        // Ready does not look the room up again inside the lock, so without the guard it acts on the removed room.
+        await room.Lock.WaitAsync();
+        Task ready;
+        try
+        {
+            ready = guest.InvokeAsync("Ready", roomId);
+            await Task.Delay(200); // let Ready look the room up and wait on the lock
+            manager.RemoveRoom(roomId);
+        }
+        finally { room.Lock.Release(); }
+
+        var ex = await Assert.ThrowsAsync<HubException>(() => ready);
+        Assert.Contains("Room not found", ex.Message);
+        Assert.Empty(room.ReadyPlayers);
+        // The removed room is not registered, so the guest can start fresh.
+        await guest.InvokeAsync<object>("CreateRoom", 4);
     }
 
     [Fact]
