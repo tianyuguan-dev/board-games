@@ -17,6 +17,20 @@ public class AvalonRoomManagerTests
     }
 
     [Fact]
+    public void IsInAnyRoom_TrueOnlyForSeatedConnection()
+    {
+        var mgr = new AvalonRoomManager();
+        var room = mgr.CreateRoom(5);
+        room.Players["seated"] = 0;
+
+        Assert.True(mgr.IsInAnyRoom("seated"));
+        Assert.False(mgr.IsInAnyRoom("stranger"));
+
+        room.Players.Remove("seated");
+        Assert.False(mgr.IsInAnyRoom("seated"));
+    }
+
+    [Fact]
     public async Task CrossRoomLookups_DuringConcurrentMembershipChanges_DoNotThrow()
     {
         var mgr = new AvalonRoomManager();

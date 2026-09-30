@@ -129,6 +129,64 @@ public class AvalonHubIntegrationTests : IClassFixture<CustomWebApplicationFacto
         Assert.Equal(1, playerLeft);
     }
 
+    private static string RoomIdOf(object roomJson) =>
+        System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(roomJson.ToString()!)!["roomId"].ToString()!;
+
+    [Fact]
+    public async Task CreateRoom_Twice_SecondIsRefused()
+    {
+        var conn = CreateHubConnection("/hub/avalon", await RegisterAndGetToken("av_create_twice"));
+        await conn.StartAsync();
+        var roomId = RoomIdOf(await conn.InvokeAsync<object>("CreateRoom", 5, true));
+
+        var ex = await Assert.ThrowsAsync<HubException>(() => conn.InvokeAsync<object>("CreateRoom", 5, true));
+
+        Assert.Contains("Player is already in a room", ex.Message);
+        Assert.Equal(roomId, await conn.InvokeAsync<string?>("GetActiveRoom"));
+    }
+
+    [Fact]
+    public async Task CreateRoom_WhileInAnotherRoom_IsRefused()
+    {
+        var host = CreateHubConnection("/hub/avalon", await RegisterAndGetToken("av_create_other_host"));
+        var guest = CreateHubConnection("/hub/avalon", await RegisterAndGetToken("av_create_other_guest"));
+        await host.StartAsync(); await guest.StartAsync();
+        var roomId = RoomIdOf(await host.InvokeAsync<object>("CreateRoom", 5, true));
+        await guest.InvokeAsync<object>("JoinRoom", roomId);
+
+        var ex = await Assert.ThrowsAsync<HubException>(() => guest.InvokeAsync<object>("CreateRoom", 5, true));
+
+        Assert.Contains("Player is already in a room", ex.Message);
+        Assert.Equal(roomId, await guest.InvokeAsync<string?>("GetActiveRoom"));
+    }
+
+    [Fact]
+    public async Task CreateDemoRoom_WhileInRoom_IsRefused()
+    {
+        var conn = CreateHubConnection("/hub/avalon", await RegisterAndGetToken("av_demo_seated"));
+        await conn.StartAsync();
+        var roomId = RoomIdOf(await conn.InvokeAsync<object>("CreateRoom", 5, true));
+
+        var ex = await Assert.ThrowsAsync<HubException>(() => conn.InvokeAsync<object>("CreateDemoRoom"));
+
+        Assert.Contains("Player is already in a room", ex.Message);
+        Assert.Equal(roomId, await conn.InvokeAsync<string?>("GetActiveRoom"));
+    }
+
+    [Fact]
+    public async Task CreateRoom_AfterLeave_Works()
+    {
+        var conn = CreateHubConnection("/hub/avalon", await RegisterAndGetToken("av_create_after_leave"));
+        await conn.StartAsync();
+        var first = RoomIdOf(await conn.InvokeAsync<object>("CreateRoom", 5, true));
+        await conn.InvokeAsync("LeaveRoom");
+
+        var second = RoomIdOf(await conn.InvokeAsync<object>("CreateRoom", 5, true));
+
+        Assert.NotEqual(first, second);
+        Assert.Equal(second, await conn.InvokeAsync<string?>("GetActiveRoom"));
+    }
+
     [Fact]
     public async Task CreateRoom_ReturnsRoomInfo()
     {

@@ -228,6 +228,9 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
     {
         if (IsGuestUser())
             throw new InvalidOperationException("Guests can only play the solo demo. Register an account to play multiplayer.");
+        // Checked before creating, so a refused call (e.g. a double click) leaves no empty room behind.
+        if (roomManager.IsInAnyRoom(Context.ConnectionId))
+            throw new InvalidOperationException("Player is already in a room");
         var room = roomManager.CreateRoom(maxPlayers);
         return await WithLock(room, async () =>
         {
@@ -263,6 +266,8 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         // Scripted single-player demo: guest plays Percival against 4 bots, game ends after Mission 1
         // via early assassination targeting the guest -> Good Wins.
         var connId = Context.ConnectionId;
+        if (roomManager.IsInAnyRoom(connId))
+            throw new InvalidOperationException("Player is already in a room");
         var userId = GetUserId();
         var nickname = await GetNickname();
         var room = roomManager.CreateRoom(5);
