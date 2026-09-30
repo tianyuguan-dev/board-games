@@ -206,7 +206,7 @@ public class TurnTimerService(
             room.PlayerNicknames.Remove(connId);
             room.PlayerUserIds.Remove(connId);
             if (room.HostConnectionId == connId)
-                room.HostConnectionId = room.Players.Keys.FirstOrDefault();
+                room.HostConnectionId = room.LowestSeatConnectionId();
             await hubContext.Groups.RemoveFromGroupAsync(connId, room.RoomId);
             await hubContext.Clients.Client(connId).SendAsync("Kicked", "Insufficient balance");
         }

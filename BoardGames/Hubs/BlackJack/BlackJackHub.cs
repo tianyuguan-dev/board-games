@@ -405,12 +405,8 @@ public class BlackJackHub(
     {
         if (room.HostConnectionId == leavingConnectionId)
         {
-            // The remaining player with the lowest seat becomes host.
-            room.HostConnectionId = room.Players
-                .Where(p => p.Key != leavingConnectionId)
-                .OrderBy(p => p.Value)
-                .Select(p => p.Key)
-                .FirstOrDefault();
+            // The leaving player is already removed from Players by the caller.
+            room.HostConnectionId = room.LowestSeatConnectionId();
         }
     }
 

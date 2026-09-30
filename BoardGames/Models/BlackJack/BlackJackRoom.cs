@@ -35,6 +35,10 @@ public class BlackJackRoom
         Players = new MembershipMap<string, int>();
     }
 
+    // The player who takes over as host: the lowest seat still in the room, or null if the room is empty.
+    public string? LowestSeatConnectionId() =>
+        Players.OrderBy(p => p.Value).Select(p => p.Key).FirstOrDefault();
+
     public void ReassignSeats()
     {
         MembershipMap<string, int> newPlayers = new();
