@@ -69,3 +69,19 @@ public class FastTimerWebApplicationFactory : CustomWebApplicationFactory
         });
     }
 }
+
+// Like FastTimerWebApplicationFactory, but betting lasts 5 s. For tests that must place a bet by hand before the betting
+// timer fires: with a 1 s betting timer that race is lost on slow CI runners. The turn timer stays at 1 s.
+public class ManualBetTimerWebApplicationFactory : CustomWebApplicationFactory
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.ConfigureServices(services =>
+        {
+            var bjSettings = services.SingleOrDefault(d => d.ServiceType == typeof(BlackJackTimerSettings));
+            if (bjSettings != null) services.Remove(bjSettings);
+            services.AddSingleton(new BlackJackTimerSettings { TurnTimeSeconds = 1, BettingTimeSeconds = 5 });
+        });
+    }
+}

@@ -80,8 +80,8 @@ public class TurnTimerServiceTests : IClassFixture<FastTimerWebApplicationFactor
         host.On<object>("GameDealt", _ => dealt.TrySetResult(true));
         host.On<object>("PlayerStand", _ => stand.TrySetResult(true));
 
+        // No PlaceBet: the 1 s betting timer auto-bets and deals (a manual bet races that timer on slow CI runners).
         await host.InvokeAsync("StartGame", roomId);
-        await host.InvokeAsync("PlaceBet", roomId, 10);
 
         // Wait for cards to be dealt
         await dealt.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -105,32 +105,13 @@ public class TurnTimerServiceTests : IClassFixture<FastTimerWebApplicationFactor
         var dealt = new TaskCompletionSource<bool>();
         host.On<object>("GameDealt", _ => dealt.TrySetResult(true));
 
+        // No PlaceBet: the 1 s betting timer auto-bets and deals (a manual bet races that timer on slow CI runners).
         await host.InvokeAsync("StartGame", roomId);
-        await host.InvokeAsync("PlaceBet", roomId, 10);
         await dealt.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Stand manually — should complete the game before timer fires
         await host.InvokeAsync("BlackJackPlayerStand", roomId);
         // Round should already be settled — no exception expected here.
-    }
-
-    [Fact]
-    public async Task BettingTimer_Cancelled_WhenAllBetsPlaced()
-    {
-        var host = Conn(await Tok("ttimer_bcancel"));
-        await host.StartAsync();
-        var roomJson = await host.InvokeAsync<object>("CreateRoom", 4);
-        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
-            roomJson.ToString()!)!["roomId"].ToString()!;
-
-        var dealt = new TaskCompletionSource<bool>();
-        host.On<object>("GameDealt", _ => dealt.TrySetResult(true));
-
-        await host.InvokeAsync("StartGame", roomId);
-        await host.InvokeAsync("PlaceBet", roomId, 10); // single player game → all bets placed immediately
-
-        // Cards should be dealt immediately (not after 1s)
-        await dealt.Task.WaitAsync(TimeSpan.FromSeconds(2));
     }
 
     [Fact]
@@ -147,8 +128,9 @@ public class TurnTimerServiceTests : IClassFixture<FastTimerWebApplicationFactor
         host.On<object>("PlayerStand", _ => stood.TrySetResult(true));
         var manager = _factory.Services.GetRequiredService<IBlackJackRoomManager>();
 
+        // No PlaceBet: the 1 s betting timer auto-bets and deals. Betting by hand raced that timer on slow CI runners
+        // ("Not in betting phase" when the timer won).
         await host.InvokeAsync("StartGame", roomId);
-        await host.InvokeAsync("PlaceBet", roomId, 10);
         await dealt.Task.WaitAsync(TimeSpan.FromSeconds(5)); // unshuffled deck: player 20, so a 1 s turn timer is running
         var room = manager.GetRoom(roomId)!;
 
