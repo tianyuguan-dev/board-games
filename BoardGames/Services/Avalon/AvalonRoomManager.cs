@@ -23,9 +23,14 @@ public class AvalonRoomManager(Func<int>? nextRoomId = null) : IAvalonRoomManage
         return room;
     }
 
+    public bool IsInAnyRoom(string connectionId)
+    {
+        return _rooms.Values.Any(r => r.Players.ContainsKey(connectionId));
+    }
+
     public void JoinRoom(string roomId, string connectionId)
     {
-        if (_rooms.Values.Any(r => r.Players.ContainsKey(connectionId)))
+        if (IsInAnyRoom(connectionId))
             throw new InvalidOperationException("Player is already in a room");
 
         var room = GetRoom(roomId) ?? throw new InvalidOperationException("Room not found");

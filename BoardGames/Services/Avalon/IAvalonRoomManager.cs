@@ -6,6 +6,7 @@ public interface IAvalonRoomManager
 {
     AvalonRoom CreateRoom(int maxPlayers);
     AvalonRoom? GetRoom(string roomId);
+    bool IsInAnyRoom(string connectionId);
     void JoinRoom(string roomId, string connectionId);
     (string? roomId, int seatIndex) FindRoomByConnectionId(string connectionId);
     string? FindRoomByUserId(int userId);
