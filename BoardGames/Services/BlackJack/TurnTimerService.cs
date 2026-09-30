@@ -69,6 +69,12 @@ public class TurnTimerService(
         await room.Lock.WaitAsync();
         try
         {
+            // The room may have been removed (closed) while we waited for the lock: drop our own entry and stop.
+            if (room.IsClosed)
+            {
+                _turnTimers.TryRemove(new KeyValuePair<string, CancellationTokenSource>(roomId, cts));
+                return;
+            }
             // A player action may have cancelled/replaced this timer while we waited for the lock.
             if (!_turnTimers.TryGetValue(roomId, out var current) || current != cts)
                 return;
@@ -112,6 +118,12 @@ public class TurnTimerService(
         await room.Lock.WaitAsync();
         try
         {
+            // The room may have been removed (closed) while we waited for the lock: drop our own entry and stop.
+            if (room.IsClosed)
+            {
+                _bettingTimers.TryRemove(new KeyValuePair<string, CancellationTokenSource>(roomId, cts));
+                return;
+            }
             // A player action may have cancelled/replaced this timer while we waited for the lock.
             if (!_bettingTimers.TryGetValue(roomId, out var current) || current != cts)
                 return;
