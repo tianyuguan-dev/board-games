@@ -806,7 +806,13 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             await Groups.RemoveFromGroupAsync(connectionId, roomId);
 
             var info = room.MarkDisconnected(connectionId);
-            if (info == null) return;
+            if (info == null)
+            {
+                // A demo guest (userId 0) is not held for a rejoin and guests cannot rejoin, so the seat is gone for
+                // good and only bots would remain: remove the room.
+                if (room.IsDemo && room.Players.ContainsKey(connectionId)) roomManager.RemoveRoom(roomId);
+                return;
+            }
 
             await Clients.Group(roomId).SendAsync("PlayerDisconnected", info.Nickname);
             await BroadcastRoomPlayers(roomId);
@@ -910,6 +916,13 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         await WithLockIfOpen(room, async () =>
         {
             if (!room.TryExpireDisconnected(info.UserId, info)) return;
+
+            // A demo whose human did not come back: only bots are left, so remove the room instead of aborting for nobody.
+            if (room.IsAbandonedDemo())
+            {
+                roomManager.RemoveRoom(roomId);
+                return;
+            }
 
             if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
             {

@@ -147,4 +147,21 @@ public class DemoBotServiceIntegrationTests : IClassFixture<CustomWebApplication
 
         Assert.Null(manager.GetRoom(roomId)); // the four bots no longer keep the room alive
     }
+
+    [Fact]
+    public async Task GuestDisconnectsMidDemo_RoomRemoved()
+    {
+        var conn = CreateHubConnection(await GuestToken());
+        await conn.StartAsync();
+        var roomId = RoomIdOf(await conn.InvokeAsync<object>("CreateDemoRoom"));
+        var manager = _factory.Services.GetRequiredService<IAvalonRoomManager>();
+
+        await conn.DisposeAsync();
+        _connections.Remove(conn);
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (manager.GetRoom(roomId) != null && DateTime.UtcNow < deadline)
+            await Task.Delay(50);
+        Assert.Null(manager.GetRoom(roomId));
+    }
 }

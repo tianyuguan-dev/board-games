@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using BoardGames.Services.Avalon;
 using System.Net.Http.Json;
 using BoardGames.Dtos;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -203,5 +205,56 @@ public class AvalonDisconnectGraceTests : IClassFixture<FastTimerWebApplicationF
         // secondDisconnectAt is when the host heard about it, a little after the server's timer started,
         // so the lower bound leaves ~250 ms of slack on both sides.
         Assert.InRange(abortedAt - secondDisconnectAt, 700, 5000);
+    }
+
+    private static async Task WaitUntil(Func<bool> condition, int timeoutMs = 5000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (!condition() && DateTime.UtcNow < deadline)
+            await Task.Delay(20);
+        Assert.True(condition(), "condition not met in time");
+    }
+
+    [Fact]
+    public async Task RegisteredUserLeavesDemo_RoomRemovedAfterGrace()
+    {
+        var conn = Conn(await Tok("demo_grace_gone"));
+        await conn.StartAsync();
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            (await conn.InvokeAsync<object>("CreateDemoRoom")).ToString()!)!["roomId"].ToString()!;
+        var manager = _factory.Services.GetRequiredService<IAvalonRoomManager>();
+        var room = manager.GetRoom(roomId)!;
+
+        await conn.DisposeAsync();
+        _connections.Remove(conn);
+
+        // Held for a rejoin first (only bots seated, but the human is waiting)...
+        await WaitUntil(() => !room.DisconnectedPlayers.IsEmpty);
+        Assert.NotNull(manager.GetRoom(roomId));
+        // ...then removed once the 1 s grace expires.
+        await WaitUntil(() => manager.GetRoom(roomId) == null);
+    }
+
+    [Fact]
+    public async Task RegisteredUserRejoinsDemoWithinGrace_DemoContinues()
+    {
+        var token = await Tok("demo_grace_back");
+        var conn = Conn(token);
+        await conn.StartAsync();
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            (await conn.InvokeAsync<object>("CreateDemoRoom")).ToString()!)!["roomId"].ToString()!;
+        var manager = _factory.Services.GetRequiredService<IAvalonRoomManager>();
+        var room = manager.GetRoom(roomId)!;
+        var back = Conn(token);
+        await back.StartAsync(); // ready before the disconnect, so the rejoin is one quick call
+
+        await conn.DisposeAsync();
+        _connections.Remove(conn);
+        await WaitUntil(() => !room.DisconnectedPlayers.IsEmpty);
+        await back.InvokeAsync<object>("Rejoin", roomId);
+
+        await Task.Delay(1000); // the grace timer from the disconnect fires in here and must find the seat taken back
+        Assert.Same(room, manager.GetRoom(roomId));
+        Assert.False(room.IsAbandonedDemo());
     }
 }
