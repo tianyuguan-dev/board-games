@@ -147,8 +147,9 @@ public class TurnTimerServiceTests : IClassFixture<FastTimerWebApplicationFactor
         host.On<object>("PlayerStand", _ => stood.TrySetResult(true));
         var manager = _factory.Services.GetRequiredService<IBlackJackRoomManager>();
 
+        // No PlaceBet: the 1 s betting timer auto-bets and deals. Betting by hand raced that timer on slow CI runners
+        // ("Not in betting phase" when the timer won).
         await host.InvokeAsync("StartGame", roomId);
-        await host.InvokeAsync("PlaceBet", roomId, 10);
         await dealt.Task.WaitAsync(TimeSpan.FromSeconds(5)); // unshuffled deck: player 20, so a 1 s turn timer is running
         var room = manager.GetRoom(roomId)!;
 
