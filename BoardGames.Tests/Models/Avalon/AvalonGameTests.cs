@@ -349,6 +349,20 @@ public class AvalonGameTests
     }
 
     [Fact]
+    public void GetAssassinationTargets_AreTheGoodSeats()
+    {
+        var roles = new List<AvalonRole>
+        {
+            AvalonRole.Merlin, AvalonRole.Assassin, AvalonRole.Percival, AvalonRole.Oberon,
+            AvalonRole.LoyalServant, AvalonRole.Morgana, AvalonRole.LoyalServant,
+        };
+        var game = new AvalonGame(7, roles, shuffleRoles: false);
+
+        // Oberon (3), the Assassin (1) and Morgana (5) are evil, so none of them may be targeted.
+        Assert.Equal([0, 2, 4, 6], game.GetAssassinationTargets());
+    }
+
+    [Fact]
     public void Assassination_OnlyAssassinCanDo()
     {
         var game = CreateGameAtAssassination();
