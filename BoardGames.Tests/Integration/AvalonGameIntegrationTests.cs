@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using BoardGames.Dtos;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace BoardGames.Tests.Integration;
@@ -473,6 +474,44 @@ public class AvalonGameIntegrationTests : IClassFixture<CustomWebApplicationFact
         await assassin.Connection.InvokeAsync("Assassinate", roomId, goodPlayer.SeatIndex);
         await WaitForAllStates(players);
 
+        Assert.Equal("GameOver", players[0].Phase);
+    }
+
+    [Fact]
+    public async Task Assassinate_InvalidCalls_AreRefused()
+    {
+        var (players, roomId) = await SetupGameInProgress("av_assn_refuse");
+        var assassin = players.First(p => p.MyRole == "Assassin");
+        var morgana = players.First(p => p.MyRole == "Morgana");
+        var good = players.First(p => p.MyTeam == "Good");
+        var gameStates = 0;
+        players[0].Connection.On<JsonElement>("GameState", _ => Interlocked.Increment(ref gameStates));
+
+        async Task Refused(PlayerState caller, int target, string message)
+        {
+            var ex = await Assert.ThrowsAsync<HubException>(() => caller.Connection.InvokeAsync("Assassinate", roomId, target));
+            Assert.Contains(message, ex.Message);
+        }
+
+        await Refused(assassin, good.SeatIndex, "Not in assassination phase");
+
+        await assassin.Connection.InvokeAsync("EarlyAssassinate", roomId);
+        await WaitForAllStates(players);
+        Assert.Equal("Assassination", players[0].Phase);
+        // Round trip first: the client handles messages in order, so every handler of the EarlyAssassinate
+        // GameState (including the counter) has run before this returns.
+        await players[0].Connection.InvokeAsync<decimal>("GetBalance");
+        var statesBefore = gameStates;
+
+        await Refused(good, good.SeatIndex, "Only the Assassin can assassinate");
+        await Refused(assassin, morgana.SeatIndex, "Invalid assassination target"); // a known evil ally
+        await Refused(assassin, assassin.SeatIndex, "Invalid assassination target");
+        await Refused(assassin, 99, "Invalid assassination target");
+        await players[0].Connection.InvokeAsync<decimal>("GetBalance"); // round trip: earlier messages to players[0] have arrived
+        Assert.Equal(statesBefore, gameStates); // refusals broadcast nothing
+
+        await assassin.Connection.InvokeAsync("Assassinate", roomId, good.SeatIndex);
+        await WaitForAllStates(players);
         Assert.Equal("GameOver", players[0].Phase);
     }
 
