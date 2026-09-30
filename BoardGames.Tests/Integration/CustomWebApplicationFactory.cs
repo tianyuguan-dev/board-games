@@ -85,3 +85,19 @@ public class ManualBetTimerWebApplicationFactory : CustomWebApplicationFactory
         });
     }
 }
+
+// Fast timers plus a SpyBlackJackRoomManager, so a test can wait until a timer has looked its room up.
+public class RoomLookupSpyWebApplicationFactory : FastTimerWebApplicationFactory
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.ConfigureServices(services =>
+        {
+            var manager = services.SingleOrDefault(d => d.ServiceType == typeof(IBlackJackRoomManager));
+            if (manager != null) services.Remove(manager);
+            services.AddSingleton(sp => new SpyBlackJackRoomManager(new BlackJackRoomManager(sp.GetRequiredService<IDeckFactory>())));
+            services.AddSingleton<IBlackJackRoomManager>(sp => sp.GetRequiredService<SpyBlackJackRoomManager>());
+        });
+    }
+}
