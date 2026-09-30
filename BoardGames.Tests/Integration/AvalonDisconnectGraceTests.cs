@@ -149,4 +149,59 @@ public class AvalonDisconnectGraceTests : IClassFixture<FastTimerWebApplicationF
         Assert.True(aborted.Task.IsCompletedSuccessfully, "GameAborted should fire after grace period");
         Assert.Contains("did not reconnect", aborted.Task.Result);
     }
+
+    [Fact]
+    public async Task DisconnectRejoinDisconnect_AbortsOnceAfterSecondGrace()
+    {
+        var tokens = new List<string>();
+        var conns = new List<HubConnection>();
+        for (int i = 0; i < 5; i++)
+        {
+            tokens.Add(await Tok($"disc_twice_p{i}"));
+            var c = Conn(tokens[i]);
+            await c.StartAsync();
+            conns.Add(c);
+        }
+        var host = conns[0];
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            (await host.InvokeAsync<object>("CreateRoom", 5, true)).ToString()!)!["roomId"].ToString()!;
+        for (int i = 1; i < 5; i++) await conns[i].InvokeAsync<object>("JoinRoom", roomId);
+        for (int i = 1; i < 5; i++) await conns[i].InvokeAsync("Ready", roomId);
+        await host.InvokeAsync("StartGame", roomId);
+
+        var disconnected = System.Threading.Channels.Channel.CreateUnbounded<bool>();
+        host.On<string>("PlayerDisconnected", _ => disconnected.Writer.TryWrite(true));
+        var abortCount = 0;
+        var aborted = new TaskCompletionSource<long>();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        host.On<string>("GameAborted", _ =>
+        {
+            Interlocked.Increment(ref abortCount);
+            aborted.TrySetResult(clock.ElapsedMilliseconds);
+        });
+        var rejoiner = Conn(tokens[1]);
+        await rejoiner.StartAsync(); // ready before the first disconnect, so the rejoin is one quick call
+
+        // Disconnect #1, then rejoin well inside the 1 s grace.
+        await conns[1].DisposeAsync();
+        _connections.Remove(conns[1]);
+        await disconnected.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await rejoiner.InvokeAsync<object>("Rejoin", roomId);
+
+        // Disconnect #2 a while later, so the stale timer from #1 expires ~0.5 s before #2's grace ends.
+        await Task.Delay(500);
+        await rejoiner.DisposeAsync();
+        _connections.Remove(rejoiner);
+        await disconnected.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        var secondDisconnectAt = clock.ElapsedMilliseconds;
+
+        var abortedAt = await aborted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await host.InvokeAsync<decimal>("GetBalance"); // round trip: any earlier message to host is delivered
+
+        Assert.Equal(1, abortCount);
+        // Only disconnect #2's timer may abort: ~1 s after it, not ~0.45 s (when #1's stale timer fires).
+        // secondDisconnectAt is when the host heard about it, a little after the server's timer started,
+        // so the lower bound leaves ~250 ms of slack on both sides.
+        Assert.InRange(abortedAt - secondDisconnectAt, 700, 5000);
+    }
 }

@@ -176,4 +176,39 @@ public class AvalonRoomDisconnectTests
         Assert.Contains(AvalonRole.Merlin, room.RoleConfig);
         Assert.Contains(AvalonRole.Assassin, room.RoleConfig);
     }
+
+    [Fact]
+    public void TryExpireDisconnected_CurrentInstance_ExpiresImmediately()
+    {
+        var room = SeatedRoom();
+        var info = room.MarkDisconnected("c2")!;
+
+        // No time has passed: the current timer's instance still expires.
+        Assert.True(room.TryExpireDisconnected(102, info));
+        Assert.False(room.DisconnectedPlayers.ContainsKey(102));
+    }
+
+    [Fact]
+    public void TryExpireDisconnected_StaleInstance_IsIgnored()
+    {
+        var room = SeatedRoom();
+        var first = room.MarkDisconnected("c2")!;
+        room.TryRejoin("c2-again", 102);
+        var second = room.MarkDisconnected("c2-again")!;
+
+        Assert.False(room.TryExpireDisconnected(102, first));
+        Assert.Same(second, room.DisconnectedPlayers[102]);
+        Assert.True(room.TryExpireDisconnected(102, second));
+    }
+
+    [Fact]
+    public void TryExpireDisconnected_AfterRejoin_IsIgnored()
+    {
+        var room = SeatedRoom();
+        var info = room.MarkDisconnected("c2")!;
+        room.TryRejoin("c2-again", 102);
+
+        Assert.False(room.TryExpireDisconnected(102, info));
+        Assert.True(room.Players.ContainsKey("c2-again"));
+    }
 }
