@@ -211,4 +211,47 @@ public class AvalonRoomDisconnectTests
         Assert.False(room.TryExpireDisconnected(102, info));
         Assert.True(room.Players.ContainsKey("c2-again"));
     }
+
+    private static AvalonRoom DemoRoom()
+    {
+        var room = new AvalonRoom("D1", 5) { IsDemo = true };
+        foreach (var seat in new[] { 0, 1, 3, 4 })
+            room.Players[$"BOT:seat{seat}"] = seat;
+        return room;
+    }
+
+    [Fact]
+    public void IsAbandonedDemo_OnlyBots_True()
+    {
+        Assert.True(DemoRoom().IsAbandonedDemo());
+    }
+
+    [Fact]
+    public void IsAbandonedDemo_HumanSeated_False()
+    {
+        var room = DemoRoom();
+        room.Players["human"] = 2;
+
+        Assert.False(room.IsAbandonedDemo());
+    }
+
+    [Fact]
+    public void IsAbandonedDemo_HumanWaitingToRejoin_False()
+    {
+        var room = DemoRoom();
+        room.Players["human"] = 2;
+        room.PlayerUserIds["human"] = 42;
+        room.MarkDisconnected("human");
+
+        Assert.False(room.IsAbandonedDemo()); // only bots seated, but the human may still rejoin
+    }
+
+    [Fact]
+    public void IsAbandonedDemo_NonDemoRoom_False()
+    {
+        var room = DemoRoom();
+        room.IsDemo = false;
+
+        Assert.False(room.IsAbandonedDemo());
+    }
 }

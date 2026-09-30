@@ -48,6 +48,15 @@ public class AvalonRoom
     // Demo mode: room is auto-filled with scripted bots, guest plays Percival, plot ends after mission 1 with early assassination.
     public bool IsDemo { get; set; }
 
+    // Demo bots sit in Players under these connection ids; they have no real connection and never leave.
+    public const string BotConnectionPrefix = "BOT:";
+
+    // A demo whose human is gone for good: only bots are seated and nobody is waiting to rejoin.
+    public bool IsAbandonedDemo() =>
+        IsDemo
+        && DisconnectedPlayers.IsEmpty
+        && Players.Keys.All(c => c.StartsWith(BotConnectionPrefix, StringComparison.Ordinal));
+
     // Maps seatIndex => connectionId for game-time lookups
     public Dictionary<int, string> SeatToConnection { get; set; } = new();
     public List<string> GamePlayerNames { get; set; } = new();
