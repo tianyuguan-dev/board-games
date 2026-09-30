@@ -834,6 +834,13 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             var roomId = room.RoomId;
             await Groups.RemoveFromGroupAsync(connectionId, roomId);
 
+            // A demo has one human and four bots that never leave: once the human leaves, remove the room (any phase).
+            if (room.IsDemo)
+            {
+                roomManager.RemoveRoom(roomId);
+                return;
+            }
+
             if (room.Game != null && room.Game.Phase == AvalonPhase.GameOver)
             {
                 await Clients.Group(roomId).SendAsync("RoomDisbanded");

@@ -104,7 +104,11 @@ pending bot moves stop. No new shared state.
 2. **Leave removes a demo room** (AC2, AC6)
    - Files: `BoardGames/Hubs/Avalon/AvalonHub.cs`. In `HandlePlayerLeave`, for `room.IsDemo`, remove the human and remove the
      room, before the GameOver and in-game branches. Also `BoardGames.Tests/Integration/DemoBotServiceIntegrationTests.cs`.
-   - Tests (new): `GuestLeavesMidDemo_RoomRemoved`, `LeaveAtGameOver_Disbands`, if no existing test covers it.
+   - Tests (new): `GuestLeavesMidDemo_RoomRemoved` (checked red on the old code).
+   - *As built:* no separate `LeaveAtGameOver_Disbands`. The demo branch runs before the GameOver and in-game branches, so a
+     GameOver leave takes the same code path as the mid-demo leave that the test covers. Reaching GameOver needs the full scripted
+     demo (~10 s of bot delays), and it would prove nothing more. For a demo, both paths end in `RemoveRoom`; `RoomDisbanded` was
+     only ever seen by bots, because the leaver is removed from the group first.
 
 3. **Disconnect removes a demo room: guests at once, registered users at grace expiry** (D1, AC3, AC4, AC5)
    - Files: `BoardGames/Hubs/Avalon/AvalonHub.cs`. In `HandlePlayerDisconnect`, if a demo's human is a guest (`MarkDisconnected`

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using BoardGames.Services.Avalon;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 
@@ -127,5 +129,22 @@ public class DemoBotServiceIntegrationTests : IClassFixture<CustomWebApplication
 
         var winner = latestState.GetProperty("winner").GetString();
         Assert.Equal("Good", winner);
+    }
+
+    private static string RoomIdOf(object roomJson) =>
+        System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(roomJson.ToString()!)!["roomId"].ToString()!;
+
+    [Fact]
+    public async Task GuestLeavesMidDemo_RoomRemoved()
+    {
+        var conn = CreateHubConnection(await GuestToken());
+        await conn.StartAsync();
+        var roomId = RoomIdOf(await conn.InvokeAsync<object>("CreateDemoRoom"));
+        var manager = _factory.Services.GetRequiredService<IAvalonRoomManager>();
+        Assert.NotNull(manager.GetRoom(roomId));
+
+        await conn.InvokeAsync("LeaveRoom");
+
+        Assert.Null(manager.GetRoom(roomId)); // the four bots no longer keep the room alive
     }
 }
