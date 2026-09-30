@@ -284,6 +284,10 @@ public class AvalonGame
         return true;
     }
 
+    // Valid assassination targets: the Good seats. Every evil player, Oberon included, is off limits.
+    public List<int> GetAssassinationTargets() =>
+        Enumerable.Range(0, PlayerCount).Where(i => AvalonConfig.GetTeam(Roles[i]) == AvalonTeam.Good).ToList();
+
     public void Assassinate(int assassinIndex, int targetIndex)
     {
         if (Phase != AvalonPhase.Assassination) return;

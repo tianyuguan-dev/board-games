@@ -148,9 +148,7 @@ public class AvalonGameStateDto
             if (game.BonusAssassination) dto.BonusLossReason = game.BonusLossReason;
             if (game.Roles[playerIndex] == AvalonRole.Assassin)
             {
-                dto.AssassinationTargets = Enumerable.Range(0, game.PlayerCount)
-                    .Where(i => AvalonConfig.GetTeam(game.Roles[i]) == AvalonTeam.Good)
-                    .ToList();
+                dto.AssassinationTargets = game.GetAssassinationTargets();
             }
         }
 

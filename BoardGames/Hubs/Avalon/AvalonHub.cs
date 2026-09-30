@@ -744,6 +744,13 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             var game = room.Game ?? throw new InvalidOperationException("No game");
             if (!room.Players.TryGetValue(Context.ConnectionId, out int seatIndex))
                 throw new InvalidOperationException("Not in this room");
+            // The model ignores these silently; refuse them explicitly so the caller knows nothing happened.
+            if (game.Phase != AvalonPhase.Assassination)
+                throw new InvalidOperationException("Not in assassination phase");
+            if (game.Roles[seatIndex] != AvalonRole.Assassin)
+                throw new InvalidOperationException("Only the Assassin can assassinate");
+            if (!game.GetAssassinationTargets().Contains(targetIndex))
+                throw new InvalidOperationException("Invalid assassination target");
 
             game.Assassinate(seatIndex, targetIndex);
             await SendGameStateToAll(room);
