@@ -74,8 +74,10 @@ public class AvalonRoomManager(Func<int>? nextRoomId = null) : IAvalonRoomManage
         return null;
     }
 
+    // Callers hold the room's lock.
     public void RemoveRoom(string roomId)
     {
-        _rooms.TryRemove(roomId, out _);
+        if (_rooms.TryRemove(roomId, out var room))
+            room.MarkClosed();
     }
 }

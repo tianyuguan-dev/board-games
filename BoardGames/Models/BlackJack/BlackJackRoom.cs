@@ -27,6 +27,12 @@ public class BlackJackRoom
     // Serializes all mutations/reads of this room's state across concurrent SignalR threads
     // and the background turn/betting timers. Plain Dictionary is not thread-safe.
     public SemaphoreSlim Lock { get; } = new(1, 1);
+
+    // Set by the room manager's RemoveRoom (its callers hold Lock). Lock helpers check it right after acquiring Lock,
+    // so work that was queued on the lock of a removed room does nothing.
+    private int _closed;
+    public bool IsClosed => Volatile.Read(ref _closed) == 1;
+    public void MarkClosed() => Volatile.Write(ref _closed, 1);
     public BlackJackRoom(string roomId, int maxPlayers, IDeckFactory? deckFactory = null)
     {
         RoomId = roomId;
