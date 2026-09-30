@@ -115,25 +115,6 @@ public class TurnTimerServiceTests : IClassFixture<FastTimerWebApplicationFactor
     }
 
     [Fact]
-    public async Task BettingTimer_Cancelled_WhenAllBetsPlaced()
-    {
-        var host = Conn(await Tok("ttimer_bcancel"));
-        await host.StartAsync();
-        var roomJson = await host.InvokeAsync<object>("CreateRoom", 4);
-        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
-            roomJson.ToString()!)!["roomId"].ToString()!;
-
-        var dealt = new TaskCompletionSource<bool>();
-        host.On<object>("GameDealt", _ => dealt.TrySetResult(true));
-
-        await host.InvokeAsync("StartGame", roomId);
-        await host.InvokeAsync("PlaceBet", roomId, 10); // single player game → all bets placed immediately
-
-        // Cards should be dealt immediately (not after 1s)
-        await dealt.Task.WaitAsync(TimeSpan.FromSeconds(2));
-    }
-
-    [Fact]
     public async Task TurnTimer_RoomClosedWhileWaiting_DoesNothing()
     {
         var host = Conn(await Tok("ttimer_closed"));

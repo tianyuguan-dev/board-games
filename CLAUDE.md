@@ -46,6 +46,8 @@ Hub methods run concurrently: several players vote or play cards at the same mom
   `CustomWebApplicationFactory` (in-memory database, no Postgres needed).
 - Timer behaviour (turn timeouts, reconnect grace) uses `FastTimerWebApplicationFactory` with 1 second timers.
   Do not add sleeps longer than the configured timers.
+  Exception: a test that must place a BlackJack bet by hand before the betting timer fires uses
+  `ManualBetTimerWebApplicationFactory` (5 s betting, 1 s turn). A 1 s betting timer loses that race on slow CI runners.
 - Cover the unhappy paths: disconnects mid-phase, duplicate or out-of-turn actions, players leaving, invalid input.
 - Run `dotnet test` and report the result before saying a task is done. Do not delete or weaken an existing
   test to make a change pass; explain the conflict instead.
