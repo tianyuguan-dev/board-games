@@ -80,8 +80,8 @@ public class TurnTimerServiceTests : IClassFixture<FastTimerWebApplicationFactor
         host.On<object>("GameDealt", _ => dealt.TrySetResult(true));
         host.On<object>("PlayerStand", _ => stand.TrySetResult(true));
 
+        // No PlaceBet: the 1 s betting timer auto-bets and deals (a manual bet races that timer on slow CI runners).
         await host.InvokeAsync("StartGame", roomId);
-        await host.InvokeAsync("PlaceBet", roomId, 10);
 
         // Wait for cards to be dealt
         await dealt.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -105,8 +105,8 @@ public class TurnTimerServiceTests : IClassFixture<FastTimerWebApplicationFactor
         var dealt = new TaskCompletionSource<bool>();
         host.On<object>("GameDealt", _ => dealt.TrySetResult(true));
 
+        // No PlaceBet: the 1 s betting timer auto-bets and deals (a manual bet races that timer on slow CI runners).
         await host.InvokeAsync("StartGame", roomId);
-        await host.InvokeAsync("PlaceBet", roomId, 10);
         await dealt.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Stand manually — should complete the game before timer fires
