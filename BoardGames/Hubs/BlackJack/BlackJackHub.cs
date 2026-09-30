@@ -366,6 +366,9 @@ public class BlackJackHub(
                 throw new InvalidOperationException($"Room {roomId}, game not start yet");
             if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
                 throw new InvalidOperationException("Player not in room");
+            // Only during the player-turn phase: in Betting, or a round that finished at the deal, CurrentPlayerIndex is 0.
+            if (blackJackRoom.BlackJackGame.State != BlackJackGameState.PlayerTurn)
+                throw new InvalidOperationException("No turn in progress");
             if (playerIndex != blackJackRoom.BlackJackGame.CurrentPlayerIndex)
                 throw new InvalidOperationException($"Not this player's turn");
             blackJackRoom.BlackJackGame.Hit();
@@ -387,6 +390,9 @@ public class BlackJackHub(
                 throw new InvalidOperationException($"Room {roomId}, game not start yet");
             if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
                 throw new InvalidOperationException("Player not in room");
+            // Only during the player-turn phase: in Betting, or a round that finished at the deal, CurrentPlayerIndex is 0.
+            if (blackJackRoom.BlackJackGame.State != BlackJackGameState.PlayerTurn)
+                throw new InvalidOperationException("No turn in progress");
             if (playerIndex != blackJackRoom.BlackJackGame.CurrentPlayerIndex)
                 throw new InvalidOperationException($"Not this player's turn");
             blackJackRoom.BlackJackGame.Stand();
@@ -408,6 +414,9 @@ public class BlackJackHub(
                 throw new InvalidOperationException($"Room {roomId}, game not start yet");
             if (!blackJackRoom.Players.TryGetValue(contextConnectionId, out var playerIndex))
                 throw new InvalidOperationException("Player not in room");
+            // Only during the player-turn phase: in Betting, or a round that finished at the deal, CurrentPlayerIndex is 0.
+            if (blackJackRoom.BlackJackGame.State != BlackJackGameState.PlayerTurn)
+                throw new InvalidOperationException("No turn in progress");
             if (playerIndex != blackJackRoom.BlackJackGame.CurrentPlayerIndex)
                 throw new InvalidOperationException("Not this player's turn");
             if (!blackJackRoom.BlackJackGame.CanDoubleDown())

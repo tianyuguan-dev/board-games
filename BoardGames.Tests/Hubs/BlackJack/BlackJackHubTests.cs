@@ -216,6 +216,59 @@ public class BlackJackHubTests
             () => _hub.BlackJackPlayerHit("12345"));
     }
 
+    private Task InvokeAction(string action) => action switch
+    {
+        "Hit" => _hub.BlackJackPlayerHit("12345"),
+        "Stand" => _hub.BlackJackPlayerStand("12345"),
+        "DoubleDown" => _hub.BlackJackPlayerDoubleDown("12345"),
+        _ => throw new ArgumentOutOfRangeException(nameof(action)),
+    };
+
+    [Theory]
+    [InlineData("Hit")]
+    [InlineData("Stand")]
+    [InlineData("DoubleDown")]
+    public async Task Actions_DuringBetting_AreRefused(string action)
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add(ConnectionId, 0);
+        room.BlackJackGame = new BlackJackGame(new Deck(), 1); // created, not dealt: Betting, CurrentPlayerIndex 0
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeAction(action));
+
+        Assert.Equal("No turn in progress", ex.Message);
+        _mockClientProxy.Verify(c => c.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("Hit")]
+    [InlineData("Stand")]
+    [InlineData("DoubleDown")]
+    public async Task Actions_AfterDealerNatural_AreRefused(string action)
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add(ConnectionId, 0);
+        // Deal() takes from the end: seat 0 gets 10 and 9, the dealer gets A and K (a natural), so the round
+        // finishes inside Start() with CurrentPlayerIndex still 0.
+        room.BlackJackGame = new BlackJackGame(new Deck([
+            new Card { Suit = Suit.Spade, Rank = Rank.King },
+            new Card { Suit = Suit.Spade, Rank = Rank.Ace },
+            new Card { Suit = Suit.Heart, Rank = Rank.Nine },
+            new Card { Suit = Suit.Heart, Rank = Rank.Ten },
+        ]), 1);
+        room.BlackJackGame.PlaceBet(0, 10);
+        room.BlackJackGame.Start();
+        Assert.Equal(BlackJackGameState.Finished, room.BlackJackGame.State);
+        Assert.Equal(0, room.BlackJackGame.CurrentPlayerIndex);
+        _mockRoomManager.Setup(r => r.GetRoom("12345")).Returns(room);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeAction(action));
+
+        Assert.Equal("No turn in progress", ex.Message);
+        _mockClientProxy.Verify(c => c.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default), Times.Never);
+    }
+
     [Fact]
     public async Task Hit_SucceedsAndNotifiesGroup()
     {
