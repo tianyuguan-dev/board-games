@@ -202,6 +202,9 @@ public class BlackJackHub(
             throw new ArgumentOutOfRangeException(nameof(maxPlayers));
         await EnsureSufficientBalance();
         var contextConnectionId = Context.ConnectionId;
+        // Checked before creating: JoinRoom below would refuse too, but only after the room was registered, leaking it.
+        if (roomManager.IsInAnyRoom(contextConnectionId))
+            throw new InvalidOperationException("Player is already in a room");
         var blackJackRoom = roomManager.CreateRoom(maxPlayers);
         return await WithLock(blackJackRoom, async () =>
         {

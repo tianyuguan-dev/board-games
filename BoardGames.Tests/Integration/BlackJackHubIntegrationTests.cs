@@ -347,6 +347,23 @@ public class BlackJackHubIntegrationTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
+    public async Task CreateRoom_Twice_SecondIsRefused_FirstStillWorks()
+    {
+        var host = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_create_twice_host"));
+        var guest = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_create_twice_guest"));
+        await host.StartAsync(); await guest.StartAsync();
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 4);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            roomJson.ToString()!)!["roomId"].ToString()!;
+
+        var ex = await Assert.ThrowsAsync<HubException>(() => host.InvokeAsync<object>("CreateRoom", 4));
+        Assert.Contains("Player is already in a room", ex.Message);
+
+        // The first room is untouched and still accepts players.
+        await guest.InvokeAsync<object>("JoinRoom", roomId);
+    }
+
+    [Fact]
     public async Task KickPlayer_NonHost_Throws()
     {
         var token1 = await RegisterAndGetToken("bj_kickfail_host");

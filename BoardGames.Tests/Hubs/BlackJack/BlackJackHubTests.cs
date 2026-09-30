@@ -77,6 +77,18 @@ public class BlackJackHubTests
     }
 
     [Fact]
+    public async Task CreateRoom_WhenAlreadyInARoom_ThrowsAndCreatesNothing()
+    {
+        _mockRoomManager.Setup(r => r.IsInAnyRoom(ConnectionId)).Returns(true);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _hub.CreateRoom(4));
+
+        Assert.Equal("Player is already in a room", ex.Message);
+        _mockRoomManager.Verify(r => r.CreateRoom(It.IsAny<int>()), Times.Never);
+        _mockGroups.Verify(g => g.AddToGroupAsync(It.IsAny<string>(), It.IsAny<string>(), default), Times.Never);
+    }
+
+    [Fact]
     public async Task CreateRoom_AddsCreatorToGroup()
     {
         var room = new BlackJackRoom("12345", 4);
