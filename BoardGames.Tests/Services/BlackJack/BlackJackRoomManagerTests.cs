@@ -275,4 +275,20 @@ public class BlackJackRoomManagerTests
 
         Assert.Null(_roomManager.GetRoom(room.RoomId));
     }
+
+    [Fact]
+    public void RemoveRoom_MarksRoomClosed()
+    {
+        var manager = new BlackJackRoomManager();
+        var room = manager.CreateRoom(4);
+        var other = manager.CreateRoom(4);
+        Assert.False(room.IsClosed);
+
+        manager.RemoveRoom(room.RoomId);
+        manager.RemoveRoom("no-such-room");
+
+        Assert.True(room.IsClosed);
+        Assert.Null(manager.GetRoom(room.RoomId));
+        Assert.False(other.IsClosed);
+    }
 }

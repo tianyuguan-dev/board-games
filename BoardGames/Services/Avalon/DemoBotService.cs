@@ -277,10 +277,15 @@ public class DemoBotService(IServiceScopeFactory scopeFactory, ILogger<DemoBotSe
         catch (Exception ex) { logger.LogError(ex, "Demo bot action failed"); }
     }
 
+    // Bot moves are scheduled on a captured room; skip it if it was removed (closed) in the meantime.
     private static async Task WithLock(AvalonRoom room, Func<Task> action)
     {
         await room.Lock.WaitAsync();
-        try { await action(); }
+        try
+        {
+            if (room.IsClosed) return;
+            await action();
+        }
         finally { room.Lock.Release(); }
     }
 }

@@ -14,17 +14,37 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
 {
     // Serialize all operations on a single room. Acquire at public entry points only;
     // private helpers below assume the caller already holds the lock (no re-entry -> no deadlock).
+    // A room removed while this call waited for its lock is closed: behave as if it was already gone.
     private static async Task WithLock(AvalonRoom room, Func<Task> body)
     {
         await room.Lock.WaitAsync();
-        try { await body(); }
+        try
+        {
+            if (room.IsClosed) throw new InvalidOperationException("Room not found");
+            await body();
+        }
         finally { room.Lock.Release(); }
     }
 
     private static async Task<T> WithLock<T>(AvalonRoom room, Func<Task<T>> body)
     {
         await room.Lock.WaitAsync();
-        try { return await body(); }
+        try
+        {
+            if (room.IsClosed) throw new InvalidOperationException("Room not found");
+            return await body();
+        }
+        finally { room.Lock.Release(); }
+    }
+
+    // Leave, disconnect and background work: a closed room means there is nothing left to do, so skip without throwing.
+    private static async Task WithLockIfOpen(AvalonRoom room, Func<Task> body)
+    {
+        await room.Lock.WaitAsync();
+        try
+        {
+            if (!room.IsClosed) await body();
+        }
         finally { room.Lock.Release(); }
     }
 
@@ -780,7 +800,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         var room = FindRoomByConnectionId(connectionId);
         if (room == null) return;
 
-        await WithLock(room, async () =>
+        await WithLockIfOpen(room, async () =>
         {
             var roomId = room.RoomId;
             await Groups.RemoveFromGroupAsync(connectionId, roomId);
@@ -806,7 +826,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         var room = FindRoomByConnectionId(connectionId);
         if (room == null) return;
 
-        await WithLock(room, async () =>
+        await WithLockIfOpen(room, async () =>
         {
             // The lookup ran before the lock; an overlapping leave or disconnect may already have removed this connection.
             if (!room.Players.ContainsKey(connectionId)) return;
@@ -880,7 +900,7 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         var room = roomManager.GetRoom(roomId);
         if (room == null) return;
 
-        await WithLock(room, async () =>
+        await WithLockIfOpen(room, async () =>
         {
             if (!room.TryExpireDisconnected(info.UserId, info)) return;
 

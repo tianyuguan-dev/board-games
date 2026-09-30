@@ -36,17 +36,37 @@ public class BlackJackHub(
 
     // Serialize all operations on a single room (shared with the background turn/betting timers).
     // Acquire at public entry points only; private helpers below assume the lock is already held.
+    // A room removed while this call waited for its lock is closed: behave as if it was already gone.
     private static async Task WithLock(BlackJackRoom room, Func<Task> body)
     {
         await room.Lock.WaitAsync();
-        try { await body(); }
+        try
+        {
+            if (room.IsClosed) throw new InvalidOperationException("Room not found");
+            await body();
+        }
         finally { room.Lock.Release(); }
     }
 
     private static async Task<T> WithLock<T>(BlackJackRoom room, Func<Task<T>> body)
     {
         await room.Lock.WaitAsync();
-        try { return await body(); }
+        try
+        {
+            if (room.IsClosed) throw new InvalidOperationException("Room not found");
+            return await body();
+        }
+        finally { room.Lock.Release(); }
+    }
+
+    // Leave, disconnect and background work: a closed room means there is nothing left to do, so skip without throwing.
+    private static async Task WithLockIfOpen(BlackJackRoom room, Func<Task> body)
+    {
+        await room.Lock.WaitAsync();
+        try
+        {
+            if (!room.IsClosed) await body();
+        }
         finally { room.Lock.Release(); }
     }
 
@@ -419,7 +439,7 @@ public class BlackJackHub(
         if (room == null) return;
         var roomId = room.RoomId;
 
-        await WithLock(room, async () =>
+        await WithLockIfOpen(room, async () =>
         {
             if (!room.Players.TryGetValue(connectionId, out var seatIndex)) return;
             room.Players.Remove(connectionId);

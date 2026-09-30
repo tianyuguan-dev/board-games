@@ -247,4 +247,20 @@ public class AvalonRoomManagerTests
         mgr.RemoveRoom(room.RoomId);
         Assert.Null(mgr.GetRoom(room.RoomId));
     }
+
+    [Fact]
+    public void RemoveRoom_MarksRoomClosed()
+    {
+        var manager = new AvalonRoomManager();
+        var room = manager.CreateRoom(5);
+        var other = manager.CreateRoom(5);
+        Assert.False(room.IsClosed);
+
+        manager.RemoveRoom(room.RoomId);
+        manager.RemoveRoom("no-such-room");
+
+        Assert.True(room.IsClosed);
+        Assert.Null(manager.GetRoom(room.RoomId));
+        Assert.False(other.IsClosed);
+    }
 }

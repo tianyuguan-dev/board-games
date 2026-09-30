@@ -60,6 +60,12 @@ public class AvalonRoom
     // Plain Dictionary is not thread-safe; concurrent writes corrupt it (phantom null keys, etc.).
     public SemaphoreSlim Lock { get; } = new(1, 1);
 
+    // Set by the room manager's RemoveRoom (its callers hold Lock). Lock helpers check it right after acquiring Lock,
+    // so work that was queued on the lock of a removed room does nothing.
+    private int _closed;
+    public bool IsClosed => Volatile.Read(ref _closed) == 1;
+    public void MarkClosed() => Volatile.Write(ref _closed, 1);
+
     // Disconnected players awaiting reconnection (userId => info)
     public MembershipMap<int, DisconnectedPlayer> DisconnectedPlayers { get; set; } = new();
 

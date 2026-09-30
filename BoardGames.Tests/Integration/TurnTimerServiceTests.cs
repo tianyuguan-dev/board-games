@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using BoardGames.Services.BlackJack;
 using System.Net.Http.Json;
 using BoardGames.Dtos;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -129,5 +131,38 @@ public class TurnTimerServiceTests : IClassFixture<FastTimerWebApplicationFactor
 
         // Cards should be dealt immediately (not after 1s)
         await dealt.Task.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task TurnTimer_RoomClosedWhileWaiting_DoesNothing()
+    {
+        var host = Conn(await Tok("ttimer_closed"));
+        await host.StartAsync();
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 4);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            roomJson.ToString()!)!["roomId"].ToString()!;
+        var dealt = new TaskCompletionSource<bool>();
+        var stood = new TaskCompletionSource<bool>();
+        host.On<object>("GameDealt", _ => dealt.TrySetResult(true));
+        host.On<object>("PlayerStand", _ => stood.TrySetResult(true));
+        var manager = _factory.Services.GetRequiredService<IBlackJackRoomManager>();
+
+        await host.InvokeAsync("StartGame", roomId);
+        await host.InvokeAsync("PlaceBet", roomId, 10);
+        await dealt.Task.WaitAsync(TimeSpan.FromSeconds(5)); // unshuffled deck: player 20, so a 1 s turn timer is running
+        var room = manager.GetRoom(roomId)!;
+
+        // Hold the lock past the 1 s turn timer so it queues on the lock, then remove the room under the lock.
+        await room.Lock.WaitAsync();
+        try
+        {
+            await Task.Delay(1000);
+            manager.RemoveRoom(roomId);
+        }
+        finally { room.Lock.Release(); }
+
+        // Without the guard the timer would auto-stand on the removed room and broadcast PlayerStand.
+        await Task.Delay(1000);
+        Assert.False(stood.Task.IsCompleted);
     }
 }
