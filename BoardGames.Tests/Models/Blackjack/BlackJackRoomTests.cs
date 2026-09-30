@@ -57,4 +57,21 @@ public class BlackJackRoomTests
 
         Assert.Empty(room.Players);
     }
+
+    [Fact]
+    public void LowestSeatConnectionId_PicksLowestSeat()
+    {
+        var room = new BlackJackRoom("12345", 4);
+        room.Players.Add("at-3", 3);
+        room.Players.Add("at-1", 1);
+        room.Players.Add("at-2", 2);
+
+        Assert.Equal("at-1", room.LowestSeatConnectionId());
+    }
+
+    [Fact]
+    public void LowestSeatConnectionId_EmptyRoom_ReturnsNull()
+    {
+        Assert.Null(new BlackJackRoom("12345", 4).LowestSeatConnectionId());
+    }
 }

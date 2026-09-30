@@ -50,7 +50,11 @@ public class BlackJackRoomManager(IDeckFactory? deckFactory = null, Func<int>? n
             throw new InvalidOperationException(
                 $"Cannot join room {roomId} because the maximum number of players has been reached");
         }
-        players.Add(connectionId, players.Count);
+        // Lowest free seat, not Players.Count: a leave or kick can leave a gap, and Count would collide with an occupied seat.
+        var usedSeats = new HashSet<int>(players.Values);
+        var seat = 0;
+        while (usedSeats.Contains(seat)) seat++;
+        players.Add(connectionId, seat);
     }
 
     public BlackJackRoom? FindRoomByConnectionId(string connectionId)

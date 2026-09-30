@@ -301,6 +301,52 @@ public class BlackJackHubIntegrationTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
+    public async Task KickAfterRejoinGap_KicksTheChosenPlayer()
+    {
+        var host = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_gap_a"));
+        var b = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_gap_b"));
+        var c = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_gap_c"));
+        var d = CreateHubConnection("/hub/blackjack", await RegisterAndGetToken("bj_gap_d"));
+        foreach (var conn in new[] { host, b, c, d }) await conn.StartAsync();
+
+        var roomJson = await host.InvokeAsync<object>("CreateRoom", 4);
+        var roomId = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
+            roomJson.ToString()!)!["roomId"].ToString()!;
+        await b.InvokeAsync<object>("JoinRoom", roomId);
+        await c.InvokeAsync<object>("JoinRoom", roomId);
+        await b.InvokeAsync("LeaveRoom"); // frees seat 1 while C keeps seat 2
+
+        var updates = System.Threading.Channels.Channel.CreateUnbounded<System.Text.Json.JsonElement>();
+        host.On<System.Text.Json.JsonElement>("RoomUpdate", u => updates.Writer.TryWrite(u));
+        var dKicked = new TaskCompletionSource<bool>();
+        var cKicked = new TaskCompletionSource<bool>();
+        d.On("Kicked", () => dKicked.TrySetResult(true));
+        c.On("Kicked", () => cKicked.TrySetResult(true));
+
+        await d.InvokeAsync<object>("JoinRoom", roomId);
+        async Task<List<(string Name, int Seat)>> NextPlayers(int count)
+        {
+            while (true)
+            {
+                var u = await updates.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                var players = u.GetProperty("players").EnumerateArray()
+                    .Select(p => (p.GetProperty("nickname").GetString()!, p.GetProperty("seatIndex").GetInt32())).ToList();
+                if (players.Count == count) return players;
+            }
+        }
+        var afterJoin = await NextPlayers(3);
+        Assert.Equal(3, afterJoin.Select(p => p.Seat).Distinct().Count());
+        var dSeat = afterJoin.Single(p => p.Name == "bj_gap_d").Seat;
+
+        await host.InvokeAsync("KickPlayer", roomId, dSeat);
+
+        await dKicked.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var afterKick = await NextPlayers(2);
+        Assert.Equal(["bj_gap_a", "bj_gap_c"], afterKick.Select(p => p.Name).OrderBy(n => n));
+        Assert.False(cKicked.Task.IsCompleted);
+    }
+
+    [Fact]
     public async Task KickPlayer_NonHost_Throws()
     {
         var token1 = await RegisterAndGetToken("bj_kickfail_host");
