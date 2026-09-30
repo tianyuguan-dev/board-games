@@ -786,12 +786,12 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
             await Clients.Group(roomId).SendAsync("PlayerDisconnected", info.Nickname);
             await BroadcastRoomPlayers(roomId);
 
-            var userId = info.UserId;
             // Fire-and-forget: runs after the grace period, re-acquires the lock then (no nesting).
+            // It keeps this disconnect's instance so a later rejoin/disconnect makes it stale (see TryExpireDisconnected).
             _ = Task.Run(async () =>
             {
                 await Task.Delay(TimeSpan.FromSeconds(ReconnectGraceSeconds));
-                await CheckDisconnectedPlayer(roomId, userId);
+                await CheckDisconnectedPlayer(roomId, info);
             });
         });
     }
@@ -870,19 +870,14 @@ public class AvalonHub(IAvalonRoomManager roomManager, IUserRepository userRepos
         await BroadcastRoomPlayers(room.RoomId);
     }
 
-    private async Task CheckDisconnectedPlayer(string roomId, int userId)
+    private async Task CheckDisconnectedPlayer(string roomId, DisconnectedPlayer info)
     {
         var room = roomManager.GetRoom(roomId);
         if (room == null) return;
 
         await WithLock(room, async () =>
         {
-            if (!room.DisconnectedPlayers.TryGetValue(userId, out var info)) return;
-
-            if ((DateTime.UtcNow - info.DisconnectedAt).TotalSeconds < ReconnectGraceSeconds)
-                return;
-
-            room.DisconnectedPlayers.Remove(userId);
+            if (!room.TryExpireDisconnected(info.UserId, info)) return;
 
             if (room.Game != null && room.Game.Phase != AvalonPhase.GameOver)
             {
