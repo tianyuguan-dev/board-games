@@ -174,6 +174,45 @@ public class BlackJackRoomManagerTests
     }
 
     [Fact]
+    public void JoinRoom_AfterLeave_GetsFreeSeat()
+    {
+        var room = _roomManager.CreateRoom(4);
+        _roomManager.JoinRoom(room.RoomId, "conn-a");
+        _roomManager.JoinRoom(room.RoomId, "conn-b");
+        _roomManager.JoinRoom(room.RoomId, "conn-c");
+        room.Players.Remove("conn-b"); // seat 1 leaves
+
+        _roomManager.JoinRoom(room.RoomId, "conn-d");
+
+        Assert.Equal(1, room.Players["conn-d"]);
+        Assert.Equal(room.Players.Count, room.Players.Values.Distinct().Count());
+    }
+
+    [Fact]
+    public void JoinLeaveKickSequence_SeatsStayUnique()
+    {
+        var room = _roomManager.CreateRoom(7);
+        var rng = new Random(42);
+        var next = 0;
+
+        for (var op = 0; op < 200; op++)
+        {
+            if (room.Players.Count == 0 || (room.Players.Count < room.MaxPlayers && rng.NextDouble() < 0.6))
+            {
+                _roomManager.JoinRoom(room.RoomId, $"conn-{next++}");
+            }
+            else
+            {
+                // A leave and a kick both just remove the player's seat.
+                var seated = room.Players.Keys.OrderBy(k => k).ToList();
+                room.Players.Remove(seated[rng.Next(seated.Count)]);
+            }
+
+            Assert.Equal(room.Players.Count, room.Players.Values.Distinct().Count());
+        }
+    }
+
+    [Fact]
     public void JoinRoom_ThrowsWhenRoomDoesNotExist()
     {
         Assert.Throws<InvalidOperationException>(
