@@ -23,6 +23,10 @@ public class AuthController(
     {
         var username = registerRequestDto.Username;
         var password = registerRequestDto.Password;
+        if (string.IsNullOrWhiteSpace(username))
+            return BadRequest("Username cannot be empty");
+        if (string.IsNullOrWhiteSpace(password))
+            return BadRequest("Password cannot be empty");
         if (await authService.UsernameExists(username))
             return BadRequest("Username already exists");
         await authService.CreateUser(username, password);
@@ -122,6 +126,8 @@ public class AuthController(
     public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
     {
         if (User.IsGuest()) return Forbid("Not available for guest sessions");
+        if (string.IsNullOrWhiteSpace(dto.NewPassword))
+            return BadRequest("Password cannot be empty");
         var userId = User.GetUserIdOrZero();
         var success = await authService.ChangePassword(userId, dto.OldPassword, dto.NewPassword);
         if (!success) return BadRequest("Old password is incorrect");

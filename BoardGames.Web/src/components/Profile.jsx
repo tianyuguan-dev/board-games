@@ -40,7 +40,7 @@ export default function Profile({ token, nickname, onNicknameChange, onBack }) {
       showMessage("Passwords do not match", "error");
       return;
     }
-    if (!newPassword) {
+    if (!newPassword.trim()) {
       showMessage("New password cannot be empty", "error");
       return;
     }
