@@ -55,6 +55,45 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>, 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // Registers, expects 400 with the given text, and checks no account was created (logging in with the same credentials fails).
+    private async Task AssertRegisterRefused(string username, string password, string message)
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/register",
+            new RegisterRequestDto { Username = username, Password = password });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(message, await response.Content.ReadAsStringAsync());
+        var login = await _client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequestDto { Username = username, Password = password });
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_EmptyUsername_ReturnsBadRequest()
+    {
+        await AssertRegisterRefused("", "pass123", "Username cannot be empty");
+    }
+
+    [Fact]
+    public async Task Register_EmptyPassword_ReturnsBadRequest()
+    {
+        await AssertRegisterRefused("emptypassuser", "", "Password cannot be empty");
+    }
+
+    [Fact]
+    public async Task Register_BothEmpty_ReturnsBadRequest()
+    {
+        await AssertRegisterRefused("", "", "Username cannot be empty");
+    }
+
+    [Theory]
+    [InlineData("   ", "pass123", "Username cannot be empty")]
+    [InlineData("spacepassuser", "   ", "Password cannot be empty")]
+    public async Task Register_WhitespaceOnly_ReturnsBadRequest(string username, string password, string message)
+    {
+        await AssertRegisterRefused(username, password, message);
+    }
+
     [Fact]
     public async Task Login_ValidCredentials_ReturnsTokens()
     {

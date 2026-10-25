@@ -23,6 +23,10 @@ public class AuthController(
     {
         var username = registerRequestDto.Username;
         var password = registerRequestDto.Password;
+        if (string.IsNullOrWhiteSpace(username))
+            return BadRequest("Username cannot be empty");
+        if (string.IsNullOrWhiteSpace(password))
+            return BadRequest("Password cannot be empty");
         if (await authService.UsernameExists(username))
             return BadRequest("Username already exists");
         await authService.CreateUser(username, password);
