@@ -209,6 +209,26 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>, 
         _client.DefaultRequestHeaders.Authorization = null;
     }
 
+    [Theory]
+    [InlineData("pwdempty", "")]
+    [InlineData("pwdblank", "   ")]
+    public async Task ChangePassword_EmptyNewPassword_ReturnsBadRequest(string username, string newPassword)
+    {
+        var (token, _, _) = await RegisterAndLogin(username, "oldpass");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.PutAsJsonAsync("/api/auth/password",
+            new ChangePasswordDto { OldPassword = "oldpass", NewPassword = newPassword });
+
+        _client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("Password cannot be empty", await response.Content.ReadAsStringAsync());
+        // The password was not changed: the old one still logs in.
+        var login = await _client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequestDto { Username = username, Password = "oldpass" });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+    }
+
     [Fact]
     public async Task ChangePassword_WrongOldPassword_ReturnsBadRequest()
     {
