@@ -4,3 +4,4 @@
 **/dist
 **/.idea
 **/.git
+**/appsettings.Development.json
