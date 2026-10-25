@@ -74,6 +74,10 @@ be empty". The old password is not checked first, and the stored hash is unchang
 - **A client calls the API directly with empty fields:** the server refuses (400), whatever the UI does.
 - **Whitespace-only input** (`"   "`): refused as empty, on both the server and the client (D3).
 - **Leading or trailing spaces around a real name** (`" tom "`): not trimmed; stored as typed, as today.
+- *As built:* **legacy accounts with an empty or whitespace-only username or password** (possible before this change) can no longer
+  log in **through the UI**, because the login hint now blocks the request (D2, D3). The API still accepts their login. Nobody
+  checked whether any such account exists in production; it is unlikely. Fix if needed: rename the account, or reset the password
+  through the admin page.
 - **A username that already exists and is empty** (from before this change): registering `""` again gets "Username cannot be
   empty" instead of "Username already exists". Either way it is refused.
 

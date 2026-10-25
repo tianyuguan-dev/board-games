@@ -9,6 +9,11 @@ export default function Login({ onLogin }) {
   const [error, setError] = useState("");
 
   async function handleLogin() {
+    // Whitespace-only counts as empty (the server applies the same rule on register).
+    if (!username.trim() || !password.trim()) {
+      setError("Enter your username and password, or register.");
+      return;
+    }
     try {
       const data = await login(username, password);
       onLogin(data.token, data.refreshToken, data.nickname);
@@ -27,6 +32,15 @@ export default function Login({ onLogin }) {
   }
 
   async function handleRegister() {
+    // Same rules and messages as the server, so the user sees them without a round trip.
+    if (!username.trim()) {
+      setError("Username cannot be empty");
+      return;
+    }
+    if (!password.trim()) {
+      setError("Password cannot be empty");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
