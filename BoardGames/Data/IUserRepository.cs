@@ -6,6 +6,7 @@ public interface IUserRepository
 {
                                 
     Task<User?> FindByUsername(string username);
+    Task<bool> IsNameTaken(string name, int? exceptUserId = null);
     Task<User?> FindById(int id);
     Task<User> Add(User user);
     Task Update(User user);

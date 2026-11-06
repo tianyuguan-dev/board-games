@@ -10,6 +10,9 @@ public class AuthService(IUserRepository userRepository) : IAuthService
         return await userRepository.FindByUsername(username) != null;
     }
 
+    public Task<bool> IsNameTaken(string name, int? exceptUserId = null) =>
+        userRepository.IsNameTaken(name, exceptUserId);
+
     public async Task<User> CreateUser(string username, string password)
     {
         User user = new User

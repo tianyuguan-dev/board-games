@@ -94,6 +94,30 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>, 
         await AssertRegisterRefused(username, password, message);
     }
 
+    [Theory]
+    [InlineData("CASEUSER")]
+    [InlineData(" caseuser ")]
+    [InlineData("CaseUser\t")]
+    public async Task Register_SameUsernameOtherCaseOrSpaces_ReturnsBadRequest(string variant)
+    {
+        await _client.PostAsJsonAsync("/api/auth/register",
+            new RegisterRequestDto { Username = "caseuser", Password = "pass123" });
+
+        await AssertRegisterRefused(variant, "pass456", "Username already exists");
+    }
+
+    [Fact]
+    public async Task Register_MatchesAnotherUsersNickname_ReturnsBadRequest()
+    {
+        var (token, _, _) = await RegisterAndLogin("nickowner", "pass123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        await _client.PutAsJsonAsync("/api/auth/nickname", new UpdateNicknameDto { Nickname = "TakenNick" });
+        _client.DefaultRequestHeaders.Authorization = null;
+
+        // The new user's nickname would start as "takennick", which another player already uses.
+        await AssertRegisterRefused("takennick", "pass123", "Username already exists");
+    }
+
     [Fact]
     public async Task Login_ValidCredentials_ReturnsTokens()
     {

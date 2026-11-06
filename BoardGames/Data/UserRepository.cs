@@ -10,6 +10,9 @@ public class UserRepository(AppDbContext appDbContext):IUserRepository
         return await appDbContext.Users.FirstOrDefaultAsync(u => u.Username == username);
     }
 
+    public Task<bool> IsNameTaken(string name, int? exceptUserId = null) =>
+        appDbContext.Users.IsNameTakenAsync(name, exceptUserId);
+
     public async Task<User?> FindById(int id)
     {
         return await appDbContext.Users.FindAsync(id);
