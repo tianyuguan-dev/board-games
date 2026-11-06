@@ -143,6 +143,72 @@ public class AdminIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal("NewNick", detail.GetProperty("nickname").GetString());
     }
 
+    private async Task<int> RegisterAndGetId(string username)
+    {
+        await RegisterUser(username);
+        var request = WithAdminToken(new HttpRequestMessage(HttpMethod.Get, $"/api/admin/users?search={username}"));
+        var users = await (await _http.SendAsync(request)).Content.ReadFromJsonAsync<JsonElement>();
+        return users.EnumerateArray().First(u => u.GetProperty("username").GetString() == username)
+            .GetProperty("id").GetInt32();
+    }
+
+    private Task<HttpResponseMessage> PutNickname(int userId, string nickname) =>
+        _http.SendAsync(WithAdminToken(new HttpRequestMessage(HttpMethod.Put, $"/api/admin/users/{userId}/nickname")
+        {
+            Content = JsonContent.Create(new { nickname })
+        }));
+
+    private async Task<string?> StoredNickname(int userId)
+    {
+        var request = WithAdminToken(new HttpRequestMessage(HttpMethod.Get, $"/api/admin/users/{userId}"));
+        var detail = await (await _http.SendAsync(request)).Content.ReadFromJsonAsync<JsonElement>();
+        return detail.GetProperty("nickname").GetString();
+    }
+
+    [Theory]
+    [InlineData("adm_dupA1", "adm_dupB1", "AdminOther1", " adminother1 ")] // other user's nickname, other case, edge spaces
+    [InlineData("adm_dupA2", "adm_dupB2", null, "ADM_DUPB2")] // other user's username
+    public async Task UpdateNickname_Duplicate_ReturnsBadRequest(
+        string target, string other, string? otherNickname, string attempt)
+    {
+        var otherId = await RegisterAndGetId(other);
+        if (otherNickname != null)
+            Assert.Equal(HttpStatusCode.OK, (await PutNickname(otherId, otherNickname)).StatusCode);
+        var targetId = await RegisterAndGetId(target);
+
+        var response = await PutNickname(targetId, attempt);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("Nickname already taken", await response.Content.ReadAsStringAsync());
+        Assert.Equal(target, await StoredNickname(targetId));
+    }
+
+    [Fact]
+    public async Task UpdateNickname_TargetsOwnNameOtherCase_SavesTrimmed()
+    {
+        var id = await RegisterAndGetId("adm_owncase");
+
+        var response = await PutNickname(id, "  ADM_OWNCASE ");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("ADM_OWNCASE", await StoredNickname(id));
+    }
+
+    [Theory]
+    [InlineData("adm_nickEmpty", "", "Nickname cannot be empty")]
+    [InlineData("adm_nickBlank", "  \t ", "Nickname cannot be empty")]
+    [InlineData("adm_nickLong", "123456789012345678901234567890123456789012345678901", "Nickname is too long (max 50)")]
+    public async Task UpdateNickname_EmptyOrTooLong_ReturnsBadRequest(string target, string attempt, string message)
+    {
+        var id = await RegisterAndGetId(target);
+
+        var response = await PutNickname(id, attempt);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(message, await response.Content.ReadAsStringAsync());
+        Assert.Equal(target, await StoredNickname(id));
+    }
+
     [Fact]
     public async Task UpdateBalance_Works()
     {
