@@ -1,6 +1,7 @@
 using BoardGames.Data;
 using BoardGames.Dtos.Avalon;
 using BoardGames.Models;
+using BoardGames.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,8 +27,10 @@ public class AdminController(
         if (!IsAuthorized()) return Unauthorized();
 
         IQueryable<User> query = db.Users.OrderByDescending(u => u.LastActiveAt);
-        if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(u => u.Username.Contains(search) || u.Nickname.Contains(search));
+        // Case-insensitive: lower() on both sides, in the database.
+        var term = search?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(term))
+            query = query.Where(u => u.Username.ToLower().Contains(term) || u.Nickname.ToLower().Contains(term));
 
         var users = await query.Select(u => new
         {
@@ -84,7 +87,10 @@ public class AdminController(
         var user = await db.Users.FindAsync(id);
         if (user == null) return NotFound();
 
-        user.Nickname = dto.Nickname;
+        if (NameRules.NicknameError(dto.Nickname) is { } error) return BadRequest(error);
+        if (await db.Users.IsNameTakenAsync(dto.Nickname, exceptUserId: id))
+            return BadRequest("Nickname already taken");
+        user.Nickname = dto.Nickname.Trim();
         await db.SaveChangesAsync();
         return Ok(new { message = $"Nickname updated to {user.Nickname}" });
     }

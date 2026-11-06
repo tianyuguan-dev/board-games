@@ -29,9 +29,10 @@ export default function Profile({ token, nickname, onNicknameChange, onBack }) {
     try {
       const result = await updateNickname(token, editNickname);
       onNicknameChange(result.nickname);
+      setEditNickname(result.nickname);
       showMessage("Nickname updated", "success");
-    } catch {
-      showMessage("Failed to update nickname", "error");
+    } catch (e) {
+      showMessage(e.message || "Failed to update nickname", "error");
     }
   }
 

@@ -27,7 +27,9 @@ public class AuthController(
             return BadRequest("Username cannot be empty");
         if (string.IsNullOrWhiteSpace(password))
             return BadRequest("Password cannot be empty");
-        if (await authService.UsernameExists(username))
+        // UsernameExists is the exact match; IsNameTaken also catches other case/edge spaces and other users' nicknames
+        // (a new user's nickname starts as the username). Real data: the second covers the first.
+        if (await authService.UsernameExists(username) || await authService.IsNameTaken(username))
             return BadRequest("Username already exists");
         await authService.CreateUser(username, password);
         return Ok(new { message = "Registered successfully" });
@@ -116,7 +118,10 @@ public class AuthController(
         var userId = User.GetUserIdOrZero();
         var user = await userRepository.FindById(userId);
         if (user == null) return NotFound();
-        user.Nickname = dto.Nickname;
+        if (NameRules.NicknameError(dto.Nickname) is { } error) return BadRequest(error);
+        if (await authService.IsNameTaken(dto.Nickname, exceptUserId: user.Id))
+            return BadRequest("Nickname already taken");
+        user.Nickname = dto.Nickname.Trim();
         await userRepository.Update(user);
         return Ok(new { nickname = user.Nickname });
     }
