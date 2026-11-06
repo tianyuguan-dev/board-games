@@ -118,7 +118,10 @@ public class AuthController(
         var userId = User.GetUserIdOrZero();
         var user = await userRepository.FindById(userId);
         if (user == null) return NotFound();
-        user.Nickname = dto.Nickname;
+        if (NameRules.NicknameError(dto.Nickname) is { } error) return BadRequest(error);
+        if (await authService.IsNameTaken(dto.Nickname, exceptUserId: user.Id))
+            return BadRequest("Nickname already taken");
+        user.Nickname = dto.Nickname.Trim();
         await userRepository.Update(user);
         return Ok(new { nickname = user.Nickname });
     }

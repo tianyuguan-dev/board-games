@@ -219,6 +219,83 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>, 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    private async Task<HttpResponseMessage> PutNickname(string token, string nickname)
+    {
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await _client.PutAsJsonAsync("/api/auth/nickname", new UpdateNicknameDto { Nickname = nickname });
+        _client.DefaultRequestHeaders.Authorization = null;
+        return response;
+    }
+
+    // Logging in returns the stored nickname.
+    private async Task<string> StoredNickname(string username, string password)
+    {
+        var login = await _client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequestDto { Username = username, Password = password });
+        return (await login.Content.ReadFromJsonAsync<LoginResponse>())!.Nickname;
+    }
+
+    [Theory]
+    [InlineData("takenA1", "takenB1", "OtherNick1", "othernick1")] // other user's nickname, other case
+    [InlineData("takenA2", "takenB2", "OtherNick2", " OTHERNICK2 ")] // ... with edge spaces
+    [InlineData("takenA3", "takenB3", null, "TAKENB3")] // other user's username (their default nickname)
+    [InlineData("takenA4", "takenB4", "SomethingElse4", "takenb4\t")] // other user's username after they renamed
+    public async Task UpdateNickname_TakenByOtherUser_ReturnsBadRequest(
+        string me, string other, string? otherNickname, string attempt)
+    {
+        var (otherToken, _, _) = await RegisterAndLogin(other, "pass123");
+        if (otherNickname != null)
+            Assert.Equal(HttpStatusCode.OK, (await PutNickname(otherToken, otherNickname)).StatusCode);
+        var (myToken, _, _) = await RegisterAndLogin(me, "pass123");
+
+        var response = await PutNickname(myToken, attempt);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("Nickname already taken", await response.Content.ReadAsStringAsync());
+        Assert.Equal(me, await StoredNickname(me, "pass123"));
+    }
+
+    [Theory]
+    [InlineData("ownCase1", "OWNCASE1", "OWNCASE1")] // own username in another case
+    [InlineData("ownCase2", " owncase2 ", "owncase2")] // edge spaces are trimmed before saving
+    public async Task UpdateNickname_OwnNameOtherCase_Succeeds(string me, string attempt, string saved)
+    {
+        var (token, _, _) = await RegisterAndLogin(me, "pass123");
+
+        var response = await PutNickname(token, attempt);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(saved, (await response.Content.ReadFromJsonAsync<NicknameResponse>())!.Nickname);
+        Assert.Equal(saved, await StoredNickname(me, "pass123"));
+    }
+
+    [Theory]
+    [InlineData("nickEmpty", "", "Nickname cannot be empty")]
+    [InlineData("nickBlank", "   ", "Nickname cannot be empty")]
+    [InlineData("nickLong", "123456789012345678901234567890123456789012345678901", "Nickname is too long (max 50)")]
+    public async Task UpdateNickname_EmptyOrTooLong_ReturnsBadRequest(string me, string attempt, string message)
+    {
+        var (token, _, _) = await RegisterAndLogin(me, "pass123");
+
+        var response = await PutNickname(token, attempt);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(message, await response.Content.ReadAsStringAsync());
+        Assert.Equal(me, await StoredNickname(me, "pass123"));
+    }
+
+    [Fact]
+    public async Task UpdateNickname_FiftyCharsWithEdgeSpaces_SavesTrimmed()
+    {
+        var (token, _, _) = await RegisterAndLogin("nickFifty", "pass123");
+        var fifty = new string('x', 50);
+
+        var response = await PutNickname(token, $"  {fifty}  ");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(fifty, await StoredNickname("nickFifty", "pass123"));
+    }
+
     [Fact]
     public async Task ChangePassword_ValidOldPassword_ReturnsOk()
     {
