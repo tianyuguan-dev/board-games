@@ -154,7 +154,8 @@ export async function updateNickname(token, nickname) {
   });
 
   if (!response || !response.ok) {
-    throw new Error("Update nickname failed");
+    const msg = response ? await response.text() : "";
+    throw new Error(msg || "Update nickname failed");
   }
 
   return await response.json();

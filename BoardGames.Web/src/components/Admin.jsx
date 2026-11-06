@@ -100,11 +100,13 @@ export default function Admin() {
         method: "PUT", headers,
         body: JSON.stringify({ nickname: editNickname }),
       });
-      if (!res.ok) { setError("Failed to update nickname"); return; }
+      if (!res.ok) { setError((await res.text()) || "Failed to update nickname"); return; }
       const data = await res.json();
       showSuccess(data.message);
-      setSelectedUser({ ...selectedUser, nickname: editNickname });
-      setUsers(users.map(u => u.id === selectedUser.id ? { ...u, nickname: editNickname } : u));
+      const saved = editNickname.trim(); // the server stores the nickname trimmed
+      setEditNickname(saved);
+      setSelectedUser({ ...selectedUser, nickname: saved });
+      setUsers(users.map(u => u.id === selectedUser.id ? { ...u, nickname: saved } : u));
     } catch { setError("Failed to update nickname"); }
   }
 
