@@ -66,6 +66,40 @@ public class AdminIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Contains("admin_search_target", users[0].GetProperty("username").GetString());
     }
 
+    [Theory]
+    [InlineData("admcasefind")]
+    [InlineData("  ADMCASEFIND ")]
+    [InlineData("AdmCaseFind")]
+    public async Task GetUsers_Search_IsCaseInsensitive(string search)
+    {
+        // Usernames that differ only in case can no longer both register, so the matches differ by a suffix.
+        await RegisterUser("AdmCaseFind1");
+        await RegisterUser("ADMCASEFIND2");
+        await RegisterUser("adm_cs_by_nick");
+        await RegisterUser("adm_cs_no_match");
+        var request = WithAdminToken(new HttpRequestMessage(HttpMethod.Put,
+            $"/api/admin/users/{await UserIdOf("adm_cs_by_nick")}/nickname")
+        {
+            Content = JsonContent.Create(new { nickname = "admCASEfind3" })
+        });
+        Assert.Equal(HttpStatusCode.OK, (await _http.SendAsync(request)).StatusCode);
+
+        var response = await _http.SendAsync(WithAdminToken(new HttpRequestMessage(HttpMethod.Get,
+            $"/api/admin/users?search={Uri.EscapeDataString(search)}")));
+
+        var users = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var usernames = users.EnumerateArray().Select(u => u.GetProperty("username").GetString()).ToHashSet();
+        Assert.Equal(new HashSet<string?> { "AdmCaseFind1", "ADMCASEFIND2", "adm_cs_by_nick" }, usernames);
+    }
+
+    private async Task<int> UserIdOf(string username)
+    {
+        var request = WithAdminToken(new HttpRequestMessage(HttpMethod.Get, $"/api/admin/users?search={username}"));
+        var users = await (await _http.SendAsync(request)).Content.ReadFromJsonAsync<JsonElement>();
+        return users.EnumerateArray().First(u => u.GetProperty("username").GetString() == username)
+            .GetProperty("id").GetInt32();
+    }
+
     [Fact]
     public async Task GetUserDetail_ReturnsUserWithBalances()
     {
@@ -146,10 +180,7 @@ public class AdminIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     private async Task<int> RegisterAndGetId(string username)
     {
         await RegisterUser(username);
-        var request = WithAdminToken(new HttpRequestMessage(HttpMethod.Get, $"/api/admin/users?search={username}"));
-        var users = await (await _http.SendAsync(request)).Content.ReadFromJsonAsync<JsonElement>();
-        return users.EnumerateArray().First(u => u.GetProperty("username").GetString() == username)
-            .GetProperty("id").GetInt32();
+        return await UserIdOf(username);
     }
 
     private Task<HttpResponseMessage> PutNickname(int userId, string nickname) =>

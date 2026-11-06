@@ -27,8 +27,10 @@ public class AdminController(
         if (!IsAuthorized()) return Unauthorized();
 
         IQueryable<User> query = db.Users.OrderByDescending(u => u.LastActiveAt);
-        if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(u => u.Username.Contains(search) || u.Nickname.Contains(search));
+        // Case-insensitive: lower() on both sides, in the database.
+        var term = search?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(term))
+            query = query.Where(u => u.Username.ToLower().Contains(term) || u.Nickname.ToLower().Contains(term));
 
         var users = await query.Select(u => new
         {
